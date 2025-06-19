@@ -38,6 +38,9 @@ class WPMZF_CPTs {
 
         $this->register_single_cpt('employee', 'Pracownik', 'Pracownicy', 'dashicons-id', 31);
 
+        $this->register_single_cpt('activity', 'Aktywność', 'Aktywności', 'dashicons-format-chat', 32, ['title', 'editor', 'custom-fields', 'author']);
+
+
     }
 
     /**

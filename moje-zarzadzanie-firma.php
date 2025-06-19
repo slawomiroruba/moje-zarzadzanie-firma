@@ -53,6 +53,7 @@ final class WPMZF_Plugin {
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-admin-pages.php';      // Strony w adminie
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-documents-list-table.php'; // Tabela
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-acf-fields.php'; // Pola ACF
+        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-contacts-list-table.php'; // Tabela kontaktów
     }
 
     /**

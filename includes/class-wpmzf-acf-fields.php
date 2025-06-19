@@ -1,15 +1,19 @@
 <?php
+
 /**
  * Plik odpowiedzialny za rejestrację wszystkich grup pól ACF w kodzie PHP.
  */
-class WPMZF_ACF_Fields {
+class WPMZF_ACF_Fields
+{
 
-    public function __construct() {
+    public function __construct()
+    {
         // Używamy hooka 'acf/include_fields', który jest dedykowany do rejestracji pól w kodzie.
         add_action('acf/include_fields', array($this, 'register_all_field_groups'));
     }
 
-    public function register_all_field_groups() {
+    public function register_all_field_groups()
+    {
         // Wywołujemy po kolei metody definiujące pola dla każdego CPT
         $this->define_company_fields();
         $this->define_contact_fields();
@@ -27,7 +31,8 @@ class WPMZF_ACF_Fields {
 
     // --- Prywatne metody dla każdego CPT ---
 
-    private function define_company_fields() {
+    private function define_company_fields()
+    {
         acf_add_local_field_group(array(
             'key' => 'group_wpmzf_company',
             'title' => 'Dane Firmy',
@@ -44,25 +49,70 @@ class WPMZF_ACF_Fields {
         ));
     }
 
-    private function define_contact_fields() {
+    private function define_contact_fields()
+    {
         acf_add_local_field_group(array(
-            'key' => 'group_wpmzf_contact',
-            'title' => 'Dane Kontaktu',
-            'fields' => array(
-                array('key' => 'field_wpmzf_contact_position', 'label' => 'Stanowisko', 'name' => 'contact_position', 'type' => 'text'),
-                array('key' => 'field_wpmzf_contact_email', 'label' => 'Adres e-mail', 'name' => 'contact_email', 'type' => 'email'),
-                array('key' => 'field_wpmzf_contact_phone', 'label' => 'Numer telefonu', 'name' => 'contact_phone', 'type' => 'text'),
-                array('key' => 'field_wpmzf_contact_company_relation', 'label' => 'Powiązana Firma', 'name' => 'contact_company', 'type' => 'relationship', 'post_type' => array('company'), 'filters' => array('search'), 'min' => 1, 'max' => 1),
+            'key'      => 'group_wpmzf_contact',
+            'title'    => 'Dane Kontaktu',
+            'fields'   => array(
+                array(
+                    'key'           => 'field_wpmzf_contact_status',
+                    'label'         => 'Status',
+                    'name'          => 'contact_status',
+                    'type'          => 'select',
+                    'choices'       => array(
+                        'Aktywny'   => 'Aktywny',
+                        'Nieaktywny' => 'Nieaktywny',
+                        'Zarchiwizowany' => 'Zarchiwizowany',
+                    ),
+                    'default_value' => 'Aktywny',
+                ),
+                array(
+                    'key'   => 'field_wpmzf_contact_position',
+                    'label' => 'Stanowisko',
+                    'name'  => 'contact_position',
+                    'type'  => 'text',
+                ),
+                array(
+                    'key'   => 'field_wpmzf_contact_email',
+                    'label' => 'Adres e-mail',
+                    'name'  => 'contact_email',
+                    'type'  => 'email',
+                ),
+                array(
+                    'key'   => 'field_wpmzf_contact_phone',
+                    'label' => 'Numer telefonu',
+                    'name'  => 'contact_phone',
+                    'type'  => 'text',
+                ),
+                array(
+                    'key'       => 'field_wpmzf_contact_company_relation',
+                    'label'     => 'Powiązana Firma',
+                    'name'      => 'contact_company',
+                    'type'      => 'relationship',
+                    'post_type' => array('company'),
+                    'filters'   => array('search'),
+                    'max'       => 1,    // max pozostaje, usuń 'min' żeby nie było wymagane
+                ),
             ),
-            'location' => array(array(array('param' => 'post_type', 'operator' => '==', 'value' => 'contact'))),
+            'location' => array(
+                array(
+                    array(
+                        'param'    => 'post_type',
+                        'operator' => '==',
+                        'value'    => 'contact',
+                    ),
+                ),
+            ),
         ));
     }
-
-    private function define_opportunity_fields() {
+    private function define_opportunity_fields()
+    {
         // ... (Analogicznie dla Szans Sprzedaży)
     }
 
-    private function define_quote_fields() {
+    private function define_quote_fields()
+    {
         acf_add_local_field_group(array(
             'key' => 'group_wpmzf_quote',
             'title' => 'Szczegóły Oferty',
@@ -80,7 +130,8 @@ class WPMZF_ACF_Fields {
         ));
     }
 
-    private function define_project_fields() {
+    private function define_project_fields()
+    {
         acf_add_local_field_group(array(
             'key' => 'group_wpmzf_project',
             'title' => 'Szczegóły Projektu',
@@ -91,8 +142,9 @@ class WPMZF_ACF_Fields {
             'location' => array(array(array('param' => 'post_type', 'operator' => '==', 'value' => 'project'))),
         ));
     }
-    
-    private function define_task_fields() {
+
+    private function define_task_fields()
+    {
         acf_add_local_field_group(array(
             'key' => 'group_wpmzf_task',
             'title' => 'Szczegóły Zadania',
@@ -105,7 +157,8 @@ class WPMZF_ACF_Fields {
         ));
     }
 
-    private function define_time_entry_fields() {
+    private function define_time_entry_fields()
+    {
         acf_add_local_field_group(array(
             'key' => 'group_wpmzf_time_entry',
             'title' => 'Szczegóły Wpisu Czasu',
@@ -117,33 +170,38 @@ class WPMZF_ACF_Fields {
             'location' => array(array(array('param' => 'post_type', 'operator' => '==', 'value' => 'time_entry'))),
         ));
     }
-    
-    private function define_invoice_fields() {
+
+    private function define_invoice_fields()
+    {
         // ... (Analogicznie dla Faktur, z polem Repeater na pozycje)
     }
 
-    private function define_payment_fields() {
+    private function define_payment_fields()
+    {
         acf_add_local_field_group(array(
             'key' => 'group_wpmzf_payment',
             'title' => 'Szczegóły Płatności',
             'fields' => array(
-                 array('key' => 'field_wpmzf_payment_amount', 'label' => 'Kwota', 'name' => 'payment_amount', 'type' => 'number'),
-                 array('key' => 'field_wpmzf_payment_date', 'label' => 'Data otrzymania', 'name' => 'payment_date', 'type' => 'date_picker'),
-                 array('key' => 'field_wpmzf_payment_invoice_relation', 'label' => 'Opłaca Fakturę/y', 'name' => 'payment_invoices', 'type' => 'relationship', 'post_type' => array('invoice')),
+                array('key' => 'field_wpmzf_payment_amount', 'label' => 'Kwota', 'name' => 'payment_amount', 'type' => 'number'),
+                array('key' => 'field_wpmzf_payment_date', 'label' => 'Data otrzymania', 'name' => 'payment_date', 'type' => 'date_picker'),
+                array('key' => 'field_wpmzf_payment_invoice_relation', 'label' => 'Opłaca Fakturę/y', 'name' => 'payment_invoices', 'type' => 'relationship', 'post_type' => array('invoice')),
             ),
             'location' => array(array(array('param' => 'post_type', 'operator' => '==', 'value' => 'payment'))),
         ));
     }
-    
-    private function define_contract_fields() {
+
+    private function define_contract_fields()
+    {
         // ... (Analogicznie dla Umów)
     }
 
-    private function define_expense_fields() {
+    private function define_expense_fields()
+    {
         // ... (Analogicznie dla Kosztów)
     }
-    
-    private function define_employee_fields() {
+
+    private function define_employee_fields()
+    {
         acf_add_local_field_group(array(
             'key' => 'group_wpmzf_employee',
             'title' => 'Dane Pracownika',
