@@ -27,6 +27,7 @@ class WPMZF_ACF_Fields
         $this->define_contract_fields();
         $this->define_expense_fields();
         $this->define_employee_fields();
+        $this->define_activity_fields(); // <-- DODAJ TĘ LINIĘ
     }
 
     // --- Prywatne metody dla każdego CPT ---
@@ -211,6 +212,71 @@ class WPMZF_ACF_Fields
                 array('key' => 'field_wpmzf_employee_user_relation', 'label' => 'Powiązany Użytkownik WP', 'name' => 'employee_user', 'type' => 'user', 'role' => 'all', 'min' => 1, 'max' => 1, 'instructions' => 'Połącz ten wpis z kontem użytkownika WordPress, aby mógł się logować i rejestrować czas pracy.'),
             ),
             'location' => array(array(array('param' => 'post_type', 'operator' => '==', 'value' => 'employee'))),
+        ));
+    }
+
+    /**
+     * Nowa metoda definiująca pola dla CPT 'activity'
+     */
+    private function define_activity_fields()
+    {
+        acf_add_local_field_group(array(
+            'key' => 'group_wpmzf_activity',
+            'title' => 'Szczegóły Aktywności',
+            'fields' => array(
+                array(
+                    'key' => 'field_wpmzf_activity_type',
+                    'label' => 'Typ aktywności',
+                    'name' => 'activity_type',
+                    'type' => 'select',
+                    'choices' => array(
+                        'note' => 'Notatka',
+                        'email' => 'E-mail',
+                        'phone' => 'Telefon',
+                        'meeting' => 'Spotkanie',
+                        'meeting_online' => 'Spotkanie online',
+                    ),
+                    'default_value' => 'note',
+                    'ui' => 1, // Lepszy interfejs select2
+                ),
+                array(
+                    'key' => 'field_wpmzf_activity_date',
+                    'label' => 'Data i godzina aktywności',
+                    'name' => 'activity_date',
+                    'type' => 'date_time_picker',
+                    'display_format' => 'Y-m-d H:i:s',
+                    'return_format' => 'Y-m-d H:i:s',
+                    'required' => 1,
+                ),
+                array(
+                    'key' => 'field_wpmzf_activity_attachments',
+                    'label' => 'Załączniki',
+                    'name' => 'activity_attachments',
+                    'type' => 'file',
+                    'multiple' => true, // Pozwala na dodanie wielu plików
+                    'library' => 'all',
+                ),
+                // Kluczowe pole do powiązania aktywności z kontaktem
+                array(
+                    'key' => 'field_wpmzf_activity_related_contact',
+                    'label' => 'Powiązany Kontakt',
+                    'name' => 'related_contact',
+                    'type' => 'relationship',
+                    'post_type' => array('contact'),
+                    'max' => 1,
+                    'required' => 1,
+                ),
+            ),
+            'location' => array(
+                array(
+                    array(
+                        'param' => 'post_type',
+                        'operator' => '==',
+                        'value' => 'activity',
+                    ),
+                ),
+            ),
+            'position' => 'side', // Wyświetlaj te pola w kolumnie bocznej
         ));
     }
 }

@@ -1,0 +1,194 @@
+/* --- Nowe, ulepszone style dla widoku kontaktu --- */
+
+/* --- Formularz dodawania aktywności --- */
+#wpmzf-add-activity-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+#wpmzf-activity-content {
+    width: 100%;
+    min-height: 80px;
+    padding: 8px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    background-color: #fff;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+#wpmzf-activity-content:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: 2px solid transparent;
+}
+
+#wpmzf-activity-meta-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px;
+    background-color: #f6f7f7;
+    border-radius: 4px;
+    border: 1px solid #dcdcde;
+}
+
+.activity-options {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.activity-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    align-items: center;
+}
+
+#wpmzf-submit-activity-btn {
+    flex-grow: 1;
+}
+
+#wpmzf-activity-type, 
+#wpmzf-activity-date {
+    padding: 5px 8px;
+    border: 1px solid #8c8f94;
+    border-radius: 3px;
+    background-color: #fff;
+    height: 40px; /* Dopasowanie do przycisków WP */
+    line-height: 2;
+}
+
+#wpmzf-file-drop-zone {
+    border: 2px dashed #c3c4c7;
+    padding: 20px;
+    text-align: center;
+    margin-top: 10px;
+    background-color: #fafafa;
+    color: #50575e;
+    transition: all 0.2s ease-in-out;
+    border-radius: 4px;
+}
+
+#wpmzf-file-drop-zone.drag-over {
+    border-color: #2271b1;
+    background-color: #f0f6fc;
+}
+
+/* --- Oś czasu aktywności --- */
+#wpmzf-activity-timeline {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.timeline-item {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 15px;
+    padding-bottom: 25px;
+    position: relative;
+}
+
+/* Linia czasu */
+.timeline-item::after {
+    content: '';
+    position: absolute;
+    left: 19px; /* (40px avatar width / 2) - (2px line width / 2) */
+    top: 45px;
+    bottom: -10px;
+    width: 2px;
+    background-color: #e0e0e0;
+}
+
+.timeline-item:last-child::after {
+    display: none;
+}
+
+.timeline-avatar {
+    position: relative;
+    z-index: 1;
+}
+
+.timeline-avatar img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.timeline-content {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    position: relative;
+}
+
+/* "Dymek" dla treści */
+.timeline-content::before {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: -8px;
+    width: 0;
+    height: 0;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-right: 8px solid #e0e0e0; /* Kolor ramki */
+}
+.timeline-content::after {
+    content: '';
+    position: absolute;
+    top: 16px;
+    left: -7px;
+    width: 0;
+    height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-right: 7px solid #fff; /* Kolor tła */
+}
+
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: #f6f7f7;
+    border-bottom: 1px solid #e0e0e0;
+    border-radius: 6px 6px 0 0;
+    font-size: 13px;
+    color: #50575e;
+}
+
+.timeline-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.timeline-header-meta .dashicons {
+    font-size: 18px;
+    color: #787c82;
+}
+
+.timeline-header-date {
+    font-style: italic;
+    color: #646970;
+}
+
+.timeline-body {
+    padding: 12px 15px;
+    color: #3c434a;
+    line-height: 1.6;
+}
+
+.timeline-body p {
+    margin: 0;
+}

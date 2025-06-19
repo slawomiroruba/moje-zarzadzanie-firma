@@ -147,7 +147,7 @@ class WPMZF_Contacts_List_Table extends WP_List_Table {
                 'relation' => 'OR',
                 [
                     'key'     => 'contact_status',
-                    'value'   => 'zarchiwizowany',
+                    'value'   => 'Zarchiwizowany',
                     'compare' => '!='
                 ],
                 [

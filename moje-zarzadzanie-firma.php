@@ -54,6 +54,7 @@ final class WPMZF_Plugin {
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-documents-list-table.php'; // Tabela
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-acf-fields.php'; // Pola ACF
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-contacts-list-table.php'; // Tabela kontaktów
+        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-ajax-handler.php';
     }
 
     /**
@@ -68,8 +69,40 @@ final class WPMZF_Plugin {
         if ( class_exists('ACF') ) { // Uruchom klasę tylko jeśli ACF jest aktywne
             new WPMZF_ACF_Fields();
         }
+        new WPMZF_Ajax_Handler();
     }
 }
+
+/**
+ * Ładuje skrypty i style tylko na stronach wtyczki w panelu admina.
+ */
+function wpmzf_admin_enqueue_scripts($hook) {
+    // Sprawdzamy, czy jesteśmy na stronie widoku pojedynczego kontaktu
+    // 'toplevel_page_wpmzf_dashboard' to główna strona, a my jesteśmy na ukrytej podstronie,
+    // więc musimy sprawdzić parametr 'page'.
+    if (isset($_GET['page']) && $_GET['page'] === 'wpmzf_contact_view') {
+        
+        // Dodaj ten styl z wersją opartą na filemtime
+        $css_file = plugin_dir_path(__FILE__) . 'assets/css/admin-contact-view.css';
+        wp_enqueue_style(
+            'wpmzf-contact-view-css',
+            plugin_dir_url(__FILE__) . 'assets/css/admin-contact-view.css',
+            array(),
+            filemtime( $css_file )
+        );
+
+        // Dodaj ten skrypt z wersją opartą na filemtime
+        $js_file = plugin_dir_path(__FILE__) . 'assets/js/admin-contact-view.js';
+        wp_enqueue_script(
+            'wpmzf-contact-view-js',
+            plugin_dir_url(__FILE__) . 'assets/js/admin-contact-view.js',
+            array( 'jquery' ),
+            filemtime( $js_file ),
+            true
+        );
+    }
+}
+add_action('admin_enqueue_scripts', 'wpmzf_admin_enqueue_scripts');
 
 // Uruchomienie pluginu.
 WPMZF_Plugin::get_instance();
