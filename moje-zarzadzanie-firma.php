@@ -52,6 +52,7 @@ final class WPMZF_Plugin {
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-meta-boxes.php';       // Meta boxy
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-admin-pages.php';      // Strony w adminie
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-documents-list-table.php'; // Tabela
+        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-acf-fields.php'; // Pola ACF
     }
 
     /**
@@ -63,6 +64,9 @@ final class WPMZF_Plugin {
         new WPMZF_Admin_Columns();
         new WPMZF_Meta_Boxes();
         new WPMZF_Admin_Pages();
+        if ( class_exists('ACF') ) { // Uruchom klasę tylko jeśli ACF jest aktywne
+            new WPMZF_ACF_Fields();
+        }
     }
 }
 
