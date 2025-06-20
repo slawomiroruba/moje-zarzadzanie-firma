@@ -36,6 +36,65 @@
     border: 1px solid #dcdcde;
 }
 
+#wpmzf-attachments-preview-container {
+    display: none; /* Ukryty domyślnie, aby nie tworzyć luki */
+    flex-direction: column;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.wpmzf-attachment-preview-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    background-color: #f0f0f1;
+    border: 1px solid #dcdcde;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.wpmzf-attachment-preview-item .file-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wpmzf-attachment-preview-item .file-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wpmzf-attachment-preview-item .remove-attachment {
+    cursor: pointer;
+    color: #d63638;
+    font-size: 18px;
+    line-height: 1;
+}
+.wpmzf-attachment-preview-item .remove-attachment:hover {
+    color: #a00;
+}
+
+.wpmzf-attachment-preview-item .attachment-progress {
+    width: 100px;
+    height: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+    overflow: hidden;
+}
+
+.wpmzf-attachment-preview-item .attachment-progress-bar {
+    width: 0;
+    height: 100%;
+    background-color: #007cba;
+    transition: width 0.2s;
+}
+
 .activity-options {
     display: flex;
     gap: 10px;
@@ -46,12 +105,16 @@
 .activity-actions {
     display: flex;
     gap: 8px;
-    width: 100%;
     align-items: center;
 }
 
 #wpmzf-submit-activity-btn {
-    flex-grow: 1;
+    flex-grow: 0;
+}
+
+#wpmzf-attach-file-btn .dashicons {
+    margin-right: 4px;
+    vertical-align: text-top;
 }
 
 #wpmzf-activity-type, 
@@ -80,10 +143,35 @@
     background-color: #f0f6fc;
 }
 
+/* Styles for editable basic data */
+#dossier-basic-data .edit-form {
+    display: none;
+}
+#dossier-basic-data .edit-form label {
+    font-weight: 600;
+    display: block;
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+#dossier-basic-data .edit-form input[type="text"],
+#dossier-basic-data .edit-form input[type="email"],
+#dossier-basic-data .edit-form select {
+    width: 100%;
+}
+#dossier-basic-data .edit-actions {
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+#dossier-basic-data .spinner {
+    float: none;
+    margin: 0;
+}
+
 /* --- Oś czasu aktywności --- */
 #wpmzf-activity-timeline {
     margin-top: 20px;
-    padding-top: 20px;
     border-top: 1px solid #ddd;
 }
 
@@ -91,8 +179,11 @@
     display: grid;
     grid-template-columns: 40px 1fr;
     gap: 15px;
-    padding-bottom: 25px;
     position: relative;
+}
+
+.timeline-item:not(:last-child) {
+    margin-bottom: 20px;
 }
 
 /* Linia czasu */
@@ -101,7 +192,7 @@
     position: absolute;
     left: 19px; /* (40px avatar width / 2) - (2px line width / 2) */
     top: 45px;
-    bottom: -10px;
+    bottom: -20px;
     width: 2px;
     background-color: #e0e0e0;
 }
@@ -128,6 +219,26 @@
     border: 1px solid #e0e0e0;
     border-radius: 6px;
     position: relative;
+}
+
+.timeline-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.timeline-actions .dashicons {
+    cursor: pointer;
+    color: #787c82;
+    font-size: 16px;
+}
+
+.timeline-actions .dashicons:hover {
+    color: #2271b1;
+}
+
+.timeline-actions .dashicons-trash:hover {
+    color: #d63638;
 }
 
 /* "Dymek" dla treści */
@@ -167,6 +278,13 @@
     color: #50575e;
 }
 
+.timeline-header-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
 .timeline-header-meta {
     display: flex;
     align-items: center;
@@ -176,11 +294,14 @@
 .timeline-header-meta .dashicons {
     font-size: 18px;
     color: #787c82;
+    display: flex;
+    align-items: end;
 }
 
 .timeline-header-date {
     font-style: italic;
     color: #646970;
+    font-size: 12px;
 }
 
 .timeline-body {
@@ -191,4 +312,64 @@
 
 .timeline-body p {
     margin: 0;
+}
+
+.timeline-body textarea {
+    width: 100%;
+    min-height: 100px;
+    border-color: #8c8f94;
+    box-shadow: none;
+}
+.timeline-edit-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+}
+
+.timeline-attachments {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed #e0e0e0;
+}
+
+.timeline-attachments ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.timeline-attachments li {
+    display: inline-flex;
+    align-items: center;
+    background: #f0f0f1;
+    border-radius: 3px;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.timeline-attachments li a {
+    text-decoration: none;
+    color: #0071a1;
+    margin-left: 4px;
+}
+.timeline-attachments li a:hover {
+    text-decoration: underline;
+}
+
+.timeline-attachments li .dashicons-media-default {
+    color: #50575e;
+}
+
+.timeline-attachments li .delete-attachment {
+    cursor: pointer;
+    color: #d63638;
+    font-size: 16px;
+    line-height: 1;
+    margin-left: 6px;
+}
+.timeline-attachments li .delete-attachment:hover {
+    color: #a00;
 }

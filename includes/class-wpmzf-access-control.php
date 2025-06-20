@@ -18,7 +18,11 @@ class WPMZF_Access_Control {
 
         // Jeśli strona, na którą próbuje wejść użytkownik, to strona logowania, rejestracji
         // lub odzyskiwania hasła, również nic nie robimy, aby uniknąć pętli przekierowań.
-        if (is_login() || is_register() || is_lost_password()) {
+        if (
+            is_page('login') || // Jeśli masz stronę logowania jako stronę WordPress
+            (isset($GLOBALS['pagenow']) && $GLOBALS['pagenow'] === 'wp-login.php') || // Standardowa strona logowania WP
+            (isset($_GET['action']) && ($_GET['action'] === 'register' || $_GET['action'] === 'lostpassword'))
+        ) {
             return;
         }
         

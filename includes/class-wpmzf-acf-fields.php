@@ -10,6 +10,28 @@ class WPMZF_ACF_Fields
     {
         // Używamy hooka 'acf/include_fields', który jest dedykowany do rejestracji pól w kodzie.
         add_action('acf/include_fields', array($this, 'register_all_field_groups'));
+        add_filter('acf/fields/relationship/query/key=field_wpmzf_contact_company_relation', array($this, 'extend_company_relationship_search'), 10, 3);
+    }
+
+    /**
+     * Rozszerza wyszukiwanie w polu relacji o pole NIP.
+     */
+    public function extend_company_relationship_search($args, $field, $post_id) {
+        if ( ! empty($args['s']) ) {
+            $search_term = $args['s'];
+
+            // Poniższe rozwiązanie dodaje wyszukiwanie po NIP.
+            // Zostanie ono połączone z domyślnym wyszukiwaniem po tytule ('s') za pomocą AND.
+            $args['meta_query'] = array(
+                'relation' => 'OR',
+                array(
+                    'key' => 'company_nip',
+                    'value' => $search_term,
+                    'compare' => 'LIKE'
+                )
+            );
+        }
+        return $args;
     }
 
     public function register_all_field_groups()
@@ -38,13 +60,23 @@ class WPMZF_ACF_Fields
             'key' => 'group_wpmzf_company',
             'title' => 'Dane Firmy',
             'fields' => array(
-                array('key' => 'field_wpmzf_company_type', 'label' => 'Typ Klienta', 'name' => 'company_type', 'type' => 'button_group', 'choices' => array('Firma' => 'Firma', 'Osoba fizyczna' => 'Osoba fizyczna'), 'default_value' => 'Firma'),
-                array('key' => 'field_wpmzf_company_nip', 'label' => 'NIP', 'name' => 'company_nip', 'type' => 'text', 'conditional_logic' => array(array(array('field' => 'field_wpmzf_company_type', 'operator' => '==', 'value' => 'Firma')))),
-                array('key' => 'field_wpmzf_company_address_group', 'label' => 'Adres', 'name' => 'company_address', 'type' => 'group', 'sub_fields' => array(
-                    array('key' => 'field_wpmzf_company_street', 'label' => 'Ulica i numer', 'name' => 'street', 'type' => 'text'),
-                    array('key' => 'field_wpmzf_company_zip', 'label' => 'Kod pocztowy', 'name' => 'zip_code', 'type' => 'text'),
-                    array('key' => 'field_wpmzf_company_city', 'label' => 'Miasto', 'name' => 'city', 'type' => 'text'),
-                )),
+                array(
+                    'key'   => 'field_wpmzf_company_nip',
+                    'label' => 'NIP',
+                    'name'  => 'company_nip',
+                    'type'  => 'text',
+                ),
+                array(
+                    'key'        => 'field_wpmzf_company_address_group',
+                    'label'      => 'Adres',
+                    'name'       => 'company_address',
+                    'type'       => 'group',
+                    'sub_fields' => array(
+                        array('key' => 'field_wpmzf_company_street', 'label' => 'Ulica i numer', 'name' => 'street', 'type' => 'text'),
+                        array('key' => 'field_wpmzf_company_zip', 'label' => 'Kod pocztowy', 'name' => 'zip_code', 'type' => 'text'),
+                        array('key' => 'field_wpmzf_company_city', 'label' => 'Miasto', 'name' => 'city', 'type' => 'text'),
+                    ),
+                ),
             ),
             'location' => array(array(array('param' => 'post_type', 'operator' => '==', 'value' => 'company'))),
         ));
@@ -85,6 +117,17 @@ class WPMZF_ACF_Fields
                     'label' => 'Numer telefonu',
                     'name'  => 'contact_phone',
                     'type'  => 'text',
+                ),
+                array(
+                    'key'        => 'field_wpmzf_contact_address_group',
+                    'label'      => 'Adres',
+                    'name'       => 'contact_address',
+                    'type'       => 'group',
+                    'sub_fields' => array(
+                        array('key' => 'field_wpmzf_contact_street', 'label' => 'Ulica i numer', 'name' => 'street', 'type' => 'text'),
+                        array('key' => 'field_wpmzf_contact_zip', 'label' => 'Kod pocztowy', 'name' => 'zip_code', 'type' => 'text'),
+                        array('key' => 'field_wpmzf_contact_city', 'label' => 'Miasto', 'name' => 'city', 'type' => 'text'),
+                    ),
                 ),
                 array(
                     'key'       => 'field_wpmzf_contact_company_relation',
@@ -252,9 +295,18 @@ class WPMZF_ACF_Fields
                     'key' => 'field_wpmzf_activity_attachments',
                     'label' => 'Załączniki',
                     'name' => 'activity_attachments',
-                    'type' => 'file',
-                    'multiple' => true, // Pozwala na dodanie wielu plików
-                    'library' => 'all',
+                    'type' => 'repeater',
+                    'button_label' => 'Dodaj załącznik',
+                    'sub_fields' => array(
+                        array(
+                            'key' => 'field_wpmzf_activity_attachment_file',
+                            'label' => 'Plik załącznika',
+                            'name' => 'attachment_file',
+                            'type' => 'file',
+                            'return_format' => 'id', // Zapisuje ID załącznika
+                            'library' => 'all',
+                        ),
+                    ),
                 ),
                 // Kluczowe pole do powiązania aktywności z kontaktem
                 array(

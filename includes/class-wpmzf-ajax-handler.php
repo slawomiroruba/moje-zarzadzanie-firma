@@ -1,12 +1,27 @@
 <?php
 
-class WPMZF_Ajax_Handler {
+class WPMZF_Ajax_Handler
+{
 
-    public function __construct() {
+    public function __construct()
+    {
         // Hook do dodawania nowej aktywności
         add_action('wp_ajax_add_wpmzf_activity', array($this, 'add_activity'));
         // Hook do pobierania listy aktywności dla kontaktu
         add_action('wp_ajax_get_wpmzf_activities', array($this, 'get_activities'));
+        // Hook do uploadu załączników
+        add_action('wp_ajax_wpmzf_upload_attachment', array($this, 'upload_attachment'));
+        // Hook do usuwania aktywności
+        add_action('wp_ajax_delete_wpmzf_activity', array($this, 'delete_activity'));
+        // Hook do aktualizacji aktywności
+        add_action('wp_ajax_update_wpmzf_activity', array($this, 'update_activity'));
+        // Hook do usuwania pojedynczego załącznika
+        add_action('wp_ajax_delete_wpmzf_attachment', array($this, 'delete_attachment'));
+        add_action('wp_ajax_update_wpmzf_activity', array($this, 'update_activity'));
+        // Hook do usuwania pojedynczego załącznika
+        add_action('wp_ajax_delete_wpmzf_attachment', array($this, 'delete_attachment'));
+        // Hook do aktualizacji danych kontaktu
+        add_action('wp_ajax_wpmzf_update_contact_details', array($this, 'update_contact_details'));
     }
 
     /**
@@ -36,16 +51,29 @@ class WPMZF_Ajax_Handler {
             'post_type'    => 'activity',
         );
 
-        $activity_id = wp_insert_post($activity_post);
+       $activity_id = wp_insert_post($activity_post);
 
-        // 4. Zapisywanie pól ACF
+        // 4. Zapisywanie pól ACF i obsługa załączników
         if ($activity_id && !is_wp_error($activity_id)) {
             update_field('field_wpmzf_activity_type', $activity_type, $activity_id);
             update_field('field_wpmzf_activity_date', $activity_date, $activity_id);
-            update_field('field_wpmzf_activity_related_contact', [$contact_id], $activity_id);
+            update_field('field_wpmzf_activity_related_contact', $contact_id, $activity_id);
 
-            // TODO: Obsługa załączników (to wymaga bardziej zaawansowanej logiki JS po stronie klienta)
+            // Pobieramy ID załączników przesłane przez AJAX z `$_POST['attachment_ids']`
+            $attachment_ids = isset($_POST['attachment_ids']) && is_array($_POST['attachment_ids']) ? array_map('intval', $_POST['attachment_ids']) : [];
 
+            // Jeśli mamy ID załączników, zapisujemy je w polu Repeater
+            if (!empty($attachment_ids)) {
+                $rows = [];
+                foreach ($attachment_ids as $att_id) {
+                    $rows[] = [
+                        'attachment_file' => $att_id, // 'attachment_file' to nazwa sub-pola
+                    ];
+                }
+                // Używamy klucza pola, co jest najlepszą praktyką
+                update_field('field_wpmzf_activity_attachments', $rows, $activity_id);
+            }
+            
             wp_send_json_success(array('message' => 'Aktywność dodana pomyślnie.'));
         } else {
             wp_send_json_error(array('message' => 'Wystąpił błąd podczas dodawania aktywności.'));
@@ -73,8 +101,8 @@ class WPMZF_Ajax_Handler {
             'meta_query' => [
                 [
                     'key' => 'related_contact',
-                    'value' => '"' . $contact_id . '"',
-                    'compare' => 'LIKE'
+                    'value' => $contact_id,
+                    'compare' => '='
                 ]
             ]
         ];
@@ -88,19 +116,268 @@ class WPMZF_Ajax_Handler {
                 $activity_id = get_the_ID();
                 $author_id = get_the_author_meta('ID');
 
+                // Pobieranie załączników z pola repeater
+                $attachments_repeater = get_field('activity_attachments', $activity_id);
+                $attachments_data = [];
+                if ($attachments_repeater) {
+                    foreach ($attachments_repeater as $row) {
+                        // Upewnij się, że sub-pole istnieje i ma wartość
+                        if (isset($row['attachment_file']) && $row['attachment_file']) {
+                            $attachment_id = $row['attachment_file'];
+                            
+                            $attachment_data = [
+                                'id'        => $attachment_id,
+                                'url'       => wp_get_attachment_url($attachment_id),
+                                'filename'  => basename(get_attached_file($attachment_id)),
+                                'mime_type' => get_post_mime_type($attachment_id)
+                            ];
+
+                            if (wp_attachment_is_image($attachment_id)) {
+                                $thumbnail_src = wp_get_attachment_image_src($attachment_id, 'thumbnail');
+                                if ($thumbnail_src) {
+                                    $attachment_data['thumbnail_url'] = $thumbnail_src[0];
+                                }
+                            }
+                            
+                            $attachments_data[] = $attachment_data;
+                        }
+                    }
+                }
+
+                $activity_type_value = get_field('activity_type', $activity_id);
+                $activity_type_field = get_field_object('field_wpmzf_activity_type');
+                $activity_type_label = $activity_type_value;
+                if ($activity_type_field && isset($activity_type_field['choices'][$activity_type_value])) {
+                    $activity_type_label = $activity_type_field['choices'][$activity_type_value];
+                }
+
                 $activities_data[] = [
                     'id' => $activity_id,
                     'content' => get_the_content(),
                     'date' => get_field('activity_date', $activity_id),
-                    'type' => get_field_object('field_wpmzf_activity_type')['choices'][get_field('activity_type', $activity_id)],
+                    'type' => $activity_type_label,
                     'author' => get_the_author_meta('display_name', $author_id),
-                    'avatar' => get_avatar_url($author_id)
-                    // TODO: Dodać listę załączników
+                    'avatar' => get_avatar_url($author_id),
+                    'attachments' => $attachments_data
                 ];
             }
         }
         wp_reset_postdata();
 
         wp_send_json_success($activities_data);
+    }
+
+    /**
+     * Obsługuje upload pojedynczego pliku do biblioteki mediów.
+     */
+    public function upload_attachment()
+    {
+        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+
+        if (empty($_FILES['file'])) {
+            wp_send_json_error(['message' => 'Brak pliku do przesłania.']);
+            return;
+        }
+
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+
+        $attachment_id = media_handle_upload('file', 0);
+
+        if (is_wp_error($attachment_id)) {
+            wp_send_json_error(['message' => $attachment_id->get_error_message()]);
+        } else {
+            wp_send_json_success(['id' => $attachment_id]);
+        }
+    }
+
+    /**
+     * Usuwa całą aktywność wraz z załącznikami.
+     */
+    public function delete_activity()
+    {
+        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
+        if (!$activity_id || get_post_type($activity_id) !== 'activity') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID aktywności.']);
+            return;
+        }
+
+        if (!current_user_can('delete_post', $activity_id)) {
+            wp_send_json_error(['message' => 'Brak uprawnień.']);
+            return;
+        }
+
+        $attachment_ids = get_field('activity_attachments', $activity_id);
+        if ($attachment_ids) {
+            foreach ($attachment_ids as $att_id) {
+                wp_delete_attachment($att_id, true);
+            }
+        }
+
+        $result = wp_delete_post($activity_id, true);
+
+        if ($result) {
+            wp_send_json_success(['message' => 'Aktywność usunięta.']);
+        } else {
+            wp_send_json_error(['message' => 'Nie udało się usunąć aktywności.']);
+        }
+    }
+
+    /**
+     * Aktualizuje treść aktywności.
+     */
+    public function update_activity()
+    {
+        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
+        $content = isset($_POST['content']) ? wp_kses_post($_POST['content']) : '';
+
+        if (!$activity_id || empty($content) || get_post_type($activity_id) !== 'activity') {
+            wp_send_json_error(['message' => 'Nieprawidłowe dane.']);
+            return;
+        }
+
+        if (!current_user_can('edit_post', $activity_id)) {
+            wp_send_json_error(['message' => 'Brak uprawnień.']);
+            return;
+        }
+
+        $post_data = [
+            'ID' => $activity_id,
+            'post_content' => $content,
+        ];
+
+        $result = wp_update_post($post_data, true);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(['message' => $result->get_error_message()]);
+        } else {
+            wp_send_json_success(['message' => 'Aktywność zaktualizowana.']);
+        }
+    }
+
+    /**
+     * Usuwa pojedynczy załącznik z aktywności.
+     */
+    public function delete_attachment()
+    {
+        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+
+        $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
+        $attachment_id = isset($_POST['attachment_id']) ? intval($_POST['attachment_id']) : 0;
+
+        if (!$activity_id || !$attachment_id || get_post_type($activity_id) !== 'activity') {
+            wp_send_json_error(['message' => 'Nieprawidłowe dane.']);
+            return;
+        }
+
+        if (!current_user_can('edit_post', $activity_id)) {
+            wp_send_json_error(['message' => 'Brak uprawnień.']);
+            return;
+        }
+
+        $rows = get_field('activity_attachments', $activity_id);
+        $new_rows = [];
+        $deleted = false;
+
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                // Znajdź wiersz z pasującym ID załącznika i go pomiń
+                if (!$deleted && isset($row['attachment_file']) && $row['attachment_file'] == $attachment_id) {
+                    $deleted = true;
+                } else {
+                    $new_rows[] = $row;
+                }
+            }
+        }
+
+        if ($deleted) {
+            // Zaktualizuj pole repeater nową tablicą wierszy
+            update_field('field_wpmzf_activity_attachments', $new_rows, $activity_id);
+        }
+
+        wp_delete_attachment($attachment_id, true);
+
+        wp_send_json_success(['message' => 'Załącznik usunięty.']);
+    }
+
+    /**
+     * Aktualizuje podstawowe dane kontaktu.
+     */
+    public function update_contact_details() {
+        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+
+
+        $contact_id = isset($_POST['contact_id']) ? intval($_POST['contact_id']) : 0;
+
+        if (!$contact_id || get_post_type($contact_id) !== 'contact' || !current_user_can('edit_post', $contact_id)) {
+            wp_send_json_error(['message' => 'Brak uprawnień lub nieprawidłowe ID kontaktu.']);
+            return;
+        }
+
+        // Aktualizacja tytułu (Imię i Nazwisko)
+        if (isset($_POST['contact_name'])) {
+            $contact_name = sanitize_text_field($_POST['contact_name']);
+            if (!empty($contact_name)) {
+                wp_update_post(['ID' => $contact_id, 'post_title' => $contact_name]);
+            }
+        }
+
+        // 1. Aktualizacja prostych pól tekstowych i select
+        $simple_fields = [
+            'contact_position' => 'sanitize_text_field',
+            'contact_email'    => 'sanitize_email',
+            'contact_phone'    => 'sanitize_text_field',
+            'contact_status'   => 'sanitize_text_field',
+        ];
+
+        foreach ($simple_fields as $field_name => $sanitize_callback) {
+            if (isset($_POST[$field_name])) {
+                $value = call_user_func($sanitize_callback, $_POST[$field_name]);
+                update_field($field_name, $value, $contact_id);
+            }
+        }
+
+        // 2. Specjalna obsługa pola relacji "Firma"
+        if (isset($_POST['contact_company'])) {
+            $company_id = intval($_POST['contact_company']);
+            // Pole relacji oczekuje tablicy ID, nawet dla pojedynczego wyboru.
+            // Jeśli ID to 0, przekazujemy pustą tablicę, aby wyczyścić powiązanie.
+            $update_value = $company_id ? array($company_id) : array();
+            // Używamy klucza pola ('field_...'), co jest bardziej niezawodne.
+            update_field('field_wpmzf_contact_company_relation', $update_value, $contact_id);
+        }
+
+        // 3. Specjalna obsługa grupy pól "Adres"
+        $address_data = [];
+        // Zbieramy dane adresu z POST i mapujemy na nazwy sub-pól z definicji ACF
+        if (isset($_POST['contact_street'])) {
+            $address_data['street'] = sanitize_text_field($_POST['contact_street']);
+        }
+        if (isset($_POST['contact_postal_code'])) {
+            $address_data['zip_code'] = sanitize_text_field($_POST['contact_postal_code']);
+        }
+        if (isset($_POST['contact_city'])) {
+            $address_data['city'] = sanitize_text_field($_POST['contact_city']);
+        }
+        // Aktualizujemy całą grupę na raz, przekazując tablicę z danymi.
+        update_field('contact_address', $address_data, $contact_id);
+
+
+        // Przygotuj dane zwrotne dla firmy
+        $company_id = isset($_POST['contact_company']) ? intval($_POST['contact_company']) : 0;
+        $company_html = '';
+        if ($company_id) {
+            $company_html = sprintf('<a href="%s">%s</a>', esc_url(get_edit_post_link($company_id)), esc_html(get_the_title($company_id)));
+        }
+
+        wp_send_json_success([
+            'message' => 'Dane kontaktu zaktualizowane.',
+            'company_html' => $company_html
+        ]);
     }
 }

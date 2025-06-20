@@ -6,6 +6,15 @@ class WPMZF_Admin_Pages
     public function __construct()
     {
         add_action('admin_menu', array($this, 'add_plugin_admin_menu'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_contact_view_scripts'));
+    }
+    public function enqueue_contact_view_scripts($hook)
+    {
+        // Hook dla strony dodanej przez add_submenu_page z parent_slug=null to 'admin_page_{page_slug}'.
+        if ('admin_page_wpmzf_contact_view' === $hook) {
+            // Włączamy skrypty i style ACF, aby pole 'relationship' działało poprawnie.
+            acf_enqueue_scripts();
+        }
     }
 
     /**
@@ -349,7 +358,7 @@ class WPMZF_Admin_Pages
             /* Single Contact View Styles */
             .dossier-grid {
                 display: grid;
-                grid-template-columns: 1fr 363px;
+                grid-template-columns: 1fr 400px;
                 gap: 20px;
                 margin-top: 20px;
             }
@@ -396,10 +405,63 @@ class WPMZF_Admin_Pages
                 margin-bottom: 5px;
             }
 
-            #add-activity-form textarea {
-                width: 100%;
-                min-height: 80px;
-                margin-bottom: 10px;
+            .dossier-content .timeline-attachments {
+                margin-top: 10px;
+                border-top: 1px dashed #e0e0e0;
+                padding-top: 10px;
+            }
+
+            .dossier-content .timeline-attachments strong {
+                display: block;
+                margin-bottom: 5px;
+                font-size: 13px;
+            }
+
+            .dossier-content .timeline-attachments ul {
+                margin: 0;
+                padding: 0;
+                list-style: none;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .dossier-content .timeline-attachments ul li a {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                text-decoration: none;
+                font-size: 13px;
+                padding: 4px 4px;
+                background: #f0f0f1;
+                border-radius: 3px;
+                border: 1px solid #dcdcde;
+            }
+
+            .dossier-content .timeline-attachments ul li a .dashicons {
+                font-size: 16px;
+            }
+
+
+            #wpmzf-attachments-preview {
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid #dcdcde;
+            }
+
+            #wpmzf-attachments-preview .attachment-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 5px;
+                background: #f9f9f9;
+                border-radius: 3px;
+                margin-bottom: 5px;
+            }
+
+            #wpmzf-attachments-preview .remove-attachment {
+                cursor: pointer;
+                color: #a00;
             }
 
             #activity-timeline {
@@ -461,23 +523,104 @@ class WPMZF_Admin_Pages
 
             <div class="dossier-grid">
                 <div class="dossier-main-column">
-                    <div class="dossier-box">
-                        <h2 class="dossier-title">Dane podstawowe</h2>
+                    <div class="dossier-box" id="dossier-basic-data">
+                        <h2 class="dossier-title">
+                            Dane podstawowe
+                            <a href="#" id="edit-basic-data" class="page-title-action" style="float:right; margin-right: 5px; padding: 0px 12px; background-color: #0073aa; color: #fff; border-radius: 4px; text-decoration: none; font-size: 10px; font-weight: 600; border: 1px solid #006799; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); min-height: auto;">Edytuj</a>
+                        </h2>
                         <div class="dossier-content">
-                            <p><strong>Stanowisko:</strong> <?php echo esc_html($contact_fields['contact_position'] ?? 'Brak'); ?></p>
-                            <p><strong>Email:</strong> <a href="mailto:<?php echo esc_attr($contact_fields['contact_email'] ?? ''); ?>"><?php echo esc_html($contact_fields['contact_email'] ?? 'Brak'); ?></a></p>
-                            <p><strong>Telefon:</strong> <?php echo esc_html($contact_fields['contact_phone'] ?? 'Brak'); ?></p>
-                            <p><strong>Status:</strong> <?php echo esc_html($contact_fields['contact_status'] ?? 'Brak'); ?></p>
-                        </div>
-                    </div>
-                    <div class="dossier-box">
-                        <h2 class="dossier-title">Powiązana firma</h2>
-                        <div class="dossier-content">
-                            <?php if ($company_id) : ?>
-                                <p><a href="<?php echo esc_url(get_edit_post_link($company_id)); ?>"><?php echo esc_html(get_the_title($company_id)); ?></a></p>
-                            <?php else : ?>
-                                <p><em>Brak powiązanej firmy.</em></p>
-                            <?php endif; ?>
+                            <div class="view-mode">
+                                <p><strong>Imię i nazwisko:</strong> <span data-field="contact_name"><?php echo esc_html($contact_title); ?></span></p>
+                                <p><strong>Stanowisko:</strong> <span data-field="contact_position"><?php echo esc_html($contact_fields['contact_position'] ?? 'Brak'); ?></span></p>
+                                <p><strong>Firma:</strong> <span data-field="contact_company">
+                                    <?php 
+                                    if ($company_id) {
+                                        printf('<a href="%s">%s</a>', esc_url(get_edit_post_link($company_id)), esc_html(get_the_title($company_id)));
+                                    } else {
+                                        echo 'Brak';
+                                    }
+                                    ?>
+                                </span></p>
+                                <p><strong>Email:</strong> <a data-field="contact_email" href="mailto:<?php echo esc_attr($contact_fields['contact_email'] ?? ''); ?>"><?php echo esc_html($contact_fields['contact_email'] ?? 'Brak'); ?></a></p>                                <p><strong>Telefon:</strong> <span data-field="contact_phone"><?php echo esc_html($contact_fields['contact_phone'] ?? 'Brak'); ?></span></p>
+                                <p><strong>Adres:</strong> <span data-field="contact_address"><?php
+                                    $address_parts = [
+                                        $contact_fields['contact_street'] ?? '',
+                                        $contact_fields['contact_postal_code'] ?? '',
+                                        $contact_fields['contact_city'] ?? ''
+                                    ];
+                                    $address = implode(', ', array_filter($address_parts));
+                                    echo esc_html($address ?: 'Brak');
+                                ?></span></p>
+                                <p><strong>Status:</strong> <span data-field="contact_status"><?php echo esc_html($contact_fields['contact_status'] ?? 'Brak'); ?></span></p>
+                            </div>
+                            <div class="edit-form">
+                                <form id="edit-contact-form">
+                                    <label for="contact_name">Imię i nazwisko</label>
+                                    <input type="text" id="contact_name" name="contact_name" value="<?php echo esc_attr($contact_title); ?>">
+
+                                    <label for="acf-field_wpmzf_contact_company_relation">Firma</label>
+                                    <?php
+                                    // Ręczne renderowanie pola wyboru firmy, aby uniknąć problemów z acf_render_field_wrap.
+                                    $field_key = 'field_wpmzf_contact_company_relation';
+                                    $field_object = get_field_object($field_key);
+                                    
+                                    // Ustalenie post type na podstawie konfiguracji pola ACF, z fallbackiem na 'company'.
+                                    $post_types_to_query = 'company';
+                                    if ($field_object && !empty($field_object['post_type'])) {
+                                        $post_types_to_query = $field_object['post_type'];
+                                    }
+
+                                    $companies = get_posts([
+                                        'post_type' => $post_types_to_query,
+                                        'posts_per_page' => -1,
+                                        'orderby' => 'title',
+                                        'order' => 'ASC',
+                                        'post_status' => 'publish',
+                                    ]);
+                                    
+                                    // Używamy ID pasującego do atrybutu 'for' w etykiecie i poprawnej nazwy dla formularza.
+                                    echo '<select id="acf-field_wpmzf_contact_company_relation" name="contact_company" style="width: 100%;">';
+                                    echo '<option value="">- Wybierz firmę -</option>';
+                                    if ($companies) {
+                                        foreach ($companies as $company) {
+                                            printf(
+                                                '<option value="%s" %s>%s</option>',
+                                                esc_attr($company->ID),
+                                                selected($company_id, $company->ID, false),
+                                                esc_html($company->post_title)
+                                            );
+                                        }
+                                    }
+                                    echo '</select>';
+                                    ?>
+
+                                    <label for="contact_street">Ulica i numer</label>
+                                    <input type="text" id="contact_street" name="contact_street" value="<?php echo esc_attr($contact_fields['contact_street'] ?? ''); ?>">
+                                    
+                                    <label for="contact_postal_code">Kod pocztowy</label>
+                                    <input type="text" id="contact_postal_code" name="contact_postal_code" value="<?php echo esc_attr($contact_fields['contact_postal_code'] ?? ''); ?>">
+
+                                    <label for="contact_city">Miasto</label>
+                                    <input type="text" id="contact_city" name="contact_city" value="<?php echo esc_attr($contact_fields['contact_city'] ?? ''); ?>">
+
+                                    <label for="contact_status">Status</label>
+                                    <select id="contact_status" name="contact_status">
+                                        <?php
+                                        $statuses = ['Aktywny', 'Nieaktywny', 'Zarchiwizowany'];
+                                        $current_status = $contact_fields['contact_status'] ?? 'Aktywny';
+                                        foreach ($statuses as $status) {
+                                            printf('<option value="%s" %s>%s</option>', esc_attr($status), selected($current_status, $status, false), esc_html($status));
+                                        }
+                                        ?>
+                                    </select>
+
+                                    <div class="edit-actions">
+                                        <button type="submit" class="button button-primary" style="background-color: #0073aa; border-color: #006799; color: #fff; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer;">Zapisz zmiany</button>
+                                        <button type="button" id="cancel-edit-basic-data" class="button" style="background-color: #f0f0f0; border-color: #dcdcde; color: #555; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer;">Anuluj</button>
+                                        <span class="spinner"></span>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                     <div class="dossier-box">
@@ -504,21 +647,22 @@ class WPMZF_Admin_Pages
                         </div>
                     </div>
                 </div>
-                <div class="dossier-right-column" style="flex: 2;">
+                <div class="dossier-right-column" style="flex: 2; display: flex; flex-direction: column; gap: 12px;">
                     <div class="dossier-box">
-                        <h2 class="dossier-title">Historia Aktywności</h2>
+                        <h2 class="dossier-title">Nowa Aktywność</h2>
                         <div class="dossier-content">
-                            <form id="wpmzf-add-activity-form" method="post">
-
+                            <form id="wpmzf-add-activity-form" method="post" enctype="multipart/form-data">
                                 <?php wp_nonce_field('wpmzf_contact_view_nonce', 'wpmzf_security'); ?>
                                 <input type="hidden" name="contact_id" value="<?php echo esc_attr($contact_id); ?>">
+
+                                <input type="file" id="wpmzf-activity-files-input" name="activity_files[]" multiple style="display: none;">
 
                                 <div id="wpmzf-activity-main-editor">
                                     <textarea name="content" id="wpmzf-activity-content" placeholder="Dodaj notatkę, opisz spotkanie..." required></textarea>
                                 </div>
 
                                 <div id="wpmzf-activity-meta-controls">
-                                    <div class="activity-options" style="display: flex; gap: 15px; align-items: center;">
+                                    <div class="activity-options">
                                         <select name="activity_type" id="wpmzf-activity-type">
                                             <option value="note">Notatka</option>
                                             <option value="email">E-mail</option>
@@ -528,25 +672,26 @@ class WPMZF_Admin_Pages
                                         </select>
                                         <input type="datetime-local" name="activity_date" id="wpmzf-activity-date" required>
                                     </div>
-                                    <div class="activity-actions" style="display: flex; gap: 8px;">
-                                        <button type="button" id="wpmzf-attach-file-btn" class="button">Dodaj załącznik</button>
+                                    <div class="activity-actions">
+                                        <button type="button" id="wpmzf-attach-file-btn" class="button"><span class="dashicons dashicons-paperclip"></span> Dodaj załącznik</button>
                                         <button type="submit" id="wpmzf-submit-activity-btn" class="button button-primary">Dodaj aktywność</button>
                                     </div>
-                                </div>
-                                <div id="wpmzf-file-drop-zone" style="display: none;">
-                                    Upuść pliki tutaj
                                 </div>
                                 <div id="wpmzf-attachments-preview"></div>
                             </form>
                         </div>
                     </div>
 
-                    <div id="wpmzf-activity-timeline">
-                        <p><em>Ładowanie aktywności...</em></p>
+                    <div id="wpmzf-activity-timeline-container" class="dossier-box">
+                        <h2 class="dossier-title">Historia Aktywności</h2>
+                        <div id="wpmzf-activity-timeline" class="dossier-content">
+                            <p><em>Ładowanie aktywności...</em></p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+
 <?php
     }
 }
