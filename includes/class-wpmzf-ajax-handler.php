@@ -17,17 +17,100 @@ class WPMZF_Ajax_Handler
         add_action('wp_ajax_update_wpmzf_activity', array($this, 'update_activity'));
         // Hook do usuwania pojedynczego załącznika
         add_action('wp_ajax_delete_wpmzf_attachment', array($this, 'delete_attachment'));
-        add_action('wp_ajax_update_wpmzf_activity', array($this, 'update_activity'));
-        // Hook do usuwania pojedynczego załącznika
-        add_action('wp_ajax_delete_wpmzf_attachment', array($this, 'delete_attachment'));
         // Hook do aktualizacji danych kontaktu
         add_action('wp_ajax_wpmzf_update_contact_details', array($this, 'update_contact_details'));
+        // Rejestracja punktu końcowego dla zalogowanych użytkowników
+        add_action('wp_ajax_wpmzf_search_companies',  array($this, 'wpmzf_search_companies_ajax_handler'));
+        // Rejestracja punktu końcowego dla niezalogowanych użytkowników
+        add_action('wp_ajax_nopriv_wpmzf_search_companies', array($this, 'wpmzf_search_companies_ajax_handler'));
     }
+
+    /**
+     * Obsługuje zapytanie AJAX do wyszukiwania firm na podstawie nazwy lub NIP-u.
+     */
+    public function wpmzf_search_companies_ajax_handler()
+    {
+        // Bezpieczeństwo: sprawdzanie nonca
+        // check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+        if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+            error_log(print_r($_POST, true)); // Debugowanie danych POST
+        } else {
+            error_log('Debugowanie danych POST: ' . json_encode($_POST)); // Alternatywne logowanie
+        }
+        // Pobranie i zwalidowanie terminu wyszukiwania
+        $search_term = isset($_POST['term']) ? sanitize_text_field(wp_unslash($_POST['term'])) : '';
+        error_log("Wyszukiwanie firm: $search_term"); // Debugowanie
+
+        if (empty($search_term)) {  
+            wp_send_json_error(['message' => 'Brak terminu wyszukiwania.']);
+        }
+
+        $results = [];
+
+        // Zapytanie do bazy danych
+        $args = [
+            'post_type'      => 'company',
+            'posts_per_page' => 20, // Ograniczamy liczbę wyników dla wydajności
+            'post_status'    => 'publish',
+            's'              => $search_term, // Wyszukiwanie w tytule i treści
+        ];
+
+        $query_by_title = new WP_Query($args);
+
+        if ($query_by_title->have_posts()) {
+            while ($query_by_title->have_posts()) {
+                $query_by_title->the_post();
+                $results[get_the_ID()] = [
+                    'id'   => get_the_ID(),
+                    'text' => get_the_title(),
+                ];
+            }
+        }
+        wp_reset_postdata();
+
+        // Wyszukiwanie po NIP (zakładając, że NIP jest w polu meta o kluczu 'company_nip')
+        // Dostosuj 'company_nip' jeśli klucz pola jest inny!
+        $args_nip = [
+            'post_type'      => 'company',
+            'posts_per_page' => 20,
+            'post_status'    => 'publish',
+            'meta_query'     => [
+                [
+                    'key'     => 'company_nip', // <-- WAŻNE: ZMIEŃ, JEŚLI POTRZEBA
+                    'value'   => $search_term,
+                    'compare' => 'LIKE',
+                ],
+            ],
+        ];
+
+        $query_by_nip = new WP_Query($args_nip);
+        error_log(print_r($query_by_nip->request, true)); // Debugowanie zapytania SQL
+
+        if ($query_by_nip->have_posts()) {
+            while ($query_by_nip->have_posts()) {
+                $query_by_nip->the_post();
+                // Unikamy duplikatów, jeśli NIP jest też w tytule
+                if (!isset($results[get_the_ID()])) {
+                    $results[get_the_ID()] = [
+                        'id'   => get_the_ID(),
+                        'text' => get_the_title(),
+                    ];
+                }
+            }
+        }
+        wp_reset_postdata();
+        
+        // Zwracamy unikalne wyniki w formacie JSON
+        wp_send_json_success(array_values($results));
+    }
+
+
 
     /**
      * Logika dodawania nowej aktywności.
      */
-    public function add_activity() {
+    public function add_activity()
+    {
         // 1. Bezpieczeństwo
         check_ajax_referer('wpmzf_contact_view_nonce', 'security');
 
@@ -36,7 +119,7 @@ class WPMZF_Ajax_Handler
         $content = isset($_POST['content']) ? wp_kses_post($_POST['content']) : '';
         $activity_type = isset($_POST['activity_type']) ? sanitize_text_field($_POST['activity_type']) : 'note';
         $activity_date = isset($_POST['activity_date']) ? sanitize_text_field($_POST['activity_date']) : current_time('mysql');
-        
+
         if (!$contact_id || empty($content)) {
             wp_send_json_error(array('message' => 'Brak wymaganych danych (ID kontaktu, treść).'));
             return;
@@ -51,7 +134,7 @@ class WPMZF_Ajax_Handler
             'post_type'    => 'activity',
         );
 
-       $activity_id = wp_insert_post($activity_post);
+        $activity_id = wp_insert_post($activity_post);
 
         // 4. Zapisywanie pól ACF i obsługa załączników
         if ($activity_id && !is_wp_error($activity_id)) {
@@ -73,7 +156,7 @@ class WPMZF_Ajax_Handler
                 // Używamy klucza pola, co jest najlepszą praktyką
                 update_field('field_wpmzf_activity_attachments', $rows, $activity_id);
             }
-            
+
             wp_send_json_success(array('message' => 'Aktywność dodana pomyślnie.'));
         } else {
             wp_send_json_error(array('message' => 'Wystąpił błąd podczas dodawania aktywności.'));
@@ -83,7 +166,8 @@ class WPMZF_Ajax_Handler
     /**
      * Logika pobierania aktywności dla danego kontaktu.
      */
-    public function get_activities() {
+    public function get_activities()
+    {
         check_ajax_referer('wpmzf_contact_view_nonce', 'security');
 
         $contact_id = isset($_GET['contact_id']) ? intval($_GET['contact_id']) : 0;
@@ -124,7 +208,7 @@ class WPMZF_Ajax_Handler
                         // Upewnij się, że sub-pole istnieje i ma wartość
                         if (isset($row['attachment_file']) && $row['attachment_file']) {
                             $attachment_id = $row['attachment_file'];
-                            
+
                             $attachment_data = [
                                 'id'        => $attachment_id,
                                 'url'       => wp_get_attachment_url($attachment_id),
@@ -138,7 +222,7 @@ class WPMZF_Ajax_Handler
                                     $attachment_data['thumbnail_url'] = $thumbnail_src[0];
                                 }
                             }
-                            
+
                             $attachments_data[] = $attachment_data;
                         }
                     }
@@ -210,10 +294,14 @@ class WPMZF_Ajax_Handler
             return;
         }
 
-        $attachment_ids = get_field('activity_attachments', $activity_id);
-        if ($attachment_ids) {
-            foreach ($attachment_ids as $att_id) {
-                wp_delete_attachment($att_id, true);
+        $attachments_repeater = get_field('activity_attachments', $activity_id);
+        if (is_array($attachments_repeater)) {
+            foreach ($attachments_repeater as $row) {
+                if (isset($row['attachment_file']) && $row['attachment_file']) {
+                    // Zakładając, że 'attachment_file' to nazwa sub-pola
+                    $att_id = $row['attachment_file'];
+                    wp_delete_attachment($att_id, true); // true oznacza trwałe usunięcie
+                }
             }
         }
 
@@ -305,12 +393,14 @@ class WPMZF_Ajax_Handler
         wp_send_json_success(['message' => 'Załącznik usunięty.']);
     }
 
+
+
     /**
      * Aktualizuje podstawowe dane kontaktu.
      */
-    public function update_contact_details() {
+    public function update_contact_details()
+    {
         check_ajax_referer('wpmzf_contact_view_nonce', 'security');
-
 
         $contact_id = isset($_POST['contact_id']) ? intval($_POST['contact_id']) : 0;
 
@@ -342,14 +432,47 @@ class WPMZF_Ajax_Handler
             }
         }
 
-        // 2. Specjalna obsługa pola relacji "Firma"
-        if (isset($_POST['contact_company'])) {
-            $company_id = intval($_POST['contact_company']);
-            // Pole relacji oczekuje tablicy ID, nawet dla pojedynczego wyboru.
-            // Jeśli ID to 0, przekazujemy pustą tablicę, aby wyczyścić powiązanie.
-            $update_value = $company_id ? array($company_id) : array();
-            // Używamy klucza pola ('field_...'), co jest bardziej niezawodne.
-            update_field('field_wpmzf_contact_company_relation', $update_value, $contact_id);
+        // Obsługa pola relacji z firmą
+        $company_data = isset($_POST['contact_company']) ? sanitize_text_field(wp_unslash($_POST['contact_company'])) : null;
+        $company_id_to_save = null;
+
+        if (!empty($company_data)) {
+            // Scenariusz 1: Otrzymaliśmy ID istniejącej firmy (jest to liczba)
+            if (is_numeric($company_data)) {
+                $company_id_to_save = intval($company_data);
+            } 
+            // Scenariusz 2: Otrzymaliśmy nazwę nowej firmy (nie jest to liczba)
+            else {
+                // Sprawdźmy na wszelki wypadek, czy firma o takiej nazwie już nie istnieje
+                $existing_company = get_page_by_title($company_data, OBJECT, 'company');
+                
+                if ($existing_company) {
+                    $company_id_to_save = $existing_company->ID;
+                } else {
+                    // Firma nie istnieje, więc ją tworzymy
+                    $new_company_args = [
+                        'post_title'  => $company_data,
+                        'post_type'   => 'company',
+                        'post_status' => 'publish',
+                    ];
+                    $new_company_id = wp_insert_post($new_company_args);
+                    
+                    if (!is_wp_error($new_company_id)) {
+                        $company_id_to_save = $new_company_id;
+                        // Opcjonalnie: można tu dodać domyślne pola dla nowej firmy, np. NIP
+                        // update_field('company_nip', 'BRAK DANYCH', $new_company_id);
+                    }
+                }
+            }
+        }
+
+        // Teraz zapisujemy relację do kontaktu używając $company_id_to_save
+        // Zakładając, że pole relacji w ACF dla kontaktu ma klucz 'contact_company'
+        if ($company_id_to_save) {
+            update_field('field_wpmzf_contact_company_relation', $company_id_to_save, $contact_id);
+        } else {
+            // Jeśli firma została usunięta z pola, czyścimy wartość
+            update_field('field_wpmzf_contact_company_relation', null, $contact_id);
         }
 
         // 3. Specjalna obsługa grupy pól "Adres"
@@ -367,12 +490,10 @@ class WPMZF_Ajax_Handler
         // Aktualizujemy całą grupę na raz, przekazując tablicę z danymi.
         update_field('contact_address', $address_data, $contact_id);
 
-
         // Przygotuj dane zwrotne dla firmy
-        $company_id = isset($_POST['contact_company']) ? intval($_POST['contact_company']) : 0;
         $company_html = '';
-        if ($company_id) {
-            $company_html = sprintf('<a href="%s">%s</a>', esc_url(get_edit_post_link($company_id)), esc_html(get_the_title($company_id)));
+        if ($company_id_to_save) {
+            $company_html = sprintf('<a href="%s">%s</a>', esc_url(get_edit_post_link($company_id_to_save)), esc_html(get_the_title($company_id_to_save)));
         }
 
         wp_send_json_success([

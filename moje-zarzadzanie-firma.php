@@ -63,7 +63,7 @@ final class WPMZF_Plugin {
     private function init_components() {
         new WPMZF_Access_Control();
         new WPMZF_CPTs();
-        new WPMZF_Admin_Columns();
+        // new WPMZF_Admin_Columns();
         new WPMZF_Meta_Boxes();
         new WPMZF_Admin_Pages();
         if ( class_exists('ACF') ) { // Uruchom klasę tylko jeśli ACF jest aktywne

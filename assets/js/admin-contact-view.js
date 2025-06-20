@@ -1,4 +1,77 @@
 jQuery(document).ready(function ($) {
+	// Sprawdzamy, czy na stronie istnieje element #company_search_select
+	if ($('#company_search_select').length) {
+
+		$('#company_search_select').select2({
+			width: '100%',
+			placeholder: 'Wyszukaj lub dodaj firmę',
+			allowClear: true,
+			// Opcja 'tags' pozwala na dodawanie nowych, nieistniejących pozycji
+			tags: true,
+
+			// Konfiguracja AJAX
+			ajax: {
+				url: ajaxurl, // Standardowa zmienna globalna WordPressa w panelu admina
+				dataType: 'json',
+				delay: 250, // Opóźnienie po wpisaniu tekstu przed wysłaniem zapytania
+
+				// Przygotowanie danych do wysłania
+				data: function (params) {
+					return {
+						action: 'wpmzf_search_companies', // Nazwa naszej akcji w PHP
+						security: $('#wpmzf_security').val(), // Nonce dla bezpieczeństwa
+						term: params.term // Wpisany przez użytkownika tekst
+					};
+				},
+
+				// Przetwarzanie otrzymanej odpowiedzi
+				processResults: function (data, params) {
+					// Sprawdzamy, czy serwer zwrócił sukces i dane
+					if (data.success && Array.isArray(data.data)) {
+						return {
+							results: data.data
+						};
+					}
+					return {
+						results: []
+					};
+				},
+				cache: true
+			},
+
+			// Ustawia minimalną długość tekstu, po której rozpocznie się wyszukiwanie
+			minimumInputLength: 2,
+
+			// Tłumaczenia interfejsu Select2 na polski
+			language: {
+				inputTooShort: function (args) {
+					var remainingChars = args.minimum - args.input.length;
+					return 'Wpisz jeszcze ' + remainingChars + ' znaki';
+				},
+				loadingMore: function () {
+					return 'Wczytywanie wyników…';
+				},
+				noResults: function () {
+					return 'Nie znaleziono firmy. Wpisz pełną nazwę, aby ją dodać.';
+				},
+				searching: function () {
+					return 'Szukanie…';
+				}
+			},
+
+			// Ta funkcja pozwala na ładne sformatowanie nowo dodawanej etykiety
+			createTag: function (params) {
+				return {
+					id: params.term,
+					text: params.term + " (nowa firma)",
+					newTag: true
+				}
+			}
+		});
+	}
+});
+
+jQuery(document).ready(function ($) {
 	// --- Zmienne ---
 	const contactId = $('input[name="contact_id"]').val();
 	const securityNonce = $('#wpmzf_security').val();

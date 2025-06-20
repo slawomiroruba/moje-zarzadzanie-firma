@@ -533,23 +533,25 @@ class WPMZF_Admin_Pages
                                 <p><strong>Imię i nazwisko:</strong> <span data-field="contact_name"><?php echo esc_html($contact_title); ?></span></p>
                                 <p><strong>Stanowisko:</strong> <span data-field="contact_position"><?php echo esc_html($contact_fields['contact_position'] ?? 'Brak'); ?></span></p>
                                 <p><strong>Firma:</strong> <span data-field="contact_company">
-                                    <?php 
-                                    if ($company_id) {
-                                        printf('<a href="%s">%s</a>', esc_url(get_edit_post_link($company_id)), esc_html(get_the_title($company_id)));
-                                    } else {
-                                        echo 'Brak';
-                                    }
-                                    ?>
-                                </span></p>
-                                <p><strong>Email:</strong> <a data-field="contact_email" href="mailto:<?php echo esc_attr($contact_fields['contact_email'] ?? ''); ?>"><?php echo esc_html($contact_fields['contact_email'] ?? 'Brak'); ?></a></p>                                <p><strong>Telefon:</strong> <span data-field="contact_phone"><?php echo esc_html($contact_fields['contact_phone'] ?? 'Brak'); ?></span></p>
+                                        <?php
+                                        if ($company_id) {
+                                            printf('<a href="%s">%s</a>', esc_url(get_edit_post_link($company_id)), esc_html(get_the_title($company_id)));
+                                        } else {
+                                            echo 'Brak';
+                                        }
+                                        ?>
+                                    </span></p>
+                                <p><strong>Email:</strong> <a data-field="contact_email" href="mailto:<?php echo esc_attr($contact_fields['contact_email'] ?? ''); ?>"><?php echo esc_html($contact_fields['contact_email'] ?? 'Brak'); ?></a></p>
+                                <p><strong>Telefon:</strong> <span data-field="contact_phone"><?php echo esc_html($contact_fields['contact_phone'] ?? 'Brak'); ?></span></p>
                                 <p><strong>Adres:</strong> <span data-field="contact_address"><?php
-                                    $address_parts = [
-                                        $contact_fields['contact_street'] ?? '',
-                                        $contact_fields['contact_postal_code'] ?? '',
-                                        $contact_fields['contact_city'] ?? ''
-                                    ];
-                                    $address = implode(', ', array_filter($address_parts));
-                                    echo esc_html($address ?: 'Brak');
+                                $address_group = $contact_fields['contact_address'] ?? [];
+                                $address_parts = [
+                                    $address_group['street'] ?? '',
+                                    $address_group['zip_code'] ?? '',
+                                    $address_group['city'] ?? ''
+                                ];
+                                $address = implode(', ', array_filter($address_parts));
+                                echo esc_html($address ?: 'Brak');
                                 ?></span></p>
                                 <p><strong>Status:</strong> <span data-field="contact_status"><?php echo esc_html($contact_fields['contact_status'] ?? 'Brak'); ?></span></p>
                             </div>
@@ -558,56 +560,40 @@ class WPMZF_Admin_Pages
                                     <label for="contact_name">Imię i nazwisko</label>
                                     <input type="text" id="contact_name" name="contact_name" value="<?php echo esc_attr($contact_title); ?>">
 
-                                    <label for="acf-field_wpmzf_contact_company_relation">Firma</label>
-                                    <?php
-                                    // Ręczne renderowanie pola wyboru firmy, aby uniknąć problemów z acf_render_field_wrap.
-                                    $field_key = 'field_wpmzf_contact_company_relation';
-                                    $field_object = get_field_object($field_key);
-                                    
-                                    // Ustalenie post type na podstawie konfiguracji pola ACF, z fallbackiem na 'company'.
-                                    $post_types_to_query = 'company';
-                                    if ($field_object && !empty($field_object['post_type'])) {
-                                        $post_types_to_query = $field_object['post_type'];
-                                    }
-
-                                    $companies = get_posts([
-                                        'post_type' => $post_types_to_query,
-                                        'posts_per_page' => -1,
-                                        'orderby' => 'title',
-                                        'order' => 'ASC',
-                                        'post_status' => 'publish',
-                                    ]);
-                                    
-                                    // Używamy ID pasującego do atrybutu 'for' w etykiecie i poprawnej nazwy dla formularza.
-                                    echo '<select id="acf-field_wpmzf_contact_company_relation" name="contact_company" style="width: 100%;">';
-                                    echo '<option value="">- Wybierz firmę -</option>';
-                                    if ($companies) {
-                                        foreach ($companies as $company) {
+                                    <label for="company_search_select">Firma</label>
+                                    <select id="company_search_select" name="contact_company" style="width: 100%;">
+                                        <?php
+                                        // Jeśli firma jest już przypisana, wczytujemy ją, aby Select2 miał wartość początkową
+                                        if ($company_id) {
+                                            $company_title = get_the_title($company_id);
                                             printf(
-                                                '<option value="%s" %s>%s</option>',
-                                                esc_attr($company->ID),
-                                                selected($company_id, $company->ID, false),
-                                                esc_html($company->post_title)
+                                                '<option value="%s" selected="selected">%s</option>',
+                                                esc_attr($company_id),
+                                                esc_html($company_title)
                                             );
                                         }
-                                    }
-                                    echo '</select>';
-                                    ?>
+                                        ?>
+                                    </select>
+                                    <p class="description">Zacznij wpisywać nazwę lub NIP firmy, aby wyszukać. Jeśli firma nie istnieje, wpisz pełną nazwę i zostanie ona utworzona automatycznie po zapisaniu kontaktu.</p>
 
+                                    <?php $address_group = $contact_fields['contact_address'] ?? []; ?>
                                     <label for="contact_street">Ulica i numer</label>
-                                    <input type="text" id="contact_street" name="contact_street" value="<?php echo esc_attr($contact_fields['contact_street'] ?? ''); ?>">
+                                    <input type="text" id="contact_street" name="contact_street" value="<?php echo esc_attr($address_group['street'] ?? ''); ?>">
                                     
                                     <label for="contact_postal_code">Kod pocztowy</label>
-                                    <input type="text" id="contact_postal_code" name="contact_postal_code" value="<?php echo esc_attr($contact_fields['contact_postal_code'] ?? ''); ?>">
-
+                                    <input type="text" id="contact_postal_code" name="contact_postal_code" value="<?php echo esc_attr($address_group['zip_code'] ?? ''); ?>">
+                                    
                                     <label for="contact_city">Miasto</label>
-                                    <input type="text" id="contact_city" name="contact_city" value="<?php echo esc_attr($contact_fields['contact_city'] ?? ''); ?>">
+                                    <input type="text" id="contact_city" name="contact_city" value="<?php echo esc_attr($address_group['city'] ?? ''); ?>">
 
                                     <label for="contact_status">Status</label>
                                     <select id="contact_status" name="contact_status">
                                         <?php
                                         $statuses = ['Aktywny', 'Nieaktywny', 'Zarchiwizowany'];
                                         $current_status = $contact_fields['contact_status'] ?? 'Aktywny';
+                                        if (is_object($current_status) && isset($current_status->post_title)) {
+                                            $current_status = $current_status->post_title;
+                                        }
                                         foreach ($statuses as $status) {
                                             printf('<option value="%s" %s>%s</option>', esc_attr($status), selected($current_status, $status, false), esc_html($status));
                                         }
@@ -647,7 +633,7 @@ class WPMZF_Admin_Pages
                         </div>
                     </div>
                 </div>
-                <div class="dossier-right-column" style="flex: 2; display: flex; flex-direction: column; gap: 12px;">
+                <div class="dossier-side-column">
                     <div class="dossier-box">
                         <h2 class="dossier-title">Nowa Aktywność</h2>
                         <div class="dossier-content">
