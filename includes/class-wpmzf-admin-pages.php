@@ -356,12 +356,18 @@ class WPMZF_Admin_Pages
         $company_id = null;
         $company_title = '';
 
-        if (!empty($contact_fields['contact_company'])) {
-            // Zakładając, że contact_company przechowuje ID postu firmy
-            $company_post = get_post($contact_fields['contact_company']);
+        error_log('Contact fields: ' . print_r($contact_fields, true));
+
+        if (!empty($contact_fields['contact_company']) && is_array($contact_fields['contact_company'])) {
+            // Zakładając, że contact_company przechowuje tablicę ID postów firm
+            foreach ($contact_fields['contact_company'] as $company_id_item) {
+            $company_post = get_post($company_id_item);
             if ($company_post) {
                 $company_id = $company_post->ID;
                 $company_title = $company_post->post_title;
+                // Możesz dodać logikę do obsługi wielu firm, np. przechowywanie ich w tablicy
+                break; // Jeśli chcesz obsłużyć tylko pierwszą firmę
+            }
             }
         }
     ?>
@@ -527,9 +533,9 @@ class WPMZF_Admin_Pages
 
             <div class="nav-tab-wrapper">
                 <a href="#" class="nav-tab nav-tab-active">Dane i Aktywności</a>
-                <a href="#" class="nav-tab">Zadania</a>
+                <!-- <a href="#" class="nav-tab">Zadania</a>
                 <a href="#" class="nav-tab">Dokumenty</a>
-                <a href="#" class="nav-tab">Płatności</a>
+                <a href="#" class="nav-tab">Płatności</a> -->
             </div>
 
             <div class="dossier-grid">
@@ -564,7 +570,16 @@ class WPMZF_Admin_Pages
                                 $address = implode(', ', array_filter($address_parts));
                                 echo esc_html($address ?: 'Brak');
                                 ?></span></p>
-                                <p><strong>Status:</strong> <span data-field="contact_status"><?php echo esc_html($contact_fields['contact_status'] ?? 'Brak'); ?></span></p>
+                                <p><strong>Status:</strong> <span data-field="contact_status">
+                                    <?php
+                                    $status_labels = [
+                                        'active' => 'Aktywny',
+                                        'inactive' => 'Nieaktywny',
+                                        'archived' => 'Zarchiwizowany',
+                                    ];
+                                    echo esc_html($status_labels[$contact_fields['contact_status']] ?? 'Brak');
+                                    ?>
+                                </span></p>
                             </div>
                             <div class="edit-form">
                                 <form>
