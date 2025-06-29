@@ -37,9 +37,20 @@ final class WPMZF_Plugin {
         return self::$instance;
     }
 
+    /**
+     * Konstruktor jest prywatny, aby zapobiec tworzeniu nowych instancji.
+     */
     private function __construct() {
+        add_action( 'plugins_loaded', array( $this, 'init' ) );
+    }
+
+    /**
+     * Inicjalizacja pluginu.
+     */
+    public function init() {
         $this->load_dependencies();
         $this->init_components();
+        add_action( 'admin_enqueue_scripts', array( $this, 'admin_enqueue_scripts' ) );
     }
 
     /**
@@ -71,38 +82,44 @@ final class WPMZF_Plugin {
         }
         new WPMZF_Ajax_Handler();
     }
+
+    /**
+     * Ładuje skrypty i style tylko na stronach wtyczki w panelu admina.
+     *
+     * @param string $hook Nazwa haka bieżącej strony.
+     */
+    public function admin_enqueue_scripts($hook) {
+        // Sprawdzamy, czy jesteśmy na stronie widoku pojedynczego kontaktu
+        // 'toplevel_page_wpmzf_dashboard' to główna strona, a my jesteśmy na ukrytej podstronie,
+        // więc musimy sprawdzić parametr 'page'.
+        if (isset($_GET['page']) && $_GET['page'] === 'wpmzf_contact_view') {
+            
+            // Dodaj ten styl z wersją opartą na filemtime
+            $css_file = plugin_dir_path(__FILE__) . 'assets/css/admin-contact-view.css';
+            wp_enqueue_style(
+                'wpmzf-contact-view-css',
+                plugin_dir_url(__FILE__) . 'assets/css/admin-contact-view.css',
+                array(),
+                filemtime( $css_file )
+            );
+
+            // Dodaj ten skrypt z wersją opartą na filemtime
+            $js_file = plugin_dir_path(__FILE__) . 'assets/js/admin-contact-view.js';
+            wp_enqueue_script(
+                'wpmzf-contact-view-js',
+                plugin_dir_url(__FILE__) . 'assets/js/admin-contact-view.js',
+                array( 'jquery' ),
+                filemtime( $js_file ),
+                true
+            );
+        }
+    }
 }
 
 /**
- * Ładuje skrypty i style tylko na stronach wtyczki w panelu admina.
+ * Inicjalizacja pluginu.
  */
-function wpmzf_admin_enqueue_scripts($hook) {
-    // Sprawdzamy, czy jesteśmy na stronie widoku pojedynczego kontaktu
-    // 'toplevel_page_wpmzf_dashboard' to główna strona, a my jesteśmy na ukrytej podstronie,
-    // więc musimy sprawdzić parametr 'page'.
-    if (isset($_GET['page']) && $_GET['page'] === 'wpmzf_contact_view') {
-        
-        // Dodaj ten styl z wersją opartą na filemtime
-        $css_file = plugin_dir_path(__FILE__) . 'assets/css/admin-contact-view.css';
-        wp_enqueue_style(
-            'wpmzf-contact-view-css',
-            plugin_dir_url(__FILE__) . 'assets/css/admin-contact-view.css',
-            array(),
-            filemtime( $css_file )
-        );
-
-        // Dodaj ten skrypt z wersją opartą na filemtime
-        $js_file = plugin_dir_path(__FILE__) . 'assets/js/admin-contact-view.js';
-        wp_enqueue_script(
-            'wpmzf-contact-view-js',
-            plugin_dir_url(__FILE__) . 'assets/js/admin-contact-view.js',
-            array( 'jquery' ),
-            filemtime( $js_file ),
-            true
-        );
-    }
+function wpmzf_run_plugin() {
+    return WPMZF_Plugin::get_instance();
 }
-add_action('admin_enqueue_scripts', 'wpmzf_admin_enqueue_scripts');
-
-// Uruchomienie pluginu.
-WPMZF_Plugin::get_instance();
+wpmzf_run_plugin();
