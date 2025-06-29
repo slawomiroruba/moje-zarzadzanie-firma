@@ -168,6 +168,14 @@
     float: none;
     margin: 0;
 }
+#dossier-basic-data .edit-form .form-row {
+    display: flex;
+    gap: 20px;
+}
+
+#dossier-basic-data .edit-form .form-group {
+    flex: 1;
+}
 
 /* --- Oś czasu aktywności --- */
 #wpmzf-activity-timeline {

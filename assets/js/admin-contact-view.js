@@ -503,12 +503,14 @@ jQuery(document).ready(function ($) {
 			contact_position: form.find('#contact_position').val(),
 			contact_email: form.find('#contact_email').val(),
 			contact_phone: form.find('#contact_phone').val(),
-			contact_company: form.find('#acf-field_wpmzf_contact_company_relation').val(),
+			contact_company: $('#company_search_select').val(),
 			contact_street: form.find('#contact_street').val(),
 			contact_postal_code: form.find('#contact_postal_code').val(),
 			contact_city: form.find('#contact_city').val(),
 			contact_status: form.find('#contact_status').val(),
 		};
+
+		console.log('Form data to submit:', formData);
 
 		$.post(ajaxurl, formData)
 			.done(function (response) {

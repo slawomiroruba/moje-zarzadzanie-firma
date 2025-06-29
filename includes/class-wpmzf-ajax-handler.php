@@ -31,17 +31,12 @@ class WPMZF_Ajax_Handler
     public function wpmzf_search_companies_ajax_handler()
     {
         // Bezpieczeństwo: sprawdzanie nonca
-        // check_ajax_referer('wpmzf_contact_view_nonce', 'security');
-        if (defined('WP_DEBUG') && WP_DEBUG && defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-            error_log(print_r($_POST, true)); // Debugowanie danych POST
-        } else {
-            error_log('Debugowanie danych POST: ' . json_encode($_POST)); // Alternatywne logowanie
-        }
-        // Pobranie i zwalidowanie terminu wyszukiwania
-        $search_term = isset($_POST['term']) ? sanitize_text_field(wp_unslash($_POST['term'])) : '';
-        error_log("Wyszukiwanie firm: $search_term"); // Debugowanie
+        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
 
-        if (empty($search_term)) {  
+        // Pobranie i zwalidowanie terminu wyszukiwania
+        $search_term = isset($_REQUEST['term']) ? sanitize_text_field(wp_unslash($_REQUEST['term'])) : '';
+
+        if (empty($search_term)) {
             wp_send_json_error(['message' => 'Brak terminu wyszukiwania.']);
         }
 
@@ -69,7 +64,6 @@ class WPMZF_Ajax_Handler
         wp_reset_postdata();
 
         // Wyszukiwanie po NIP (zakładając, że NIP jest w polu meta o kluczu 'company_nip')
-        // Dostosuj 'company_nip' jeśli klucz pola jest inny!
         $args_nip = [
             'post_type'      => 'company',
             'posts_per_page' => 20,
@@ -84,7 +78,6 @@ class WPMZF_Ajax_Handler
         ];
 
         $query_by_nip = new WP_Query($args_nip);
-        error_log(print_r($query_by_nip->request, true)); // Debugowanie zapytania SQL
 
         if ($query_by_nip->have_posts()) {
             while ($query_by_nip->have_posts()) {
@@ -99,7 +92,7 @@ class WPMZF_Ajax_Handler
             }
         }
         wp_reset_postdata();
-        
+
         // Zwracamy unikalne wyniki w formacie JSON
         wp_send_json_success(array_values($results));
     }

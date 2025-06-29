@@ -351,8 +351,19 @@ class WPMZF_Admin_Pages
 
         $contact_title = get_the_title($contact_id);
         $contact_fields = get_fields($contact_id);
-        $company_id = isset($contact_fields['contact_company']) && !empty($contact_fields['contact_company']) ? $contact_fields['contact_company'][0] : null;
 
+        // Inicjalizujemy zmienne firmy, aby uniknąć błędów
+        $company_id = null;
+        $company_title = '';
+
+        if (!empty($contact_fields['contact_company'])) {
+            // Zakładając, że contact_company przechowuje ID postu firmy
+            $company_post = get_post($contact_fields['contact_company']);
+            if ($company_post) {
+                $company_id = $company_post->ID;
+                $company_title = $company_post->post_title;
+            }
+        }
     ?>
         <style>
             /* Single Contact View Styles */
@@ -556,53 +567,55 @@ class WPMZF_Admin_Pages
                                 <p><strong>Status:</strong> <span data-field="contact_status"><?php echo esc_html($contact_fields['contact_status'] ?? 'Brak'); ?></span></p>
                             </div>
                             <div class="edit-form">
-                                <form id="edit-contact-form">
-                                    <label for="contact_name">Imię i nazwisko</label>
-                                    <input type="text" id="contact_name" name="contact_name" value="<?php echo esc_attr($contact_title); ?>">
+                                <form>
+                                    <label for="contact_name">Imię i nazwisko:</label>
+                                    <input type="text" id="contact_name" name="contact_name" value="<?php echo esc_attr($contact_title); ?>" required>
 
-                                    <label for="company_search_select">Firma</label>
+                                    <label for="contact_position">Stanowisko:</label>
+                                    <input type="text" id="contact_position" name="contact_position" value="<?php echo esc_attr($contact_fields['contact_position'] ?? ''); ?>">
+
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="contact_email">Email:</label>
+                                            <input type="email" id="contact_email" name="contact_email" value="<?php echo esc_attr($contact_fields['contact_email'] ?? ''); ?>">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="contact_phone">Telefon:</label>
+                                            <input type="text" id="contact_phone" name="contact_phone" value="<?php echo esc_attr($contact_fields['contact_phone'] ?? ''); ?>">
+                                        </div>
+                                    </div>
+
+                                    <label for="company_search_select">Firma:</label>
                                     <select id="company_search_select" name="contact_company" style="width: 100%;">
-                                        <?php
-                                        // Jeśli firma jest już przypisana, wczytujemy ją, aby Select2 miał wartość początkową
-                                        if ($company_id) {
-                                            $company_title = get_the_title($company_id);
-                                            printf(
-                                                '<option value="%s" selected="selected">%s</option>',
-                                                esc_attr($company_id),
-                                                esc_html($company_title)
-                                            );
-                                        }
-                                        ?>
+                                        <?php if ($company_id && $company_title) : ?>
+                                            <option value="<?php echo esc_attr($company_id); ?>" selected="selected"><?php echo esc_html($company_title); ?></option>
+                                        <?php endif; ?>
                                     </select>
-                                    <p class="description">Zacznij wpisywać nazwę lub NIP firmy, aby wyszukać. Jeśli firma nie istnieje, wpisz pełną nazwę i zostanie ona utworzona automatycznie po zapisaniu kontaktu.</p>
 
-                                    <?php $address_group = $contact_fields['contact_address'] ?? []; ?>
-                                    <label for="contact_street">Ulica i numer</label>
-                                    <input type="text" id="contact_street" name="contact_street" value="<?php echo esc_attr($address_group['street'] ?? ''); ?>">
-                                    
-                                    <label for="contact_postal_code">Kod pocztowy</label>
-                                    <input type="text" id="contact_postal_code" name="contact_postal_code" value="<?php echo esc_attr($address_group['zip_code'] ?? ''); ?>">
-                                    
-                                    <label for="contact_city">Miasto</label>
-                                    <input type="text" id="contact_city" name="contact_city" value="<?php echo esc_attr($address_group['city'] ?? ''); ?>">
+                                    <label for="contact_street">Ulica i nr:</label>
+                                    <input type="text" id="contact_street" name="contact_street" value="<?php echo esc_attr($contact_fields['contact_street'] ?? ''); ?>">
 
-                                    <label for="contact_status">Status</label>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="contact_postal_code">Kod pocztowy:</label>
+                                            <input type="text" id="contact_postal_code" name="contact_postal_code" value="<?php echo esc_attr($contact_fields['contact_postal_code'] ?? ''); ?>">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="contact_city">Miasto:</label>
+                                            <input type="text" id="contact_city" name="contact_city" value="<?php echo esc_attr($contact_fields['contact_city'] ?? ''); ?>">
+                                        </div>
+                                    </div>
+
+                                    <label for="contact_status">Status:</label>
                                     <select id="contact_status" name="contact_status">
-                                        <?php
-                                        $statuses = ['Aktywny', 'Nieaktywny', 'Zarchiwizowany'];
-                                        $current_status = $contact_fields['contact_status'] ?? 'Aktywny';
-                                        if (is_object($current_status) && isset($current_status->post_title)) {
-                                            $current_status = $current_status->post_title;
-                                        }
-                                        foreach ($statuses as $status) {
-                                            printf('<option value="%s" %s>%s</option>', esc_attr($status), selected($current_status, $status, false), esc_html($status));
-                                        }
-                                        ?>
+                                        <option value="active" <?php selected($contact_fields['contact_status'], 'active'); ?>>Aktywny</option>
+                                        <option value="inactive" <?php selected($contact_fields['contact_status'], 'inactive'); ?>>Nieaktywny</option>
+                                        <option value="archived" <?php selected($contact_fields['contact_status'], 'archived'); ?>>Zarchiwizowany</option>
                                     </select>
 
                                     <div class="edit-actions">
-                                        <button type="submit" class="button button-primary" style="background-color: #0073aa; border-color: #006799; color: #fff; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer;">Zapisz zmiany</button>
-                                        <button type="button" id="cancel-edit-basic-data" class="button" style="background-color: #f0f0f0; border-color: #dcdcde; color: #555; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer;">Anuluj</button>
+                                        <button type="submit" class="button button-primary">Zapisz zmiany</button>
+                                        <button type="button" id="cancel-edit-basic-data" class="button">Anuluj</button>
                                         <span class="spinner"></span>
                                     </div>
                                 </form>
