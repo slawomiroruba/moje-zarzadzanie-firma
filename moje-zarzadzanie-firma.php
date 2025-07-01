@@ -3,7 +3,7 @@
  * Plugin Name:       Moje Zarządzanie Firmą
  * Description:       Dedykowany plugin do zarządzania firmą. Blokuje dostęp do frontendu dla niezalogowanych.
  * Version:           1.0.0
- * Author:            Twoje Imię i Nazwisko
+ * Author:            Sławomir Oruba
  */
 
 // Bezpośrednie wywołanie pliku jest zabronione.
@@ -18,7 +18,7 @@ define( 'WPMZF_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
  * Funkcja uruchamiana podczas aktywacji pluginu.
  */
 function activate_wpmzf_plugin() {
-    require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-activator.php';
+    require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-activator.php';
     WPMZF_Activator::activate();
 }
 register_activation_hook( __FILE__, 'activate_wpmzf_plugin' );
@@ -57,7 +57,7 @@ final class WPMZF_Plugin {
      * Ładuje wszystkie pliki z klasami.
      */
     private function load_dependencies() {
-        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-access-control.php'; // Kontrola dostępu
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-access-control.php'; // Kontrola dostępu
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-cpts.php';             // Typy treści
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-admin-columns.php';    // Kolumny w adminie
         require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-meta-boxes.php';       // Meta boxy

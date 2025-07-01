@@ -21,7 +21,7 @@ class WPMZF_Documents_List_Table extends WP_List_Table {
      * Definiuje kolumny tabeli. To jest kluczowa metoda.
      * @return array
      */
-    public function get_columns() {
+public function get_columns() {
         return [
             'cb'          => '<input type="checkbox" />', // Checkbox do masowych akcji
             'title'       => 'Tytuł Dokumentu',
@@ -38,8 +38,10 @@ class WPMZF_Documents_List_Table extends WP_List_Table {
      */
     protected function get_sortable_columns() {
         return [
-            'title' => ['title', false],
-            'date'  => ['date', true] // true oznacza, że domyślnie sortujemy malejąco
+            'title'    => ['title', false],
+            'doc_type' => ['doc_type', false],
+            'status'   => ['status', false],
+            'date'     => ['date', true] // true oznacza, że domyślnie sortujemy malejąco
         ];
     }
 
@@ -52,8 +54,16 @@ class WPMZF_Documents_List_Table extends WP_List_Table {
     function column_default($item, $column_name) {
         switch ($column_name) {
             case 'doc_type':
+                // Zwracamy przyjazną nazwę CPT
+                $post_type_obj = get_post_type_object($item->post_type);
+                return $post_type_obj ? $post_type_obj->labels->singular_name : $item->post_type;
             case 'status':
-                return get_field($column_name, $item->ID); // Pobieramy wartość z ACF
+                // Klucze pól statusu dla różnych CPT
+                $status_field_key = '';
+                if ($item->post_type === 'quote') $status_field_key = 'quote_status';
+                // Dodaj inne CPT jeśli mają status, np. 'contract_status'
+                
+                return $status_field_key ? get_field($status_field_key, $item->ID) : '—';
             case 'date':
                 return $item->post_date;
             default:
@@ -80,7 +90,12 @@ class WPMZF_Documents_List_Table extends WP_List_Table {
      * Dedykowana metoda dla kolumny powiązanego klienta.
      */
     function column_related_client($item) {
-        $client_id = get_field('klient', $item->ID); // Zakładając, że pole relacji nazywa się 'klient'
+        // Klucze pól relacji dla różnych CPT
+        $relation_field_key = '';
+        if ($item->post_type === 'quote') $relation_field_key = 'quote_company';
+        if ($item->post_type === 'contract') $relation_field_key = 'contract_company'; // Założenie nazwy pola
+        
+        $client_id = get_field($relation_field_key, $item->ID); 
         if ($client_id) {
             // W ACF pole relacji może być pojedynczym ID lub tablicą ID
             $client_id = is_array($client_id) ? $client_id[0] : $client_id;
@@ -109,9 +124,18 @@ class WPMZF_Documents_List_Table extends WP_List_Table {
 
         // Pobieramy dane z bazy
         $args = [
-            'post_type' => ['oferta', 'umowa', 'dokument'], // Zmień na swoje CPT dokumentów!
+            'post_type' => ['quote', 'contract'], // Używamy poprawnych slugów CPT
             'posts_per_page' => 20, // Paginacja
+            'orderby' => isset($_GET['orderby']) ? sanitize_key($_GET['orderby']) : 'date',
+            'order' => isset($_GET['order']) ? strtoupper(sanitize_key($_GET['order'])) : 'DESC',
         ];
+
+        // Sortowanie po polach meta (status, typ)
+        if (in_array($args['orderby'], ['doc_type', 'status'])) {
+            $args['meta_key'] = $args['orderby'] === 'doc_type' ? 'post_type' : ($args['orderby'] === 'status' ? 'quote_status' : ''); // Uproszczenie, wymaga rozbudowy dla wielu statusów
+            $args['orderby'] = 'meta_value';
+        }
+
 
         $query = new WP_Query($args);
         $this->items = $query->posts;

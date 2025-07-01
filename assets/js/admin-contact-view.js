@@ -486,31 +486,25 @@ jQuery(document).ready(function ($) {
 		viewMode.show();
 	});
 
-	editMode.on('submit', 'form', function (e) {
+	editMode.find('form').on('submit', function (e) {
 		e.preventDefault();
 		const form = $(this);
-		const spinner = form.find('.spinner');
 		const submitButton = form.find('button[type="submit"]');
+		const spinner = form.find('.spinner');
 
 		spinner.addClass('is-active');
 		submitButton.prop('disabled', true);
 
-		const formData = {
-			action: 'wpmzf_update_contact_details',
-			security: securityNonce,
-			contact_id: contactId,
-			contact_name: form.find('#contact_name').val(),
-			contact_position: form.find('#contact_position').val(),
-			contact_email: form.find('#contact_email').val(),
-			contact_phone: form.find('#contact_phone').val(),
-			contact_company: $('#company_search_select').val(),
-			contact_street: form.find('#contact_street').val(),
-			contact_postal_code: form.find('#contact_postal_code').val(),
-			contact_city: form.find('#contact_city').val(),
-			contact_status: form.find('#contact_status').val(),
-		};
+		// Serializacja danych formularza do obiektu
+		const formData = form.serializeArray().reduce(function (obj, item) {
+			obj[item.name] = item.value;
+			return obj;
+		}, {});
 
-		console.log('Form data to submit:', formData);
+		// Dodanie wymaganych danych do zapytania AJAX
+		formData.action = 'wpmzf_update_contact_details';
+		formData.security = securityNonce;
+		formData.contact_id = contactId;
 
 		$.post(ajaxurl, formData)
 			.done(function (response) {
