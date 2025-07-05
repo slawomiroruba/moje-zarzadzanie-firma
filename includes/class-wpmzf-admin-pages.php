@@ -6,12 +6,12 @@ class WPMZF_Admin_Pages
     public function __construct()
     {
         add_action('admin_menu', array($this, 'add_plugin_admin_menu'));
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_contact_view_scripts'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_person_view_scripts'));
     }
-    public function enqueue_contact_view_scripts($hook)
+    public function enqueue_person_view_scripts($hook)
     {
         // Hook dla strony dodanej przez add_submenu_page z parent_slug=null to 'admin_page_{page_slug}'.
-        if ('admin_page_wpmzf_contact_view' === $hook) {
+        if ('admin_page_wpmzf_person_view' === $hook) {
             // Włączamy skrypty i style ACF, aby pole 'relationship' działało poprawnie.
             acf_enqueue_scripts();
         }
@@ -42,25 +42,25 @@ class WPMZF_Admin_Pages
             'wpmzf_documents',                // Slug tej pod-strony
             array($this, 'render_documents_page') // Funkcja renderująca
         );
-        // Dodajemy pod-stronę do zarządzania kontaktami
+        // Dodajemy pod-stronę do zarządzania osobami
         add_submenu_page(
             'wpmzf_dashboard',                // Slug strony nadrzędnej
-            'Zarządzanie Kontaktami',         // Tytuł strony
-            'Kontakty',                       // Nazwa w menu
+            'Zarządzanie Osobami',         // Tytuł strony
+            'Osoby',                       // Nazwa w menu
             'manage_options',                 // Uprawnienia
-            'wpmzf_contacts',                 // Slug tej pod-strony
-            array($this, 'render_contacts_page') // Funkcja renderująca
+            'wpmzf_persons',                 // Slug tej pod-strony
+            array($this, 'render_persons_page') // Funkcja renderująca
         );
 
-        // Rejestrujemy "ukrytą" stronę do widoku pojedynczego kontaktu.
+        // Rejestrujemy "ukrytą" stronę do widoku pojedynczej osoby.
         // `parent_slug` jako null ukrywa ją z menu.
         add_submenu_page(
-            null,                             // Brak rodzica w menu
-            'Widok Kontaktu',                 // Tytuł strony
-            'Widok Kontaktu',                 // Nazwa w menu
-            'manage_options',
-            'wpmzf_contact_view',             // Slug
-            array($this, 'render_single_contact_page') // Funkcja renderująca
+            '',                          // Brak rodzica w menu (ukryta)
+            'Widok Osoby',               // page_title – tytuł w <title> i nagłówku
+            'Widok Osoby',               // menu_title – nazwa w menu (choć tu niewidoczna)
+            'manage_options',            // wymagane uprawnienia
+            'wpmzf_person_view',         // slug
+            array($this, 'render_single_person_page') // callback renderujący
         );
     }
 
@@ -81,22 +81,22 @@ class WPMZF_Admin_Pages
      */
     function column_name($item)
     {
-        // Zbuduj URL do strony widoku pojedynczego kontaktu (teczki)
+        // Zbuduj URL do strony widoku pojedynczej osoby (teczki)
         $view_link = add_query_arg(
             [
-                'page'       => 'wpmzf_contact_view',
-                'contact_id' => $item['id'],
+                'page'       => 'wpmzf_person_view',
+                'person_id' => $item['id'],
             ],
             admin_url('admin.php')
         );
 
         // Zbuduj link do archiwizacji z zabezpieczeniem nonce
-        $archive_nonce = wp_create_nonce('wpmzf_archive_contact_' . $item['id']);
+        $archive_nonce = wp_create_nonce('wpmzf_archive_person_' . $item['id']);
         $archive_link = add_query_arg(
             [
-                'page'    => 'wpmzf_contacts',
+                'page'    => 'wpmzf_persons',
                 'action'  => 'archive',
-                'contact' => $item['id'],
+                'person' => $item['id'],
                 '_wpnonce' => $archive_nonce,
             ],
             admin_url('admin.php')
@@ -106,10 +106,10 @@ class WPMZF_Admin_Pages
         $actions = [
             'view'    => sprintf('<a href="%s">Otwórz teczkę</a>', esc_url($view_link)),
             'edit'    => sprintf('<a href="%s">Edytuj (WP)</a>', get_edit_post_link($item['id'])),
-            'archive' => sprintf('<a href="%s" style="color:#a00;" onclick="return confirm(\'Czy na pewno chcesz zarchiwizować ten kontakt?\')">Archiwizuj</a>', esc_url($archive_link)),
+            'archive' => sprintf('<a href="%s" style="color:#a00;" onclick="return confirm(\'Czy na pewno chcesz zarchiwizować tą osobę?\')">Archiwizuj</a>', esc_url($archive_link)),
         ];
 
-        // Stwórz główny link dla nazwy kontaktu
+        // Stwórz główny link dla nazwy osoby
         $title = sprintf(
             '<a class="row-title" href="%s"><strong>%s</strong></a>',
             esc_url($view_link),
@@ -118,6 +118,27 @@ class WPMZF_Admin_Pages
 
         // Zwróć tytuł (link) wraz z akcjami
         return $title . $this->row_actions($actions);
+    }
+
+    /**
+     * Renderuje akcje wiersza w stylu WordPressa.
+     *
+     * @param array $actions Tablica akcji (slug => HTML link).
+     * @return string HTML z akcjami.
+     */
+    protected function row_actions($actions)
+    {
+        if (empty($actions)) {
+            return '';
+        }
+        $out = '<div class="row-actions">';
+        $action_links = [];
+        foreach ($actions as $action => $link) {
+            $action_links[] = sprintf('<span class="%s">%s</span>', esc_attr($action), $link);
+        }
+        $out .= implode(' | ', $action_links);
+        $out .= '</div>';
+        return $out;
     }
 
     /**
@@ -150,28 +171,28 @@ class WPMZF_Admin_Pages
 
     // W klasie WPMZF_Admin_Pages
 
-    public function render_contacts_page()
+    public function render_persons_page()
     {
         // Stwórz instancję i przygotuj dane tabeli
-        $contacts_table = new WPMZF_Contacts_List_Table();
-        $contacts_table->prepare_items();
+        $persons_table = new WPMZF_persons_List_Table();
+        $persons_table->prepare_items();
 
         // --- Logika statystyk ---
 
-        $base_url = admin_url('admin.php?page=wpmzf_contacts');
+        $base_url = admin_url('admin.php?page=wpmzf_persons');
 
         // --- Statystyka "Wszystkie" ---
-        $all_contacts_query = new WP_Query([
-            'post_type'      => 'contact',
+        $all_persons_query = new WP_Query([
+            'post_type'      => 'person',
             'posts_per_page' => -1,
             'fields'         => 'ids',
             'meta_query'     => [
                 'relation' => 'OR',
-                ['key' => 'contact_status', 'value' => 'Zarchiwizowany', 'compare' => '!='],
-                ['key' => 'contact_status', 'compare' => 'NOT EXISTS']
+                ['key' => 'person_status', 'value' => 'Zarchiwizowany', 'compare' => '!='],
+                ['key' => 'person_status', 'compare' => 'NOT EXISTS']
             ]
         ]);
-        $all_count = $all_contacts_query->found_posts;
+        $all_count = $all_persons_query->found_posts;
 
         // --- Statystyka dzienna ---
         $current_day_str = $_GET['stat_day'] ?? current_time('Y-m-d');
@@ -180,7 +201,7 @@ class WPMZF_Admin_Pages
         $next_day_url = add_query_arg('stat_day', (clone $current_day_dt)->modify('+1 day')->format('Y-m-d'), $base_url);
 
         $daily_query = new WP_Query([
-            'post_type' => 'contact',
+            'post_type' => 'person',
             'posts_per_page' => -1,
             'fields' => 'ids',
             'date_query' => [['year'  => $current_day_dt->format('Y'), 'month' => $current_day_dt->format('m'), 'day'   => $current_day_dt->format('d')]]
@@ -198,7 +219,7 @@ class WPMZF_Admin_Pages
         $next_week_url = add_query_arg(['stat_week' => $next_week_dt->format('W'), 'stat_year_w' => $next_week_dt->format('Y')], $base_url);
 
         $weekly_query = new WP_Query([
-            'post_type' => 'contact',
+            'post_type' => 'person',
             'posts_per_page' => -1,
             'fields' => 'ids',
             'date_query' => [['year' => $current_year_w, 'week' => $current_week]]
@@ -215,7 +236,7 @@ class WPMZF_Admin_Pages
         $next_month_url = add_query_arg(['stat_month' => $next_month_dt->format('m'), 'stat_year_m' => $next_month_dt->format('Y')], $base_url);
 
         $monthly_query = new WP_Query([
-            'post_type' => 'contact',
+            'post_type' => 'person',
             'posts_per_page' => -1,
             'fields' => 'ids',
             'date_query' => [['year' => $current_year_m, 'month' => $current_month]]
@@ -296,9 +317,11 @@ class WPMZF_Admin_Pages
 
 
         <div class="wrap">
-            <h1 class="wp-heading-inline">Kontakty</h1>
-            <a href="#" class="page-title-action">Dodaj nowy kontakt</a>
-
+            <h1 class="wp-heading-inline">Osoby</h1>
+            <a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=person' ) ); ?>"
+            class="page-title-action">
+                Dodaj nową osobę
+            </a>
             <div id="wpmzf-stats-panel">
                 <div class="stat-box total">
                     <h3>Wszystkie aktywne</h3>
@@ -336,31 +359,34 @@ class WPMZF_Admin_Pages
             <form method="post">
                 <?php
                 // Wyświetl tabelę
-                $contacts_table->display();
+                $persons_table->display();
                 ?>
             </form>
         </div>
     <?php
     }
-    public function render_single_contact_page()
+    public function render_single_person_page()
     {
-        $contact_id = isset($_GET['contact_id']) ? intval($_GET['contact_id']) : 0;
-        if (!$contact_id || get_post_type($contact_id) !== 'contact') {
-            wp_die('Nieprawidłowy kontakt.');
+        global $title;
+        
+        $person_id = isset($_GET['person_id']) ? intval($_GET['person_id']) : 0;
+        if (!$person_id || get_post_type($person_id) !== 'person') {
+            wp_die('Nieprawidłowa osoba.');
         }
 
-        $contact_title = get_the_title($contact_id);
-        $contact_fields = get_fields($contact_id);
+        $person_title = get_the_title($person_id);
+        $title = 'Widok Osoby: ' . $person_title; // Ustawiamy globalny tytuł strony
+        $person_fields = get_fields($person_id);
 
         // Inicjalizujemy zmienne firmy, aby uniknąć błędów
         $company_id = null;
         $company_title = '';
 
-        error_log('Contact fields: ' . print_r($contact_fields, true));
+        // error_log('person fields: ' . print_r($person_fields, true)); // Debug - usunięte
 
-        if (!empty($contact_fields['contact_company']) && is_array($contact_fields['contact_company'])) {
-            // Zakładając, że contact_company przechowuje tablicę ID postów firm
-            foreach ($contact_fields['contact_company'] as $company_id_item) {
+        if (!empty($person_fields['person_company']) && is_array($person_fields['person_company'])) {
+            // Zakładając, że person_company przechowuje tablicę ID postów firm
+            foreach ($person_fields['person_company'] as $company_id_item) {
             $company_post = get_post($company_id_item);
             if ($company_post) {
                 $company_id = $company_post->ID;
@@ -372,7 +398,7 @@ class WPMZF_Admin_Pages
         }
     ?>
         <style>
-            /* Single Contact View Styles */
+            /* Single person View Styles */
             .dossier-grid {
                 display: grid;
                 grid-template-columns: 1fr 400px;
@@ -529,7 +555,7 @@ class WPMZF_Admin_Pages
         </style>
 
         <div class="wrap">
-            <h1><?php echo esc_html($contact_title); ?></h1>
+            <h1><?php echo esc_html($person_title); ?></h1>
 
             <div class="nav-tab-wrapper">
                 <a href="#" class="nav-tab nav-tab-active">Dane i Aktywności</a>
@@ -547,9 +573,9 @@ class WPMZF_Admin_Pages
                         </h2>
                         <div class="dossier-content">
                             <div class="view-mode">
-                                <p><strong>Imię i nazwisko:</strong> <span data-field="contact_name"><?php echo esc_html($contact_title); ?></span></p>
-                                <p><strong>Stanowisko:</strong> <span data-field="contact_position"><?php echo esc_html($contact_fields['contact_position'] ?? 'Brak'); ?></span></p>
-                                <p><strong>Firma:</strong> <span data-field="contact_company">
+                                <p><strong>Imię i nazwisko:</strong> <span data-field="person_name"><?php echo esc_html($person_title); ?></span></p>
+                                <p><strong>Stanowisko:</strong> <span data-field="person_position"><?php echo esc_html((string)($person_fields['person_position'] ?? 'Brak')); ?></span></p>
+                                <p><strong>Firma:</strong> <span data-field="person_company">
                                         <?php
                                         if ($company_id) {
                                             printf('<a href="%s">%s</a>', esc_url(get_edit_post_link($company_id)), esc_html(get_the_title($company_id)));
@@ -558,74 +584,74 @@ class WPMZF_Admin_Pages
                                         }
                                         ?>
                                     </span></p>
-                                <p><strong>Email:</strong> <a data-field="contact_email" href="mailto:<?php echo esc_attr($contact_fields['contact_email'] ?? ''); ?>"><?php echo esc_html($contact_fields['contact_email'] ?? 'Brak'); ?></a></p>
-                                <p><strong>Telefon:</strong> <span data-field="contact_phone"><?php echo esc_html($contact_fields['contact_phone'] ?? 'Brak'); ?></span></p>
-                                <p><strong>Adres:</strong> <span data-field="contact_address"><?php
-                                $address_group = $contact_fields['contact_address'] ?? [];
+                                <p><strong>Email:</strong> <a data-field="person_email" href="mailto:<?php echo esc_attr((string)($person_fields['person_email'] ?? '')); ?>"><?php echo esc_html((string)($person_fields['person_email'] ?? 'Brak')); ?></a></p>
+                                <p><strong>Telefon:</strong> <span data-field="person_phone"><?php echo esc_html((string)($person_fields['person_phone'] ?? 'Brak')); ?></span></p>
+                                <p><strong>Adres:</strong> <span data-field="person_address"><?php
+                                $address_group = is_array($person_fields['person_address'] ?? null) ? $person_fields['person_address'] : [];
                                 $address_parts = [
-                                    $address_group['street'] ?? '',
-                                    $address_group['zip_code'] ?? '',
-                                    $address_group['city'] ?? ''
+                                    (string)($address_group['street'] ?? ''),
+                                    (string)($address_group['zip_code'] ?? ''),
+                                    (string)($address_group['city'] ?? '')
                                 ];
                                 $address = implode(', ', array_filter($address_parts));
                                 echo esc_html($address ?: 'Brak');
                                 ?></span></p>
-                                <p><strong>Status:</strong> <span data-field="contact_status">
+                                <p><strong>Status:</strong> <span data-field="person_status">
                                     <?php
                                     $status_labels = [
                                         'active' => 'Aktywny',
                                         'inactive' => 'Nieaktywny',
                                         'archived' => 'Zarchiwizowany',
                                     ];
-                                    echo esc_html($status_labels[$contact_fields['contact_status']] ?? 'Brak');
+                                    echo esc_html($status_labels[(string)($person_fields['person_status'] ?? '')] ?? 'Brak');
                                     ?>
                                 </span></p>
                             </div>
                             <div class="edit-form">
                                 <form>
-                                    <label for="contact_name">Imię i nazwisko:</label>
-                                    <input type="text" id="contact_name" name="contact_name" value="<?php echo esc_attr($contact_title); ?>" required>
+                                    <label for="person_name">Imię i nazwisko:</label>
+                                    <input type="text" id="person_name" name="person_name" value="<?php echo esc_attr($person_title); ?>" required>
 
-                                    <label for="contact_position">Stanowisko:</label>
-                                    <input type="text" id="contact_position" name="contact_position" value="<?php echo esc_attr($contact_fields['contact_position'] ?? ''); ?>">
+                                    <label for="person_position">Stanowisko:</label>
+                                    <input type="text" id="person_position" name="person_position" value="<?php echo esc_attr((string)($person_fields['person_position'] ?? '')); ?>">
 
                                     <div class="form-row">
                                         <div class="form-group">
-                                            <label for="contact_email">Email:</label>
-                                            <input type="email" id="contact_email" name="contact_email" value="<?php echo esc_attr($contact_fields['contact_email'] ?? ''); ?>">
+                                            <label for="person_email">Email:</label>
+                                            <input type="email" id="person_email" name="person_email" value="<?php echo esc_attr((string)($person_fields['person_email'] ?? '')); ?>">
                                         </div>
                                         <div class="form-group">
-                                            <label for="contact_phone">Telefon:</label>
-                                            <input type="text" id="contact_phone" name="contact_phone" value="<?php echo esc_attr($contact_fields['contact_phone'] ?? ''); ?>">
+                                            <label for="person_phone">Telefon:</label>
+                                            <input type="text" id="person_phone" name="person_phone" value="<?php echo esc_attr((string)($person_fields['person_phone'] ?? '')); ?>">
                                         </div>
                                     </div>
 
                                     <label for="company_search_select">Firma:</label>
-                                    <select id="company_search_select" name="contact_company" style="width: 100%;">
+                                    <select id="company_search_select" name="person_company" style="width: 100%;">
                                         <?php if ($company_id && $company_title) : ?>
                                             <option value="<?php echo esc_attr($company_id); ?>" selected="selected"><?php echo esc_html($company_title); ?></option>
                                         <?php endif; ?>
                                     </select>
 
-                                    <label for="contact_street">Ulica i nr:</label>
-                                    <input type="text" id="contact_street" name="contact_street" value="<?php echo esc_attr($contact_fields['contact_street'] ?? ''); ?>">
+                                    <label for="person_street">Ulica i nr:</label>
+                                    <input type="text" id="person_street" name="person_street" value="<?php echo esc_attr((string)($person_fields['person_street'] ?? '')); ?>">
 
                                     <div class="form-row">
                                         <div class="form-group">
-                                            <label for="contact_postal_code">Kod pocztowy:</label>
-                                            <input type="text" id="contact_postal_code" name="contact_postal_code" value="<?php echo esc_attr($contact_fields['contact_postal_code'] ?? ''); ?>">
+                                            <label for="person_postal_code">Kod pocztowy:</label>
+                                            <input type="text" id="person_postal_code" name="person_postal_code" value="<?php echo esc_attr((string)($person_fields['person_postal_code'] ?? '')); ?>">
                                         </div>
                                         <div class="form-group">
-                                            <label for="contact_city">Miasto:</label>
-                                            <input type="text" id="contact_city" name="contact_city" value="<?php echo esc_attr($contact_fields['contact_city'] ?? ''); ?>">
+                                            <label for="person_city">Miasto:</label>
+                                            <input type="text" id="person_city" name="person_city" value="<?php echo esc_attr((string)($person_fields['person_city'] ?? '')); ?>">
                                         </div>
                                     </div>
 
-                                    <label for="contact_status">Status:</label>
-                                    <select id="contact_status" name="contact_status">
-                                        <option value="active" <?php selected($contact_fields['contact_status'], 'active'); ?>>Aktywny</option>
-                                        <option value="inactive" <?php selected($contact_fields['contact_status'], 'inactive'); ?>>Nieaktywny</option>
-                                        <option value="archived" <?php selected($contact_fields['contact_status'], 'archived'); ?>>Zarchiwizowany</option>
+                                    <label for="person_status">Status:</label>
+                                    <select id="person_status" name="person_status">
+                                        <option value="active" <?php selected((string)($person_fields['person_status'] ?? ''), 'active'); ?>>Aktywny</option>
+                                        <option value="inactive" <?php selected((string)($person_fields['person_status'] ?? ''), 'inactive'); ?>>Nieaktywny</option>
+                                        <option value="archived" <?php selected((string)($person_fields['person_status'] ?? ''), 'archived'); ?>>Zarchiwizowany</option>
                                     </select>
 
                                     <div class="edit-actions">
@@ -666,8 +692,8 @@ class WPMZF_Admin_Pages
                         <h2 class="dossier-title">Nowa Aktywność</h2>
                         <div class="dossier-content">
                             <form id="wpmzf-add-activity-form" method="post" enctype="multipart/form-data">
-                                <?php wp_nonce_field('wpmzf_contact_view_nonce', 'wpmzf_security'); ?>
-                                <input type="hidden" name="contact_id" value="<?php echo esc_attr($contact_id); ?>">
+                                <?php wp_nonce_field('wpmzf_person_view_nonce', 'wpmzf_security'); ?>
+                                <input type="hidden" name="person_id" value="<?php echo esc_attr($person_id); ?>">
 
                                 <input type="file" id="wpmzf-activity-files-input" name="activity_files[]" multiple style="display: none;">
 

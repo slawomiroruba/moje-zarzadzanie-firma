@@ -3,12 +3,12 @@ if (!class_exists('WP_List_Table')) {
     require_once(ABSPATH . 'wp-admin/includes/class-wp-list-table.php');
 }
 
-class WPMZF_Contacts_List_Table extends WP_List_Table {
+class WPMZF_persons_List_Table extends WP_List_Table {
 
     public function __construct() {
         parent::__construct([
-            'singular' => 'Kontakt',
-            'plural'   => 'Kontakty',
+            'singular' => 'Osoba',
+            'plural'   => 'Osoby',
             'ajax'     => false
         ]);
     }
@@ -44,9 +44,9 @@ class WPMZF_Contacts_List_Table extends WP_List_Table {
     function column_default($item, $column_name) {
         switch ($column_name) {
             case 'email':
-                return get_field('contact_email', $item->ID);
+                return get_field('person_email', $item->ID);
             case 'phone':
-                 return get_field('contact_phone', $item->ID);
+                 return get_field('person_phone', $item->ID);
             case 'date':
                 return get_the_date('Y-m-d H:i', $item->ID);
             default:
@@ -56,7 +56,7 @@ class WPMZF_Contacts_List_Table extends WP_List_Table {
     
     // Specjalna metoda dla kolumny z imieniem i nazwiskiem
     function column_full_name($item) {
-        $company_id = get_field('contact_company', $item->ID);
+        $company_id = get_field('person_company', $item->ID);
         $company_name = $company_id ? get_the_title($company_id[0]) : '';
         
         $full_name = '<strong>' . $item->post_title . '</strong>';
@@ -65,11 +65,11 @@ class WPMZF_Contacts_List_Table extends WP_List_Table {
         }
 
         // Linki akcji (View, Edit, Archive...)
-        $view_link = sprintf('?page=wpmzf_contact_view&contact_id=%s', $item->ID);
+        $view_link = sprintf('?page=wpmzf_person_view&person_id=%s', $item->ID);
         $actions = [
             'view'    => '<a href="' . $view_link . '">Zobacz teczkę</a>',
-            'archive' => '<a href="?page=' . $_REQUEST['page'] . '&action=archive&contact=' . $item->ID . '">Archiwizuj</a>',
-            'delete'  => '<a href="?page=' . $_REQUEST['page'] . '&action=delete&contact=' . $item->ID . '" class="submitdelete">Usuń</a>'
+            'archive' => '<a href="?page=' . $_REQUEST['page'] . '&action=archive&person=' . $item->ID . '">Archiwizuj</a>',
+            'delete'  => '<a href="?page=' . $_REQUEST['page'] . '&action=delete&person=' . $item->ID . '" class="submitdelete">Usuń</a>'
         ];
 
         return $full_name . $this->row_actions($actions);
@@ -122,7 +122,7 @@ class WPMZF_Contacts_List_Table extends WP_List_Table {
             $post_ids = esc_sql($_POST['bulk-action']);
             foreach ($post_ids as $post_id) {
                 // Używamy funkcji ACF do aktualizacji pola
-                update_field('contact_status', 'Zarchiwizowany', $post_id);
+                update_field('person_status', 'Zarchiwizowany', $post_id);
             }
         }
     }
@@ -137,7 +137,7 @@ class WPMZF_Contacts_List_Table extends WP_List_Table {
         $current_page = $this->get_pagenum();
         
         $args = [
-            'post_type'      => 'contact',
+            'post_type'      => 'person',
             'posts_per_page' => $per_page,
             'paged'          => $current_page,
             'orderby'        => isset($_GET['orderby']) ? sanitize_key($_GET['orderby']) : 'date',
@@ -146,12 +146,12 @@ class WPMZF_Contacts_List_Table extends WP_List_Table {
             'meta_query'     => [
                 'relation' => 'OR',
                 [
-                    'key'     => 'contact_status',
+                    'key'     => 'person_status',
                     'value'   => 'Zarchiwizowany',
                     'compare' => '!='
                 ],
                 [
-                    'key'     => 'contact_status',
+                    'key'     => 'person_status',
                     'compare' => 'NOT EXISTS'
                 ]
             ]
@@ -160,7 +160,7 @@ class WPMZF_Contacts_List_Table extends WP_List_Table {
         // Dodajemy filtr firmy, jeśli został wybrany
         if (!empty($_GET['company_filter'])) {
             $args['meta_query'][] = [
-                'key' => 'contact_company', // Nazwa pola relacji ACF
+                'key' => 'person_company', // Nazwa pola relacji ACF
                 'value' => '"' . intval($_GET['company_filter']) . '"',
                 'compare' => 'LIKE'
             ];

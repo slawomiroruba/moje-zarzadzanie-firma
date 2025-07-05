@@ -10,7 +10,7 @@ class WPMZF_ACF_Fields
     {
         // Używamy hooka 'acf/include_fields', który jest dedykowany do rejestracji pól w kodzie.
         add_action('acf/include_fields', array($this, 'register_all_field_groups'));
-        add_filter('acf/fields/relationship/query/key=field_wpmzf_contact_company_relation', array($this, 'extend_company_relationship_search'), 10, 3);
+        add_filter('acf/fields/relationship/query/key=field_wpmzf_person_company_relation', array($this, 'extend_company_relationship_search'), 10, 3);
     }
 
     /**
@@ -38,7 +38,7 @@ class WPMZF_ACF_Fields
     {
         // Wywołujemy po kolei metody definiujące pola dla każdego CPT
         $this->define_company_fields();
-        $this->define_contact_fields();
+        $this->define_person_fields();
         $this->define_opportunity_fields();
         $this->define_quote_fields();
         $this->define_project_fields();
@@ -82,16 +82,16 @@ class WPMZF_ACF_Fields
         ));
     }
 
-    private function define_contact_fields()
+    private function define_person_fields()
     {
         acf_add_local_field_group(array(
-            'key'      => 'group_wpmzf_contact',
-            'title'    => 'Dane Kontaktu',
+            'key'      => 'group_wpmzf_person',
+            'title'    => 'Dane Osoby',
             'fields'   => array(
                 array(
-                    'key'           => 'field_wpmzf_contact_status',
+                    'key'           => 'field_wpmzf_person_status',
                     'label'         => 'Status',
-                    'name'          => 'contact_status',
+                    'name'          => 'person_status',
                     'type'          => 'select',
                     'choices'       => array(
                         'Aktywny'   => 'Aktywny',
@@ -101,38 +101,38 @@ class WPMZF_ACF_Fields
                     'default_value' => 'Aktywny',
                 ),
                 array(
-                    'key'   => 'field_wpmzf_contact_position',
+                    'key'   => 'field_wpmzf_person_position',
                     'label' => 'Stanowisko',
-                    'name'  => 'contact_position',
+                    'name'  => 'person_position',
                     'type'  => 'text',
                 ),
                 array(
-                    'key'   => 'field_wpmzf_contact_email',
+                    'key'   => 'field_wpmzf_person_email',
                     'label' => 'Adres e-mail',
-                    'name'  => 'contact_email',
+                    'name'  => 'person_email',
                     'type'  => 'email',
                 ),
                 array(
-                    'key'   => 'field_wpmzf_contact_phone',
+                    'key'   => 'field_wpmzf_person_phone',
                     'label' => 'Numer telefonu',
-                    'name'  => 'contact_phone',
+                    'name'  => 'person_phone',
                     'type'  => 'text',
                 ),
                 array(
-                    'key'        => 'field_wpmzf_contact_address_group',
+                    'key'        => 'field_wpmzf_person_address_group',
                     'label'      => 'Adres',
-                    'name'       => 'contact_address',
+                    'name'       => 'person_address',
                     'type'       => 'group',
                     'sub_fields' => array(
-                        array('key' => 'field_wpmzf_contact_street', 'label' => 'Ulica i numer', 'name' => 'street', 'type' => 'text'),
-                        array('key' => 'field_wpmzf_contact_zip', 'label' => 'Kod pocztowy', 'name' => 'zip_code', 'type' => 'text'),
-                        array('key' => 'field_wpmzf_contact_city', 'label' => 'Miasto', 'name' => 'city', 'type' => 'text'),
+                        array('key' => 'field_wpmzf_person_street', 'label' => 'Ulica i numer', 'name' => 'street', 'type' => 'text'),
+                        array('key' => 'field_wpmzf_person_zip', 'label' => 'Kod pocztowy', 'name' => 'zip_code', 'type' => 'text'),
+                        array('key' => 'field_wpmzf_person_city', 'label' => 'Miasto', 'name' => 'city', 'type' => 'text'),
                     ),
                 ),
                 array(
-                    'key'       => 'field_wpmzf_contact_company_relation',
+                    'key'       => 'field_wpmzf_person_company_relation',
                     'label'     => 'Powiązana Firma',
-                    'name'      => 'contact_company',
+                    'name'      => 'person_company',
                     'type'      => 'relationship',
                     'post_type' => array('company'),
                     'filters'   => array('search'),
@@ -144,7 +144,7 @@ class WPMZF_ACF_Fields
                     array(
                         'param'    => 'post_type',
                         'operator' => '==',
-                        'value'    => 'contact',
+                        'value'    => 'person',
                     ),
                 ),
             ),
@@ -308,13 +308,13 @@ class WPMZF_ACF_Fields
                         ),
                     ),
                 ),
-                // Kluczowe pole do powiązania aktywności z kontaktem
+                // Kluczowe pole do powiązania aktywności z osobą
                 array(
-                    'key' => 'field_wpmzf_activity_related_contact',
-                    'label' => 'Powiązany Kontakt',
-                    'name' => 'related_contact',
+                    'key' => 'field_wpmzf_activity_related_person',
+                    'label' => 'Powiązana osoba',
+                    'name' => 'related_person',
                     'type' => 'relationship',
-                    'post_type' => array('contact'),
+                    'post_type' => array('person'),
                     'max' => 1,
                     'required' => 1,
                 ),

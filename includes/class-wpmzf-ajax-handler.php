@@ -7,7 +7,7 @@ class WPMZF_Ajax_Handler
     {
         // Hook do dodawania nowej aktywności
         add_action('wp_ajax_add_wpmzf_activity', array($this, 'add_activity'));
-        // Hook do pobierania listy aktywności dla kontaktu
+        // Hook do pobierania listy aktywności dla osoby
         add_action('wp_ajax_get_wpmzf_activities', array($this, 'get_activities'));
         // Hook do uploadu załączników
         add_action('wp_ajax_wpmzf_upload_attachment', array($this, 'upload_attachment'));
@@ -17,8 +17,8 @@ class WPMZF_Ajax_Handler
         add_action('wp_ajax_update_wpmzf_activity', array($this, 'update_activity'));
         // Hook do usuwania pojedynczego załącznika
         add_action('wp_ajax_delete_wpmzf_attachment', array($this, 'delete_attachment'));
-        // Hook do aktualizacji danych kontaktu
-        add_action('wp_ajax_wpmzf_update_contact_details', array($this, 'update_contact_details'));
+        // Hook do aktualizacji danych osoby
+        add_action('wp_ajax_wpmzf_update_person_details', array($this, 'update_person_details'));
         // Rejestracja punktu końcowego dla zalogowanych użytkowników
         add_action('wp_ajax_wpmzf_search_companies',  array($this, 'wpmzf_search_companies_ajax_handler'));
         // Rejestracja punktu końcowego dla niezalogowanych użytkowników
@@ -31,7 +31,7 @@ class WPMZF_Ajax_Handler
     public function wpmzf_search_companies_ajax_handler()
     {
         // Bezpieczeństwo: sprawdzanie nonca
-        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
 
         // Pobranie i zwalidowanie terminu wyszukiwania
         $search_term = isset($_REQUEST['term']) ? sanitize_text_field(wp_unslash($_REQUEST['term'])) : '';
@@ -105,22 +105,22 @@ class WPMZF_Ajax_Handler
     public function add_activity()
     {
         // 1. Bezpieczeństwo
-        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
 
         // 2. Walidacja i sanitazyacja danych
-        $contact_id = isset($_POST['contact_id']) ? intval($_POST['contact_id']) : 0;
+        $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
         $content = isset($_POST['content']) ? wp_kses_post($_POST['content']) : '';
         $activity_type = isset($_POST['activity_type']) ? sanitize_text_field($_POST['activity_type']) : 'note';
         $activity_date = isset($_POST['activity_date']) ? sanitize_text_field($_POST['activity_date']) : current_time('mysql');
 
-        if (!$contact_id || empty($content)) {
-            wp_send_json_error(array('message' => 'Brak wymaganych danych (ID kontaktu, treść).'));
+        if (!$person_id || empty($content)) {
+            wp_send_json_error(array('message' => 'Brak wymaganych danych (ID osoby, treść).'));
             return;
         }
 
         // 3. Tworzenie nowego posta typu 'activity'
         $activity_post = array(
-            'post_title'   => 'Aktywność dla ' . get_the_title($contact_id) . ' - ' . $activity_date,
+            'post_title'   => 'Aktywność dla ' . get_the_title($person_id) . ' - ' . $activity_date,
             'post_content' => $content,
             'post_status'  => 'publish',
             'post_author'  => get_current_user_id(),
@@ -133,7 +133,7 @@ class WPMZF_Ajax_Handler
         if ($activity_id && !is_wp_error($activity_id)) {
             update_field('field_wpmzf_activity_type', $activity_type, $activity_id);
             update_field('field_wpmzf_activity_date', $activity_date, $activity_id);
-            update_field('field_wpmzf_activity_related_contact', $contact_id, $activity_id);
+            update_field('field_wpmzf_activity_related_person', $person_id, $activity_id);
 
             // Pobieramy ID załączników przesłane przez AJAX z `$_POST['attachment_ids']`
             $attachment_ids = isset($_POST['attachment_ids']) && is_array($_POST['attachment_ids']) ? array_map('intval', $_POST['attachment_ids']) : [];
@@ -157,15 +157,15 @@ class WPMZF_Ajax_Handler
     }
 
     /**
-     * Logika pobierania aktywności dla danego kontaktu.
+     * Logika pobierania aktywności dla danej osoby.
      */
     public function get_activities()
     {
-        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
 
-        $contact_id = isset($_GET['contact_id']) ? intval($_GET['contact_id']) : 0;
-        if (!$contact_id) {
-            wp_send_json_error(['message' => 'Nieprawidłowe ID kontaktu.']);
+        $person_id = isset($_GET['person_id']) ? intval($_GET['person_id']) : 0;
+        if (!$person_id) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
             return;
         }
 
@@ -177,8 +177,8 @@ class WPMZF_Ajax_Handler
             'order' => 'DESC',
             'meta_query' => [
                 [
-                    'key' => 'related_contact',
-                    'value' => $contact_id,
+                    'key' => 'related_person',
+                    'value' => $person_id,
                     'compare' => '='
                 ]
             ]
@@ -249,7 +249,7 @@ class WPMZF_Ajax_Handler
      */
     public function upload_attachment()
     {
-        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
 
         if (empty($_FILES['file'])) {
             wp_send_json_error(['message' => 'Brak pliku do przesłania.']);
@@ -274,7 +274,7 @@ class WPMZF_Ajax_Handler
      */
     public function delete_activity()
     {
-        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
 
         $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
         if (!$activity_id || get_post_type($activity_id) !== 'activity') {
@@ -312,7 +312,7 @@ class WPMZF_Ajax_Handler
      */
     public function update_activity()
     {
-        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
 
         $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
         $content = isset($_POST['content']) ? wp_kses_post($_POST['content']) : '';
@@ -346,7 +346,7 @@ class WPMZF_Ajax_Handler
      */
     public function delete_attachment()
     {
-        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
 
         $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
         $attachment_id = isset($_POST['attachment_id']) ? intval($_POST['attachment_id']) : 0;
@@ -389,44 +389,44 @@ class WPMZF_Ajax_Handler
 
 
     /**
-     * Aktualizuje podstawowe dane kontaktu.
+     * Aktualizuje podstawowe dane osoby.
      */
-    public function update_contact_details()
+    public function update_person_details()
     {
-        check_ajax_referer('wpmzf_contact_view_nonce', 'security');
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
 
-        $contact_id = isset($_POST['contact_id']) ? intval($_POST['contact_id']) : 0;
+        $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
 
-        if (!$contact_id || get_post_type($contact_id) !== 'contact' || !current_user_can('edit_post', $contact_id)) {
-            wp_send_json_error(['message' => 'Brak uprawnień lub nieprawidłowe ID kontaktu.']);
+        if (!$person_id || get_post_type($person_id) !== 'person' || !current_user_can('edit_post', $person_id)) {
+            wp_send_json_error(['message' => 'Brak uprawnień lub nieprawidłowe ID osoby.']);
             return;
         }
 
         // Aktualizacja tytułu (Imię i Nazwisko)
-        if (isset($_POST['contact_name'])) {
-            $contact_name = sanitize_text_field($_POST['contact_name']);
-            if (!empty($contact_name)) {
-                wp_update_post(['ID' => $contact_id, 'post_title' => $contact_name]);
+        if (isset($_POST['person_name'])) {
+            $person_name = sanitize_text_field($_POST['person_name']);
+            if (!empty($person_name)) {
+                wp_update_post(['ID' => $person_id, 'post_title' => $person_name]);
             }
         }
 
         // 1. Aktualizacja prostych pól tekstowych i select
         $simple_fields = [
-            'contact_position' => 'sanitize_text_field',
-            'contact_email'    => 'sanitize_email',
-            'contact_phone'    => 'sanitize_text_field',
-            'contact_status'   => 'sanitize_text_field',
+            'person_position' => 'sanitize_text_field',
+            'person_email'    => 'sanitize_email',
+            'person_phone'    => 'sanitize_text_field',
+            'person_status'   => 'sanitize_text_field',
         ];
 
         foreach ($simple_fields as $field_name => $sanitize_callback) {
             if (isset($_POST[$field_name])) {
                 $value = call_user_func($sanitize_callback, $_POST[$field_name]);
-                update_field($field_name, $value, $contact_id);
+                update_field($field_name, $value, $person_id);
             }
         }
 
         // Obsługa pola relacji z firmą
-        $company_data = isset($_POST['contact_company']) ? sanitize_text_field(wp_unslash($_POST['contact_company'])) : null;
+        $company_data = isset($_POST['person_company']) ? sanitize_text_field(wp_unslash($_POST['person_company'])) : null;
         $company_id_to_save = null;
 
         if (!empty($company_data)) {
@@ -459,29 +459,29 @@ class WPMZF_Ajax_Handler
             }
         }
 
-        // Teraz zapisujemy relację do kontaktu używając $company_id_to_save
-        // Zakładając, że pole relacji w ACF dla kontaktu ma klucz 'contact_company'
+        // Teraz zapisujemy relację do osoby używając $company_id_to_save
+        // Zakładając, że pole relacji w ACF dla osoby ma klucz 'person_company'
         if ($company_id_to_save) {
-            update_field('field_wpmzf_contact_company_relation', $company_id_to_save, $contact_id);
+            update_field('field_wpmzf_person_company_relation', $company_id_to_save, $person_id);
         } else {
             // Jeśli firma została usunięta z pola, czyścimy wartość
-            update_field('field_wpmzf_contact_company_relation', null, $contact_id);
+            update_field('field_wpmzf_person_company_relation', null, $person_id);
         }
 
         // 3. Specjalna obsługa grupy pól "Adres"
         $address_data = [];
         // Zbieramy dane adresu z POST i mapujemy na nazwy sub-pól z definicji ACF
-        if (isset($_POST['contact_street'])) {
-            $address_data['street'] = sanitize_text_field($_POST['contact_street']);
+        if (isset($_POST['person_street'])) {
+            $address_data['street'] = sanitize_text_field($_POST['person_street']);
         }
-        if (isset($_POST['contact_postal_code'])) {
-            $address_data['zip_code'] = sanitize_text_field($_POST['contact_postal_code']);
+        if (isset($_POST['person_postal_code'])) {
+            $address_data['zip_code'] = sanitize_text_field($_POST['person_postal_code']);
         }
-        if (isset($_POST['contact_city'])) {
-            $address_data['city'] = sanitize_text_field($_POST['contact_city']);
+        if (isset($_POST['person_city'])) {
+            $address_data['city'] = sanitize_text_field($_POST['person_city']);
         }
         // Aktualizujemy całą grupę na raz, przekazując tablicę z danymi.
-        update_field('contact_address', $address_data, $contact_id);
+        update_field('person_address', $address_data, $person_id);
 
         // Przygotuj dane zwrotne dla firmy
         $company_html = '';
@@ -490,7 +490,7 @@ class WPMZF_Ajax_Handler
         }
 
         wp_send_json_success([
-            'message' => 'Dane kontaktu zaktualizowane.',
+            'message' => 'Dane osoby zaktualizowane.',
             'company_html' => $company_html
         ]);
     }

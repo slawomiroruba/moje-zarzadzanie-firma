@@ -73,7 +73,7 @@ jQuery(document).ready(function ($) {
 
 jQuery(document).ready(function ($) {
 	// --- Zmienne ---
-	const contactId = $('input[name="contact_id"]').val();
+	const personId = $('input[name="person_id"]').val();
 	const securityNonce = $('#wpmzf_security').val();
 	const form = $('#wpmzf-add-activity-form');
 	const timelineContainer = $('#wpmzf-activity-timeline');
@@ -147,7 +147,7 @@ jQuery(document).ready(function ($) {
 			data: {
 				action: 'get_wpmzf_activities',
 				security: securityNonce,
-				contact_id: contactId
+				person_id: personId
 			},
 			success: function (response) {
 				if (response.success) {
@@ -322,7 +322,7 @@ jQuery(document).ready(function ($) {
 		const activityData = {
 			action: 'add_wpmzf_activity',
 			security: securityNonce,
-			contact_id: contactId,
+			person_id: personId,
 			content: $('#wpmzf-activity-content').val(),
 			activity_type: $('#wpmzf-activity-type').val(),
 			activity_date: dateField.val(),
@@ -460,7 +460,7 @@ jQuery(document).ready(function ($) {
 		});
 
 	});
-	// --- Edycja danych podstawowych kontaktu ---
+	// --- Edycja danych podstawowych osoby ---
 	const basicDataBox = $('#dossier-basic-data');
 	const viewMode = basicDataBox.find('.view-mode');
 	const editMode = basicDataBox.find('.edit-form');
@@ -496,18 +496,18 @@ jQuery(document).ready(function ($) {
 		submitButton.prop('disabled', true);
 
 		const formData = {
-			action: 'wpmzf_update_contact_details',
+			action: 'wpmzf_update_person_details',
 			security: securityNonce,
-			contact_id: contactId,
-			contact_name: form.find('#contact_name').val(),
-			contact_position: form.find('#contact_position').val(),
-			contact_email: form.find('#contact_email').val(),
-			contact_phone: form.find('#contact_phone').val(),
-			contact_company: $('#company_search_select').val(),
-			contact_street: form.find('#contact_street').val(),
-			contact_postal_code: form.find('#contact_postal_code').val(),
-			contact_city: form.find('#contact_city').val(),
-			contact_status: form.find('#contact_status').val(),
+			person_id: personId,
+			person_name: form.find('#person_name').val(),
+			person_position: form.find('#person_position').val(),
+			person_email: form.find('#person_email').val(),
+			person_phone: form.find('#person_phone').val(),
+			person_company: $('#company_search_select').val(),
+			person_street: form.find('#person_street').val(),
+			person_postal_code: form.find('#person_postal_code').val(),
+			person_city: form.find('#person_city').val(),
+			person_status: form.find('#person_status').val(),
 		};
 
 		console.log('Form data to submit:', formData);
@@ -516,30 +516,30 @@ jQuery(document).ready(function ($) {
 			.done(function (response) {
 				if (response.success) {
 					// Aktualizacja danych w trybie widoku
-					viewMode.find('span[data-field="contact_name"]').text(formData.contact_name);
-					$('h1.wp-heading-inline').text(formData.contact_name); // Aktualizacja głównego nagłówka
-					viewMode.find('span[data-field="contact_position"]').text(formData.contact_position || 'Brak');
+					viewMode.find('span[data-field="person_name"]').text(formData.person_name);
+					$('h1.wp-heading-inline').text(formData.person_name); // Aktualizacja głównego nagłówka
+					viewMode.find('span[data-field="person_position"]').text(formData.person_position || 'Brak');
 
 					// Aktualizacja firmy
-					const companySpan = viewMode.find('span[data-field="contact_company"]');
+					const companySpan = viewMode.find('span[data-field="person_company"]');
 					if (response.data.company_html) {
 						companySpan.html(response.data.company_html);
 					} else {
 						companySpan.text('Brak');
 					}
 
-					const emailLink = viewMode.find('a[data-field="contact_email"]');
-					emailLink.text(formData.contact_email || 'Brak');
-					emailLink.attr('href', 'mailto:' + formData.contact_email);
+					const emailLink = viewMode.find('a[data-field="person_email"]');
+					emailLink.text(formData.person_email || 'Brak');
+					emailLink.attr('href', 'mailto:' + formData.person_email);
 
-					viewMode.find('span[data-field="contact_phone"]').text(formData.contact_phone || 'Brak');
+					viewMode.find('span[data-field="person_phone"]').text(formData.person_phone || 'Brak');
 
-					const addressParts = [formData.contact_street, formData.contact_postal_code, formData.contact_city];
+					const addressParts = [formData.person_street, formData.person_postal_code, formData.person_city];
 					const address = addressParts.filter(Boolean).join(', ');
-					viewMode.find('span[data-field="contact_address"]').text(address || 'Brak');
+					viewMode.find('span[data-field="person_address"]').text(address || 'Brak');
 
-					const statusText = form.find('#contact_status option:selected').text();
-					viewMode.find('span[data-field="contact_status"]').text(statusText || 'Brak');
+					const statusText = form.find('#person_status option:selected').text();
+					viewMode.find('span[data-field="person_status"]').text(statusText || 'Brak');
 
 					// Przełączenie widoku
 					editMode.hide();

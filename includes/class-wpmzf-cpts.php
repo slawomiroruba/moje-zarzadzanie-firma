@@ -17,7 +17,7 @@ class WPMZF_CPTs {
         // --- MODUŁ 1: CRM i SPRZEDAŻ ---
 
         $this->register_single_cpt('company', 'Firma', 'Firmy', 'dashicons-businessperson', 20);
-        $this->register_single_cpt('contact', 'Kontakt', 'Kontakty', 'dashicons-admin-users', 21);
+        $this->register_single_cpt('person', 'Osoba', 'Osoby', 'dashicons-admin-users', 21);
         $this->register_single_cpt('opportunity', 'Szansa Sprzedaży', 'Szanse Sprzedaży', 'dashicons-chart-line', 22);
         $this->register_single_cpt('quote', 'Oferta', 'Oferty', 'dashicons-media-text', 23);
 
@@ -54,8 +54,7 @@ class WPMZF_CPTs {
      * @param int    $position      Pozycja w menu admina.
      * @param array  $supports      Tablica wspieranych pól (np. ['title', 'editor']).
      */
-    private function register_single_cpt($slug, $singular, $plural, $icon, $position, $supports = ['title', 'editor', 'custom-fields', 'thumbnail']) {
-        
+private function register_single_cpt($slug, $singular, $plural, $icon, $position, $supports = ['title', 'editor', 'custom-fields', 'thumbnail', 'comments']) {
         $labels = [
             'name'                  => $plural,
             'singular_name'         => $singular,
