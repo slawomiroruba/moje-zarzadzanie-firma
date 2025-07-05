@@ -1,5 +1,45 @@
 /* --- Nowe, ulepszone style dla widoku osoby --- */
 
+/* === DRAG & DROP OVERLAY === */
+.wpmzf-drag-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 123, 255, 0.1);
+    backdrop-filter: blur(2px);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.wpmzf-drag-overlay.active {
+    display: flex;
+}
+
+.wpmzf-drag-message {
+    background: rgba(0, 123, 255, 0.9);
+    color: white;
+    padding: 30px 40px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border: 2px dashed rgba(255, 255, 255, 0.5);
+}
+
+.wpmzf-drag-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+.wpmzf-drag-text {
+    font-size: 18px;
+    font-weight: 600;
+}
+
 /* --- Formularz dodawania aktywności --- */
 #wpmzf-add-activity-form {
     display: flex;
@@ -500,5 +540,53 @@
     }
     100% {
         opacity: 1;
+    }
+}
+
+/* === POWIADOMIENIA === */
+.wpmzf-notification {
+    position: relative;
+    animation: slideInDown 0.5s ease;
+    margin-bottom: 15px;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* === RESPONSYWNOŚĆ === */
+@media (max-width: 768px) {
+    .wpmzf-drag-message {
+        padding: 20px 25px;
+        margin: 20px;
+    }
+    
+    .wpmzf-drag-icon {
+        font-size: 36px;
+    }
+    
+    .wpmzf-drag-text {
+        font-size: 16px;
+    }
+    
+    .attachment-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .attachment-info {
+        width: 100%;
+    }
+    
+    .attachment-actions {
+        align-self: flex-end;
     }
 }

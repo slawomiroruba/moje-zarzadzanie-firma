@@ -84,7 +84,11 @@ jQuery(document).ready(function ($) {
 	const attachmentsPreviewContainer = $('#wpmzf-attachments-preview'); // Upewnij się, że ID jest poprawne
 
 	let filesToUpload = [];
-	let linkMetadataCache = new Map(); // Cache dla metadanych linków
+	let linkMetadataCache = new Map();
+
+	// Dodanie zmiennych dla drag & drop i clipboard
+	let dragDropEnabled = false;
+	let pendingUploads = new Set(); // Tracking pending uploads for cleanup
 
 	// --- Inicjalizacja ---
 	function setDefaultDateTime() {
@@ -261,6 +265,193 @@ jQuery(document).ready(function ($) {
 		$(this).val('');
 	});
 
+	// Obsługa usuwania załączników z podglądu
+	attachmentsPreviewContainer.on('click', '.remove-attachment', function () {
+		const index = $(this).closest('.attachment-item').data('file-index');
+		filesToUpload.splice(index, 1);
+		renderAttachmentsPreview();
+	});
+
+	// === FUNKCJONALNOŚĆ DRAG & DROP ===
+
+	// Inicjalizacja drag & drop na całej stronie
+	function initializeDragAndDrop() {
+		const $body = $('body');
+		const $addActivityForm = $('#wpmzf-add-activity-form');
+
+		// Dodaj overlay dla drag & drop
+		if (!$('#wpmzf-drag-overlay').length) {
+			$body.append(`
+				<div id="wpmzf-drag-overlay" class="wpmzf-drag-overlay">
+					<div class="wpmzf-drag-message">
+						<div class="wpmzf-drag-icon">📁</div>
+						<div class="wpmzf-drag-text">Upuść pliki tutaj, aby dodać do aktywności</div>
+					</div>
+				</div>
+			`);
+		}
+
+		// Zmienne dla śledzenia drag & drop
+		let dragCounter = 0;
+
+		// Obsługa dragenter na całej stronie
+		$body.on('dragenter', function (e) {
+			e.preventDefault();
+			dragCounter++;
+
+			// Sprawdź czy przeciągane są pliki
+			if (e.originalEvent.dataTransfer.types.includes('Files')) {
+				$('#wpmzf-drag-overlay').addClass('active');
+				$addActivityForm.addClass('drag-target');
+			}
+		});
+
+		// Obsługa dragleave
+		$body.on('dragleave', function (e) {
+			e.preventDefault();
+			dragCounter--;
+
+			if (dragCounter === 0) {
+				$('#wpmzf-drag-overlay').removeClass('active');
+				$addActivityForm.removeClass('drag-target');
+			}
+		});
+
+		// Obsługa dragover
+		$body.on('dragover', function (e) {
+			e.preventDefault();
+		});
+
+		// Obsługa drop
+		$body.on('drop', function (e) {
+			e.preventDefault();
+			dragCounter = 0;
+
+			$('#wpmzf-drag-overlay').removeClass('active');
+			$addActivityForm.removeClass('drag-target');
+
+			const files = e.originalEvent.dataTransfer.files;
+			if (files.length > 0) {
+				// Dodaj pliki do listy i pokaż podgląd
+				for (const file of files) {
+					// Sprawdź czy to plik graficzny lub inny dozwolony typ
+					if (isAllowedFileType(file)) {
+						filesToUpload.push(file);
+					}
+				}
+				renderAttachmentsPreview();
+
+				// Przewiń do formularza aktywności
+				$addActivityForm[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+			}
+		});
+	}
+
+	// === FUNKCJONALNOŚĆ CLIPBOARD (CTRL+V) ===
+
+	function initializeClipboardPaste() {
+		$(document).on('paste', function (e) {
+			// Sprawdź czy jesteśmy na stronie z formularzem aktywności
+			if (!$('#wpmzf-add-activity-form').length) {
+				return;
+			}
+
+			const clipboardData = e.originalEvent.clipboardData;
+			if (!clipboardData || !clipboardData.items) {
+				return;
+			}
+
+			// Sprawdź czy w schowku są pliki
+			for (let i = 0; i < clipboardData.items.length; i++) {
+				const item = clipboardData.items[i];
+
+				if (item.type.indexOf('image/') === 0) {
+					e.preventDefault();
+
+					const file = item.getAsFile();
+					if (file) {
+						// Utwórz lepszą nazwę dla screenshot'u
+						const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+						const newFile = new File([file], `screenshot-${timestamp}.png`, {
+							type: file.type,
+							lastModified: Date.now()
+						});
+
+						filesToUpload.push(newFile);
+						renderAttachmentsPreview();
+
+						// Przewiń do formularza aktywności
+						$('#wpmzf-add-activity-form')[0].scrollIntoView({
+							behavior: 'smooth',
+							block: 'center'
+						});
+
+						// Pokaż powiadomienie
+						showNotification('Zdjęcie zostało dodane ze schowka', 'success');
+					}
+				}
+			}
+		});
+	}
+
+	// Funkcja sprawdzająca dozwolone typy plików
+	function isAllowedFileType(file) {
+		const allowedTypes = [
+			'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+			'application/pdf', 'text/plain', 'application/msword',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+			'application/vnd.ms-excel',
+			'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+		];
+
+		const maxSize = 10 * 1024 * 1024; // 10MB
+
+		if (!allowedTypes.includes(file.type)) {
+			showNotification(`Typ pliku ${file.type} nie jest dozwolony`, 'error');
+			return false;
+		}
+
+		if (file.size > maxSize) {
+			showNotification(`Plik ${file.name} jest za duży (maksymalnie 10MB)`, 'error');
+			return false;
+		}
+
+		return true;
+	}
+
+	// === SYSTEM OCZYSZCZANIA NIEOPRISWANYCH ZAŁĄCZNIKÓW ===
+
+	function initializeCleanupSystem() {
+		// Oczyszczanie przy wyjściu ze strony
+		$(window).on('beforeunload', function () {
+			if (pendingUploads.size > 0) {
+				// Wyślij żądanie oczyszczenia (nie czekaj na odpowiedź)
+				navigator.sendBeacon(ajaxurl, new URLSearchParams({
+					action: 'cleanup_wpmzf_orphaned_attachments',
+					security: securityNonce,
+					attachment_ids: Array.from(pendingUploads).join(',')
+				}));
+			}
+		});
+
+		// Oczyszczanie co 5 minut dla długich sesji
+		setInterval(function () {
+			if (pendingUploads.size > 0) {
+				$.ajax({
+					url: ajaxurl,
+					type: 'POST',
+					data: {
+						action: 'cleanup_wpmzf_orphaned_attachments',
+						security: securityNonce,
+						attachment_ids: Array.from(pendingUploads).join(',')
+					}
+				});
+				pendingUploads.clear();
+			}
+		}, 5 * 60 * 1000); // 5 minut
+	}
+
+	// Ulepszona funkcja renderowania podglądu załączników z paskiem postępu
 	function renderAttachmentsPreview() {
 		attachmentsPreviewContainer.html('');
 		if (filesToUpload.length === 0) {
@@ -270,11 +461,34 @@ jQuery(document).ready(function ($) {
 
 		attachmentsPreviewContainer.show();
 		filesToUpload.forEach((file, index) => {
+			const isImage = file.type.startsWith('image/');
+			const fileSize = formatFileSize(file.size);
+
+			let thumbnailHtml = '';
+			if (isImage) {
+				const reader = new FileReader();
+				reader.onload = function (e) {
+					$(`.attachment-item[data-file-index="${index}"] .attachment-thumbnail`)
+						.html(`<img src="${e.target.result}" alt="${file.name}">`);
+				};
+				reader.readAsDataURL(file);
+				thumbnailHtml = '<div class="attachment-thumbnail"><div class="thumbnail-placeholder">📷</div></div>';
+			} else {
+				thumbnailHtml = '<div class="attachment-thumbnail"><div class="file-icon">📄</div></div>';
+			}
+
 			const filePreviewHtml = `
                 <div class="attachment-item" data-file-index="${index}">
-                    <span>${file.name}</span>
+                    ${thumbnailHtml}
+                    <div class="attachment-info">
+                        <div class="attachment-name" title="${file.name}">${file.name}</div>
+                        <div class="attachment-size">${fileSize}</div>
+                        <div class="attachment-progress" style="display: none;">
+                            <div class="attachment-progress-bar"></div>
+                            <div class="attachment-progress-text">0%</div>
+                        </div>
+                    </div>
                     <div class="attachment-actions">
-                         <div class="attachment-progress" style="display: none;"><div class="attachment-progress-bar"></div></div>
                          <span class="dashicons dashicons-no-alt remove-attachment" title="Usuń plik"></span>
                     </div>
                 </div>
@@ -283,11 +497,51 @@ jQuery(document).ready(function ($) {
 		});
 	}
 
-	attachmentsPreviewContainer.on('click', '.remove-attachment', function () {
-		const index = $(this).closest('.attachment-item').data('file-index');
-		filesToUpload.splice(index, 1);
-		renderAttachmentsPreview();
-	});
+	// Funkcja formatowania rozmiaru pliku
+	function formatFileSize(bytes) {
+		if (bytes === 0) return '0 Bytes';
+		const k = 1024;
+		const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+	}
+
+	// Funkcja pokazywania powiadomień
+	function showNotification(message, type = 'info') {
+		const notificationClass = type === 'error' ? 'notice-error' :
+			type === 'success' ? 'notice-success' : 'notice-info';
+
+		const notification = $(`
+			<div class="notice ${notificationClass} is-dismissible wpmzf-notification">
+				<p>${message}</p>
+				<button type="button" class="notice-dismiss">
+					<span class="screen-reader-text">Dismiss this notice.</span>
+				</button>
+			</div>
+		`);
+
+		// Dodaj powiadomienie na górze strony
+		$('.wrap h1').after(notification);
+
+		// Auto-usuń po 5 sekundach
+		setTimeout(function () {
+			notification.fadeOut(function () {
+				$(this).remove();
+			});
+		}, 5000);
+
+		// Obsługa przycisku X
+		notification.on('click', '.notice-dismiss', function () {
+			notification.fadeOut(function () {
+				$(this).remove();
+			});
+		});
+	}
+
+	// Inicjalizacja wszystkich funkcji
+	initializeDragAndDrop();
+	initializeClipboardPaste();
+	initializeCleanupSystem();
 
 	// --- Główna funkcja do ładowania aktywności ---
 	function loadActivities() {
@@ -430,12 +684,14 @@ jQuery(document).ready(function ($) {
 			submitButton.text('Wysyłanie plików...');
 			const uploadPromises = filesToUpload.map((file, index) => {
 				const formData = new FormData();
-				formData.append('file', file); // Użyj klucza 'file', jak w handlerze PHP
+				formData.append('file', file);
 				formData.append('action', 'wpmzf_upload_attachment');
 				formData.append('security', securityNonce);
 
 				const previewItem = $(`.attachment-item[data-file-index="${index}"]`);
 				const progressBar = previewItem.find('.attachment-progress-bar');
+				const progressText = previewItem.find('.attachment-progress-text');
+
 				previewItem.find('.attachment-progress').show();
 				previewItem.find('.remove-attachment').hide();
 
@@ -449,12 +705,23 @@ jQuery(document).ready(function ($) {
 						const xhr = new window.XMLHttpRequest();
 						xhr.upload.addEventListener('progress', function (evt) {
 							if (evt.lengthComputable) {
-								const percentComplete = evt.loaded / evt.total * 100;
+								const percentComplete = Math.round((evt.loaded / evt.total) * 100);
 								progressBar.css('width', percentComplete + '%');
+								progressText.text(percentComplete + '%');
 							}
 						}, false);
 						return xhr;
 					}
+				}).done(function (response) {
+					if (response.success) {
+						// Dodaj do śledzonych uploadów
+						pendingUploads.add(response.data.id);
+						progressText.text('Gotowe!');
+						previewItem.addClass('upload-success');
+					}
+				}).fail(function () {
+					progressText.text('Błąd!');
+					previewItem.addClass('upload-error');
 				});
 			});
 
@@ -468,7 +735,7 @@ jQuery(document).ready(function ($) {
 					}
 				});
 			} catch (error) {
-				alert(error.message || 'Wystąpił błąd podczas wysyłania plików.');
+				showNotification(error.message || 'Wystąpił błąd podczas wysyłania plików.', 'error');
 				submitButton.text(originalButtonText).prop('disabled', false);
 				attachFileBtn.prop('disabled', false);
 				// Przywróć wygląd preview
@@ -494,17 +761,23 @@ jQuery(document).ready(function ($) {
 			data: activityData,
 			success: function (response) {
 				if (response.success) {
+					// Usuń przesłane pliki z pending uploads (zostały przypisane)
+					uploadedAttachmentIds.forEach(id => {
+						pendingUploads.delete(id);
+					});
+
 					form[0].reset();
 					filesToUpload = [];
 					renderAttachmentsPreview();
 					setDefaultDateTime();
 					loadActivities();
+					showNotification('Aktywność została dodana pomyślnie!', 'success');
 				} else {
-					alert('Błąd: ' + response.data.message);
+					showNotification('Błąd: ' + response.data.message, 'error');
 				}
 			},
 			error: function () {
-				alert('Wystąpił krytyczny błąd serwera przy dodawaniu aktywności.');
+				showNotification('Wystąpił krytyczny błąd serwera przy dodawaniu aktywności.', 'error');
 			},
 			complete: function () {
 				submitButton.text(originalButtonText).prop('disabled', false);
@@ -804,7 +1077,7 @@ jQuery(document).ready(function ($) {
 			type: 'POST',
 			data: {
 				action: 'add_wpmzf_task',
-				security: taskSecurityNonce,
+				wpmzf_task_security: taskSecurityNonce,
 				person_id: personId,
 				task_title: taskTitle
 			},
@@ -848,7 +1121,7 @@ jQuery(document).ready(function ($) {
 			type: 'POST',
 			data: {
 				action: 'get_wpmzf_tasks',
-				security: taskSecurityNonce,
+				wpmzf_task_security: taskSecurityNonce,
 				person_id: personId
 			},
 			dataType: 'json'
@@ -1022,7 +1295,7 @@ jQuery(document).ready(function ($) {
 			type: 'POST',
 			data: {
 				action: 'update_wpmzf_task_status',
-				security: taskSecurityNonce,
+				wpmzf_task_security: taskSecurityNonce,
 				task_id: taskId,
 				status: newStatus
 			},
@@ -1048,7 +1321,7 @@ jQuery(document).ready(function ($) {
 			type: 'POST',
 			data: {
 				action: 'delete_wpmzf_task',
-				security: taskSecurityNonce,
+				wpmzf_task_security: taskSecurityNonce,
 				task_id: taskId
 			},
 			dataType: 'json'
@@ -1118,7 +1391,7 @@ jQuery(document).ready(function ($) {
 			type: 'POST',
 			data: {
 				action: 'update_wpmzf_task_status', // Używamy tego samego endpointu
-				security: taskSecurityNonce,
+				wpmzf_task_security: taskSecurityNonce,
 				task_id: taskId,
 				title: newTitle
 			},
