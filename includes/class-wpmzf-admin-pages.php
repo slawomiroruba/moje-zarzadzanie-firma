@@ -312,6 +312,139 @@ class WPMZF_Admin_Pages
                 font-size: 2em;
                 padding-top: 15px;
             }
+
+            /* Task styles */
+            .task-input-wrapper {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+
+            .task-input-wrapper input[type="text"] {
+                flex: 1;
+                padding: 8px;
+                border: 1px solid #8c8f94;
+                border-radius: 3px;
+            }
+
+            .task-item {
+                background: #f9f9f9;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 12px;
+                margin-bottom: 10px;
+                position: relative;
+            }
+
+            .task-item.overdue {
+                border-left: 4px solid #dc3232;
+                background: #fdf2f2;
+            }
+
+            .task-item.today {
+                border-left: 4px solid #ffb900;
+                background: #fffbf0;
+            }
+
+            .task-item.upcoming {
+                border-left: 4px solid #46b450;
+                background: #f7fff7;
+            }
+
+            .task-item.completed {
+                background: #f0f0f1;
+                opacity: 0.7;
+            }
+
+            .task-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 8px;
+            }
+
+            .task-title {
+                font-weight: 600;
+                color: #23282d;
+                margin: 0;
+                font-size: 14px;
+            }
+
+            .task-meta {
+                font-size: 12px;
+                color: #646970;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 2px;
+            }
+
+            .task-status {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 500;
+                text-transform: uppercase;
+            }
+
+            .task-status.do-zrobienia {
+                background: #fff2cc;
+                color: #996f00;
+            }
+
+            .task-status.w-toku {
+                background: #cce5ff;
+                color: #0073aa;
+            }
+
+            .task-status.zrobione {
+                background: #d4edda;
+                color: #155724;
+            }
+
+            .task-actions {
+                display: flex;
+                gap: 8px;
+                margin-top: 8px;
+            }
+
+            .task-actions .dashicons {
+                cursor: pointer;
+                color: #787c82;
+                font-size: 16px;
+            }
+
+            .task-actions .dashicons:hover {
+                color: #2271b1;
+            }
+
+            #wpmzf-toggle-closed-tasks {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                cursor: pointer;
+                color: #646970;
+                transition: color 0.2s;
+            }
+
+            #wpmzf-toggle-closed-tasks:hover {
+                color: #2271b1;
+            }
+
+            #wpmzf-toggle-closed-tasks .dashicons {
+                transition: transform 0.2s;
+            }
+
+            #wpmzf-toggle-closed-tasks.expanded .dashicons {
+                transform: rotate(90deg);
+            }
+
+            @media screen and (max-width: 1200px) {
+                .dossier-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
         </style>
 
 
@@ -401,13 +534,14 @@ class WPMZF_Admin_Pages
             /* Single person View Styles */
             .dossier-grid {
                 display: grid;
-                grid-template-columns: 1fr 400px;
+                grid-template-columns: 300px 1fr 350px;
                 gap: 20px;
                 margin-top: 20px;
             }
 
-            .dossier-main-column,
-            .dossier-side-column {
+            .dossier-left-column,
+            .dossier-center-column,
+            .dossier-right-column {
                 display: flex;
                 flex-direction: column;
                 gap: 20px;
@@ -547,7 +681,134 @@ class WPMZF_Admin_Pages
                 color: #50575e;
             }
 
-            @media screen and (max-w: 960px) {
+            /* Task styles */
+            .task-input-wrapper {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+
+            .task-input-wrapper input[type="text"] {
+                flex: 1;
+                padding: 8px;
+                border: 1px solid #8c8f94;
+                border-radius: 3px;
+            }
+
+            .task-item {
+                background: #f9f9f9;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 12px;
+                margin-bottom: 10px;
+                position: relative;
+            }
+
+            .task-item.overdue {
+                border-left: 4px solid #dc3232;
+                background: #fdf2f2;
+            }
+
+            .task-item.today {
+                border-left: 4px solid #ffb900;
+                background: #fffbf0;
+            }
+
+            .task-item.upcoming {
+                border-left: 4px solid #46b450;
+                background: #f7fff7;
+            }
+
+            .task-item.completed {
+                background: #f0f0f1;
+                opacity: 0.7;
+            }
+
+            .task-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 8px;
+            }
+
+            .task-title {
+                font-weight: 600;
+                color: #23282d;
+                margin: 0;
+                font-size: 14px;
+            }
+
+            .task-meta {
+                font-size: 12px;
+                color: #646970;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 2px;
+            }
+
+            .task-status {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 500;
+                text-transform: uppercase;
+            }
+
+            .task-status.do-zrobienia {
+                background: #fff2cc;
+                color: #996f00;
+            }
+
+            .task-status.w-toku {
+                background: #cce5ff;
+                color: #0073aa;
+            }
+
+            .task-status.zrobione {
+                background: #d4edda;
+                color: #155724;
+            }
+
+            .task-actions {
+                display: flex;
+                gap: 8px;
+                margin-top: 8px;
+            }
+
+            .task-actions .dashicons {
+                cursor: pointer;
+                color: #787c82;
+                font-size: 16px;
+            }
+
+            .task-actions .dashicons:hover {
+                color: #2271b1;
+            }
+
+            #wpmzf-toggle-closed-tasks {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                cursor: pointer;
+                color: #646970;
+                transition: color 0.2s;
+            }
+
+            #wpmzf-toggle-closed-tasks:hover {
+                color: #2271b1;
+            }
+
+            #wpmzf-toggle-closed-tasks .dashicons {
+                transition: transform 0.2s;
+            }
+
+            #wpmzf-toggle-closed-tasks.expanded .dashicons {
+                transform: rotate(90deg);
+            }
+
+            @media screen and (max-width: 1200px) {
                 .dossier-grid {
                     grid-template-columns: 1fr;
                 }
@@ -565,7 +826,8 @@ class WPMZF_Admin_Pages
             </div>
 
             <div class="dossier-grid">
-                <div class="dossier-main-column">
+                <!-- Lewa kolumna - Dane podstawowe -->
+                <div class="dossier-left-column">
                     <div class="dossier-box" id="dossier-basic-data">
                         <h2 class="dossier-title">
                             Dane podstawowe
@@ -687,7 +949,9 @@ class WPMZF_Admin_Pages
                         </div>
                     </div>
                 </div>
-                <div class="dossier-side-column">
+
+                <!-- Środkowa kolumna - Aktywności -->
+                <div class="dossier-center-column">
                     <div class="dossier-box">
                         <h2 class="dossier-title">Nowa Aktywność</h2>
                         <div class="dossier-content">
@@ -726,6 +990,45 @@ class WPMZF_Admin_Pages
                         <h2 class="dossier-title">Historia Aktywności</h2>
                         <div id="wpmzf-activity-timeline" class="dossier-content">
                             <p><em>Ładowanie aktywności...</em></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prawa kolumna - Zadania -->
+                <div class="dossier-right-column">
+                    <div class="dossier-box">
+                        <h2 class="dossier-title">Nowe Zadanie</h2>
+                        <div class="dossier-content">
+                            <form id="wpmzf-add-task-form">
+                                <?php wp_nonce_field('wpmzf_task_nonce', 'wpmzf_task_security'); ?>
+                                <input type="hidden" name="person_id" value="<?php echo esc_attr($person_id); ?>">
+                                
+                                <div class="task-input-wrapper">
+                                    <input type="text" id="wpmzf-task-title" name="task_title" placeholder="Wpisz treść zadania..." required>
+                                    <button type="submit" class="button button-primary">Dodaj</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div id="wpmzf-tasks-container" class="dossier-box">
+                        <h2 class="dossier-title">Zadania</h2>
+                        <div class="dossier-content">
+                            <div id="wpmzf-open-tasks">
+                                <h4>Otwarte zadania</h4>
+                                <div id="wpmzf-open-tasks-list">
+                                    <p><em>Ładowanie zadań...</em></p>
+                                </div>
+                            </div>
+                            <div id="wpmzf-closed-tasks" style="margin-top: 20px;">
+                                <h4 style="cursor: pointer;" id="wpmzf-toggle-closed-tasks">
+                                    <span class="dashicons dashicons-arrow-right"></span> 
+                                    Zakończone zadania
+                                </h4>
+                                <div id="wpmzf-closed-tasks-list" style="display: none;">
+                                    <p><em>Ładowanie zakończonych zadań...</em></p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

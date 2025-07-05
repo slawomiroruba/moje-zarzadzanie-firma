@@ -769,3 +769,387 @@ jQuery(document).ready(function ($) {
 
 	});
 });
+
+// === FUNKCJONALNOŚĆ ZADAŃ ===
+jQuery(document).ready(function ($) {
+	// Zmienne dla zadań
+	const personId = $('input[name="person_id"]').val();
+	const taskForm = $('#wpmzf-add-task-form');
+	const taskTitleInput = $('#wpmzf-task-title');
+	const openTasksList = $('#wpmzf-open-tasks-list');
+	const closedTasksList = $('#wpmzf-closed-tasks-list');
+	const toggleClosedTasks = $('#wpmzf-toggle-closed-tasks');
+	const taskSecurityNonce = $('#wpmzf_task_security').val();
+
+	// Inicjalizacja
+	if (personId) {
+		loadTasks();
+	}
+
+	// === DODAWANIE ZADANIA ===
+	taskForm.on('submit', function (e) {
+		e.preventDefault();
+
+		const taskTitle = taskTitleInput.val().trim();
+		if (!taskTitle) {
+			alert('Proszę wpisać treść zadania.');
+			return;
+		}
+
+		const submitButton = taskForm.find('button[type="submit"]');
+		submitButton.prop('disabled', true).text('Dodawanie...');
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'add_wpmzf_task',
+				security: taskSecurityNonce,
+				person_id: personId,
+				task_title: taskTitle
+			},
+			dataType: 'json'
+		})
+			.done(function (response) {
+				if (response.success) {
+					taskTitleInput.val(''); // Wyczyść pole
+					loadTasks(); // Odśwież listę zadań
+
+					// Pokaż komunikat sukcesu
+					showTaskMessage('Zadanie zostało dodane pomyślnie.', 'success');
+				} else {
+					showTaskMessage(response.data || 'Wystąpił błąd podczas dodawania zadania.', 'error');
+				}
+			})
+			.fail(function () {
+				showTaskMessage('Wystąpił błąd serwera.', 'error');
+			})
+			.always(function () {
+				submitButton.prop('disabled', false).text('Dodaj');
+			});
+	});
+
+	// Dodawanie zadania przez Enter
+	taskTitleInput.on('keypress', function (e) {
+		if (e.which === 13) { // Enter
+			e.preventDefault();
+			taskForm.submit();
+		}
+	});
+
+	// === ŁADOWANIE ZADAŃ ===
+	function loadTasks() {
+		// Wyświetl komunikat ładowania
+		openTasksList.html('<p><em>Ładowanie zadań...</em></p>');
+		closedTasksList.html('<p><em>Ładowanie zakończonych zadań...</em></p>');
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'get_wpmzf_tasks',
+				security: taskSecurityNonce,
+				person_id: personId
+			},
+			dataType: 'json'
+		})
+			.done(function (response) {
+				if (response.success && response.data) {
+					renderTasks(response.data.open_tasks || [], response.data.closed_tasks || []);
+				} else {
+					openTasksList.html('<p><em>Brak otwartych zadań.</em></p>');
+					closedTasksList.html('<p><em>Brak zakończonych zadań.</em></p>');
+				}
+			})
+			.fail(function () {
+				openTasksList.html('<p><em>Błąd podczas ładowania zadań.</em></p>');
+				closedTasksList.html('<p><em>Błąd podczas ładowania zadań.</em></p>');
+			});
+	}
+
+	// === RENDEROWANIE ZADAŃ ===
+	function renderTasks(openTasks, closedTasks) {
+		// Renderuj otwarte zadania
+		if (openTasks.length === 0) {
+			openTasksList.html('<p><em>Brak otwartych zadań.</em></p>');
+		} else {
+			let openTasksHtml = '';
+			openTasks.forEach(function (task) {
+				openTasksHtml += renderTaskItem(task);
+			});
+			openTasksList.html(openTasksHtml);
+		}
+
+		// Renderuj zamknięte zadania
+		if (closedTasks.length === 0) {
+			closedTasksList.html('<p><em>Brak zakończonych zadań.</em></p>');
+		} else {
+			let closedTasksHtml = '';
+			closedTasks.forEach(function (task) {
+				closedTasksHtml += renderTaskItem(task);
+			});
+			closedTasksList.html(closedTasksHtml);
+		}
+	}
+
+	// === RENDEROWANIE POJEDYNCZEGO ZADANIA ===
+	function renderTaskItem(task) {
+		const taskClass = getTaskClass(task);
+		const taskDate = formatTaskDate(task.due_date);
+		const statusLabel = getStatusLabel(task.status);
+
+		return `
+			<div class="task-item ${taskClass}" data-task-id="${task.id}">
+				<div class="task-header">
+					<div class="task-title">${escapeHtml(task.title)}</div>
+					<div class="task-actions">
+						${task.status !== 'Zrobione' ?
+				`<span class="dashicons dashicons-yes-alt" title="Oznacz jako zrobione" data-action="complete"></span>` :
+				`<span class="dashicons dashicons-undo" title="Oznacz jako do zrobienia" data-action="reopen"></span>`
+			}
+						<span class="dashicons dashicons-trash" title="Usuń zadanie" data-action="delete"></span>
+						<span class="dashicons dashicons-edit" title="Edytuj zadanie" data-action="edit"></span>
+					</div>
+				</div>
+				<div class="task-meta">
+					<span class="task-status ${task.status.toLowerCase().replace(/\s+/g, '-')}">${statusLabel}</span>
+					${taskDate ? `<span class="task-date">${taskDate}</span>` : ''}
+				</div>
+			</div>
+		`;
+	}
+
+	// === POMOCNICZE FUNKCJE ===
+	function getTaskClass(task) {
+		if (task.status === 'Zrobione') return 'completed';
+
+		if (task.due_date) {
+			const today = new Date();
+			const dueDate = new Date(task.due_date);
+
+			// Ustaw godzinę na początek dnia dla porównania
+			today.setHours(0, 0, 0, 0);
+			dueDate.setHours(0, 0, 0, 0);
+
+			if (dueDate < today) return 'overdue';
+			if (dueDate.getTime() === today.getTime()) return 'today';
+			return 'upcoming';
+		}
+
+		return '';
+	}
+
+	function formatTaskDate(dateString) {
+		if (!dateString) return null;
+
+		const date = new Date(dateString);
+		return date.toLocaleDateString('pl-PL', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit'
+		});
+	}
+
+	function getStatusLabel(status) {
+		const statusLabels = {
+			'Do zrobienia': 'Do zrobienia',
+			'W toku': 'W toku',
+			'Zrobione': 'Zrobione'
+		};
+		return statusLabels[status] || status;
+	}
+
+	function escapeHtml(text) {
+		const map = {
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;',
+			'"': '&quot;',
+			"'": '&#039;'
+		};
+		return text.replace(/[&<>"']/g, function (m) { return map[m]; });
+	}
+
+	function showTaskMessage(message, type) {
+		// Usuń poprzednie komunikaty
+		$('.task-message').remove();
+
+		const messageClass = type === 'success' ? 'notice-success' : 'notice-error';
+		const messageHtml = `<div class="task-message notice ${messageClass} is-dismissible" style="margin: 10px 0;"><p>${message}</p></div>`;
+
+		taskForm.after(messageHtml);
+
+		// Usuń komunikat po 5 sekundach
+		setTimeout(function () {
+			$('.task-message').fadeOut(function () {
+				$(this).remove();
+			});
+		}, 5000);
+	}
+
+	// === OBSŁUGA AKCJI ZADAŃ ===
+	$(document).on('click', '.task-actions .dashicons', function (e) {
+		e.preventDefault();
+
+		const $this = $(this);
+		const action = $this.data('action');
+		const taskId = $this.closest('.task-item').data('task-id');
+
+		if (!taskId) return;
+
+		switch (action) {
+			case 'complete':
+				updateTaskStatus(taskId, 'Zrobione');
+				break;
+			case 'reopen':
+				updateTaskStatus(taskId, 'Do zrobienia');
+				break;
+			case 'delete':
+				if (confirm('Czy na pewno chcesz usunąć to zadanie?')) {
+					deleteTask(taskId);
+				}
+				break;
+			case 'edit':
+				editTask(taskId);
+				break;
+		}
+	});
+
+	// === AKTUALIZACJA STATUSU ZADANIA ===
+	function updateTaskStatus(taskId, newStatus) {
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'update_wpmzf_task_status',
+				security: taskSecurityNonce,
+				task_id: taskId,
+				status: newStatus
+			},
+			dataType: 'json'
+		})
+			.done(function (response) {
+				if (response.success) {
+					loadTasks(); // Odśwież listę zadań
+					showTaskMessage('Status zadania został zaktualizowany.', 'success');
+				} else {
+					showTaskMessage(response.data || 'Wystąpił błąd podczas aktualizacji statusu.', 'error');
+				}
+			})
+			.fail(function () {
+				showTaskMessage('Wystąpił błąd serwera.', 'error');
+			});
+	}
+
+	// === USUWANIE ZADANIA ===
+	function deleteTask(taskId) {
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'delete_wpmzf_task',
+				security: taskSecurityNonce,
+				task_id: taskId
+			},
+			dataType: 'json'
+		})
+			.done(function (response) {
+				if (response.success) {
+					loadTasks(); // Odśwież listę zadań
+					showTaskMessage('Zadanie zostało usunięte.', 'success');
+				} else {
+					showTaskMessage(response.data || 'Wystąpił błąd podczas usuwania zadania.', 'error');
+				}
+			})
+			.fail(function () {
+				showTaskMessage('Wystąpił błąd serwera.', 'error');
+			});
+	}
+
+	// === EDYCJA ZADANIA ===
+	function editTask(taskId) {
+		// Znajdź zadanie w DOM
+		const taskItem = $(`.task-item[data-task-id="${taskId}"]`);
+		const taskTitle = taskItem.find('.task-title');
+		const currentTitle = taskTitle.text();
+
+		// Zamień tytuł na pole edycji
+		const editInput = `<input type="text" class="task-edit-input" value="${escapeHtml(currentTitle)}" style="width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 3px;">`;
+		taskTitle.html(editInput);
+
+		// Fokus na polu
+		const input = taskTitle.find('.task-edit-input');
+		input.focus().select();
+
+		// Obsługa zapisywania (Enter) i anulowania (Escape)
+		input.on('keydown', function (e) {
+			if (e.which === 13) { // Enter - zapisz
+				e.preventDefault();
+				saveTaskTitle(taskId, input.val().trim(), taskTitle, currentTitle);
+			} else if (e.which === 27) { // Escape - anuluj
+				e.preventDefault();
+				taskTitle.text(currentTitle);
+			}
+		});
+
+		// Obsługa utraty fokusa
+		input.on('blur', function () {
+			const newTitle = input.val().trim();
+			if (newTitle && newTitle !== currentTitle) {
+				saveTaskTitle(taskId, newTitle, taskTitle, currentTitle);
+			} else {
+				taskTitle.text(currentTitle);
+			}
+		});
+	}
+
+	// === ZAPISYWANIE TYTUŁU ZADANIA ===
+	function saveTaskTitle(taskId, newTitle, titleElement, originalTitle) {
+		if (!newTitle) {
+			titleElement.text(originalTitle);
+			return;
+		}
+
+		// Pokazuj stan ładowania
+		titleElement.text('Zapisywanie...');
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'update_wpmzf_task_status', // Używamy tego samego endpointu
+				security: taskSecurityNonce,
+				task_id: taskId,
+				title: newTitle
+			},
+			dataType: 'json'
+		})
+			.done(function (response) {
+				if (response.success) {
+					titleElement.text(newTitle);
+					showTaskMessage('Tytuł zadania został zaktualizowany.', 'success');
+				} else {
+					titleElement.text(originalTitle);
+					showTaskMessage(response.data || 'Wystąpił błąd podczas aktualizacji tytułu.', 'error');
+				}
+			})
+			.fail(function () {
+				titleElement.text(originalTitle);
+				showTaskMessage('Wystąpił błąd serwera.', 'error');
+			});
+	}
+
+	// === ROZWIJANIE/ZWIJANIE ZAKOŃCZONYCH ZADAŃ ===
+	toggleClosedTasks.on('click', function () {
+		const closedTasksContainer = closedTasksList.parent();
+		const arrow = toggleClosedTasks.find('.dashicons');
+
+		if (closedTasksList.is(':visible')) {
+			closedTasksList.slideUp();
+			arrow.removeClass('dashicons-arrow-down').addClass('dashicons-arrow-right');
+		} else {
+			closedTasksList.slideDown();
+			arrow.removeClass('dashicons-arrow-right').addClass('dashicons-arrow-down');
+		}
+	});
+});

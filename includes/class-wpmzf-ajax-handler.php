@@ -25,6 +25,11 @@ class WPMZF_Ajax_Handler
         add_action('wp_ajax_nopriv_wpmzf_search_companies', array($this, 'wpmzf_search_companies_ajax_handler'));
         // Hook do pobierania metadanych linków dla bogatych kart
         add_action('wp_ajax_wpmzf_get_link_metadata', array($this, 'get_link_metadata'));
+        // Hooks dla zadań
+        add_action('wp_ajax_add_wpmzf_task', array($this, 'add_task'));
+        add_action('wp_ajax_get_wpmzf_tasks', array($this, 'get_tasks'));
+        add_action('wp_ajax_update_wpmzf_task_status', array($this, 'update_task_status'));
+        add_action('wp_ajax_delete_wpmzf_task', array($this, 'delete_task'));
     }
 
     /**
@@ -629,5 +634,245 @@ class WPMZF_Ajax_Handler
         }
 
         return $metadata;
+    }
+
+    /**
+     * Dodaje nowe zadanie
+     */
+    public function add_task()
+    {
+        check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
+
+        $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
+        $task_title = isset($_POST['task_title']) ? sanitize_text_field($_POST['task_title']) : '';
+
+        if (!$person_id || empty($task_title)) {
+            wp_send_json_error(['message' => 'Brak wymaganych danych.']);
+            return;
+        }
+
+        if (get_post_type($person_id) !== 'person') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
+            return;
+        }
+
+        // Tworzenie zadania
+        $task_data = [
+            'post_title'   => $task_title,
+            'post_content' => '',
+            'post_status'  => 'publish',
+            'post_type'    => 'task',
+            'post_author'  => get_current_user_id(),
+        ];
+
+        $task_id = wp_insert_post($task_data);
+
+        if ($task_id && !is_wp_error($task_id)) {
+            // Zapisanie pól ACF
+            update_field('task_status', 'Do zrobienia', $task_id);
+            update_field('task_assigned_person', $person_id, $task_id);
+            update_field('task_start_date', current_time('Y-m-d H:i:s'), $task_id);
+            
+            wp_send_json_success(['message' => 'Zadanie dodane pomyślnie.', 'task_id' => $task_id]);
+        } else {
+            wp_send_json_error(['message' => 'Błąd podczas tworzenia zadania.']);
+        }
+    }
+
+    /**
+     * Pobiera zadania dla danej osoby
+     */
+    public function get_tasks()
+    {
+        check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
+
+        $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
+        
+        if (!$person_id) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
+            return;
+        }
+
+        $args = [
+            'post_type' => 'task',
+            'posts_per_page' => -1,
+            'meta_query' => [
+                [
+                    'key' => 'task_assigned_person',
+                    'value' => $person_id,
+                    'compare' => '='
+                ]
+            ],
+            'orderby' => 'date',
+            'order' => 'DESC'
+        ];
+
+        $tasks_query = new WP_Query($args);
+        $open_tasks = [];
+        $closed_tasks = [];
+
+        if ($tasks_query->have_posts()) {
+            while ($tasks_query->have_posts()) {
+                $tasks_query->the_post();
+                $task_id = get_the_ID();
+                
+                $task_status = get_field('task_status', $task_id) ?: 'Do zrobienia';
+                $start_date = get_field('task_start_date', $task_id);
+                $end_date = get_field('task_end_date', $task_id);
+                $description = get_field('task_description', $task_id);
+
+                $task_data = [
+                    'id' => $task_id,
+                    'title' => get_the_title(),
+                    'status' => $task_status,
+                    'description' => $description,
+                    'start_date' => $start_date,
+                    'end_date' => $end_date,
+                    'due_date' => $end_date, // Alias for JavaScript compatibility
+                    'priority' => $this->get_task_priority($end_date),
+                    'edit_link' => get_edit_post_link($task_id)
+                ];
+
+                if ($task_status === 'Zrobione') {
+                    $closed_tasks[] = $task_data;
+                } else {
+                    $open_tasks[] = $task_data;
+                }
+            }
+        }
+        wp_reset_postdata();
+
+        // Sortowanie otwartych zadań według priorytetu
+        usort($open_tasks, function($a, $b) {
+            $priority_order = ['overdue' => 0, 'today' => 1, 'upcoming' => 2];
+            return $priority_order[$a['priority']] - $priority_order[$b['priority']];
+        });
+
+        wp_send_json_success([
+            'open_tasks' => $open_tasks,
+            'closed_tasks' => $closed_tasks
+        ]);
+    }
+
+    /**
+     * Określa priorytet zadania na podstawie daty zakończenia
+     */
+    private function get_task_priority($end_date)
+    {
+        if (empty($end_date)) {
+            return 'upcoming';
+        }
+
+        $today = current_time('Y-m-d');
+        $task_date = date('Y-m-d', strtotime($end_date));
+
+        if ($task_date < $today) {
+            return 'overdue';
+        } elseif ($task_date === $today) {
+            return 'today';
+        } else {
+            return 'upcoming';
+        }
+    }
+
+    /**
+     * Aktualizuje status zadania
+     */
+    public function update_task_status()
+    {
+        check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
+
+        $task_id = isset($_POST['task_id']) ? intval($_POST['task_id']) : 0;
+        $new_status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
+        $new_title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
+
+        if (!$task_id) {
+            wp_send_json_error(['message' => 'Brak ID zadania.']);
+            return;
+        }
+
+        if (get_post_type($task_id) !== 'task') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID zadania.']);
+            return;
+        }
+
+        $updated_fields = [];
+
+        // Aktualizacja statusu
+        if (!empty($new_status)) {
+            $allowed_statuses = ['Do zrobienia', 'W toku', 'Zrobione'];
+            if (!in_array($new_status, $allowed_statuses)) {
+                wp_send_json_error(['message' => 'Nieprawidłowy status.']);
+                return;
+            }
+
+            update_field('task_status', $new_status, $task_id);
+            $updated_fields[] = 'status';
+
+            // Jeśli zadanie zostało zakończone, ustaw datę zakończenia
+            if ($new_status === 'Zrobione' && !get_field('task_end_date', $task_id)) {
+                update_field('task_end_date', current_time('Y-m-d H:i:s'), $task_id);
+            }
+        }
+
+        // Aktualizacja tytułu
+        if (!empty($new_title)) {
+            $post_data = array(
+                'ID' => $task_id,
+                'post_title' => $new_title
+            );
+            
+            $result = wp_update_post($post_data);
+            if (is_wp_error($result)) {
+                wp_send_json_error(['message' => 'Błąd podczas aktualizacji tytułu zadania.']);
+                return;
+            }
+            
+            $updated_fields[] = 'title';
+        }
+
+        if (empty($updated_fields)) {
+            wp_send_json_error(['message' => 'Brak danych do aktualizacji.']);
+            return;
+        }
+
+        $message = 'Zadanie zostało zaktualizowane.';
+        if (in_array('status', $updated_fields) && in_array('title', $updated_fields)) {
+            $message = 'Status i tytuł zadania zostały zaktualizowane.';
+        } elseif (in_array('status', $updated_fields)) {
+            $message = 'Status zadania został zaktualizowany.';
+        } elseif (in_array('title', $updated_fields)) {
+            $message = 'Tytuł zadania został zaktualizowany.';
+        }
+
+        wp_send_json_success(['message' => $message]);
+    }
+
+    /**
+     * Usuwa zadanie
+     */
+    public function delete_task()
+    {
+        check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
+
+        $task_id = isset($_POST['task_id']) ? intval($_POST['task_id']) : 0;
+
+        if (!$task_id || get_post_type($task_id) !== 'task') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID zadania.']);
+            return;
+        }
+
+        if (!current_user_can('delete_post', $task_id)) {
+            wp_send_json_error(['message' => 'Brak uprawnień.']);
+            return;
+        }
+
+        $result = wp_delete_post($task_id, true);
+
+        if ($result) {
+            wp_send_json_success(['message' => 'Zadanie usunięte.']);
+        } else {
+            wp_send_json_error(['message' => 'Nie udało się usunąć zadania.']);
+        }
     }
 }

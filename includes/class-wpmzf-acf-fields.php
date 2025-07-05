@@ -193,9 +193,68 @@ class WPMZF_ACF_Fields
             'key' => 'group_wpmzf_task',
             'title' => 'Szczegóły Zadania',
             'fields' => array(
-                array('key' => 'field_wpmzf_task_status', 'label' => 'Status', 'name' => 'task_status', 'type' => 'select', 'choices' => array('Do zrobienia' => 'Do zrobienia', 'W toku' => 'W toku', 'Zrobione' => 'Zrobione')),
-                array('key' => 'field_wpmzf_task_project_relation', 'label' => 'Część Projektu', 'name' => 'task_project', 'type' => 'relationship', 'post_type' => array('project'), 'min' => 1, 'max' => 1),
-                array('key' => 'field_wpmzf_task_employee_relation', 'label' => 'Przypisane do', 'name' => 'task_employee', 'type' => 'relationship', 'post_type' => array('employee'), 'min' => 1, 'max' => 1),
+                array(
+                    'key' => 'field_wpmzf_task_status',
+                    'label' => 'Status',
+                    'name' => 'task_status',
+                    'type' => 'select',
+                    'choices' => array(
+                        'Do zrobienia' => 'Do zrobienia',
+                        'W toku' => 'W toku',
+                        'Zrobione' => 'Zrobione'
+                    ),
+                    'default_value' => 'Do zrobienia'
+                ),
+                array(
+                    'key' => 'field_wpmzf_task_description',
+                    'label' => 'Opis zadania',
+                    'name' => 'task_description',
+                    'type' => 'textarea',
+                    'rows' => 4
+                ),
+                array(
+                    'key' => 'field_wpmzf_task_start_date',
+                    'label' => 'Data rozpoczęcia',
+                    'name' => 'task_start_date',
+                    'type' => 'date_time_picker',
+                    'display_format' => 'Y-m-d H:i',
+                    'return_format' => 'Y-m-d H:i:s'
+                ),
+                array(
+                    'key' => 'field_wpmzf_task_end_date',
+                    'label' => 'Data zakończenia',
+                    'name' => 'task_end_date',
+                    'type' => 'date_time_picker',
+                    'display_format' => 'Y-m-d H:i',
+                    'return_format' => 'Y-m-d H:i:s'
+                ),
+                array(
+                    'key' => 'field_wpmzf_task_assigned_person',
+                    'label' => 'Przypisane do osoby',
+                    'name' => 'task_assigned_person',
+                    'type' => 'relationship',
+                    'post_type' => array('person'),
+                    'min' => 1,
+                    'max' => 1
+                ),
+                array(
+                    'key' => 'field_wpmzf_task_project_relation',
+                    'label' => 'Część Projektu',
+                    'name' => 'task_project',
+                    'type' => 'relationship',
+                    'post_type' => array('project'),
+                    'min' => 1,
+                    'max' => 1
+                ),
+                array(
+                    'key' => 'field_wpmzf_task_employee_relation',
+                    'label' => 'Przypisane do pracownika',
+                    'name' => 'task_employee',
+                    'type' => 'relationship',
+                    'post_type' => array('employee'),
+                    'min' => 0,
+                    'max' => 1
+                ),
             ),
             'location' => array(array(array('param' => 'post_type', 'operator' => '==', 'value' => 'task'))),
         ));
