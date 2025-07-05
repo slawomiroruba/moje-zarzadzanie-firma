@@ -534,9 +534,9 @@ class WPMZF_Admin_Pages
             /* Single person View Styles */
             .dossier-grid {
                 display: grid;
-                grid-template-columns: 300px 1fr 350px;
-                gap: 20px;
-                margin-top: 20px;
+                grid-template-columns: 320px 1fr 360px;
+                gap: 24px;
+                margin-top: 24px;
             }
 
             .dossier-left-column,
@@ -544,33 +544,71 @@ class WPMZF_Admin_Pages
             .dossier-right-column {
                 display: flex;
                 flex-direction: column;
-                gap: 20px;
+                gap: 24px;
             }
 
             .dossier-box {
                 background: #fff;
-                border: 1px solid #ccd0d4;
-                border-radius: 4px;
+                border: 1px solid #e1e5e9;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                transition: all 0.2s ease;
+            }
+
+            .dossier-box:hover {
+                border-color: #d0d5dd;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
             }
 
             .dossier-box h2.dossier-title {
                 font-size: 14px;
-                padding: 8px 12px;
+                font-weight: 600;
+                padding: 16px 20px;
                 margin: 0;
-                border-bottom: 1px solid #ccd0d4;
+                border-bottom: 1px solid #e1e5e9;
+                background: #f8f9fa;
+                border-radius: 8px 8px 0 0;
+                color: #1d2327;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .edit-data-button {
+                font-size: 12px;
+                font-weight: 500;
+                color: #646970;
+                text-decoration: none;
+                padding: 6px 12px;
+                border: 1px solid #e1e5e9;
+                border-radius: 4px;
+                background: #fff;
+                transition: all 0.2s ease;
+            }
+
+            .edit-data-button:hover {
+                color: #2271b1;
+                border-color: #2271b1;
+                background: #f6f7f7;
             }
 
             .dossier-box .dossier-content {
-                padding: 12px;
+                padding: 20px;
             }
 
             .dossier-box .dossier-content p {
-                margin: 0 0 8px;
+                margin: 0 0 12px;
                 line-height: 1.6;
+                color: #3c434a;
             }
 
             .dossier-box .dossier-content p:last-child {
                 margin-bottom: 0;
+            }
+
+            .dossier-box .dossier-content p strong {
+                color: #1d2327;
+                font-weight: 500;
             }
 
             .dossier-box .dossier-content ul {
@@ -579,7 +617,8 @@ class WPMZF_Admin_Pages
             }
 
             .dossier-box .dossier-content ul li {
-                margin-bottom: 5px;
+                margin-bottom: 8px;
+                line-height: 1.5;
             }
 
             .dossier-content .timeline-attachments {
@@ -811,6 +850,29 @@ class WPMZF_Admin_Pages
             @media screen and (max-width: 1200px) {
                 .dossier-grid {
                     grid-template-columns: 1fr;
+                    gap: 16px;
+                }
+                
+                .dossier-left-column,
+                .dossier-center-column,
+                .dossier-right-column {
+                    gap: 16px;
+                }
+            }
+
+            @media screen and (max-width: 768px) {
+                .dossier-box .dossier-content {
+                    padding: 16px;
+                }
+                
+                .dossier-box h2.dossier-title {
+                    padding: 12px 16px;
+                    font-size: 13px;
+                }
+                
+                .edit-data-button {
+                    font-size: 11px;
+                    padding: 4px 8px;
                 }
             }
         </style>
@@ -831,7 +893,7 @@ class WPMZF_Admin_Pages
                     <div class="dossier-box" id="dossier-basic-data">
                         <h2 class="dossier-title">
                             Dane podstawowe
-                            <a href="#" id="edit-basic-data" class="page-title-action" style="float:right; margin-right: 5px; padding: 0px 12px; background-color: #0073aa; color: #fff; border-radius: 4px; text-decoration: none; font-size: 10px; font-weight: 600; border: 1px solid #006799; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); min-height: auto;">Edytuj</a>
+                            <a href="#" id="edit-basic-data" class="edit-data-button">Edytuj</a>
                         </h2>
                         <div class="dossier-content">
                             <div class="view-mode">

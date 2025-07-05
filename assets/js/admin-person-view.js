@@ -479,13 +479,15 @@ jQuery(document).ready(function ($) {
 
 			const filePreviewHtml = `
                 <div class="attachment-item" data-file-index="${index}">
-                    ${thumbnailHtml}
-                    <div class="attachment-info">
-                        <div class="attachment-name" title="${file.name}">${file.name}</div>
-                        <div class="attachment-size">${fileSize}</div>
-                        <div class="attachment-progress" style="display: none;">
-                            <div class="attachment-progress-bar"></div>
-                            <div class="attachment-progress-text">0%</div>
+                    <div class="file-info">
+                        ${thumbnailHtml}
+                        <div class="attachment-info">
+                            <div class="attachment-name" title="${file.name}">${file.name}</div>
+                            <div class="attachment-size">${fileSize}</div>
+                            <div class="attachment-progress" style="display: none;">
+                                <div class="attachment-progress-bar"></div>
+                                <div class="attachment-progress-text">0%</div>
+                            </div>
                         </div>
                     </div>
                     <div class="attachment-actions">
@@ -610,14 +612,14 @@ jQuery(document).ready(function ($) {
 					let previewHtml = '';
 
 					if (att.thumbnail_url) {
-						previewHtml = `<img src="${att.thumbnail_url}" alt="Podgląd załącznika" style="width: 50px; height: 50px; object-fit: cover; margin-right: 10px; vertical-align: middle; border-radius: 3px;">`;
+						previewHtml = `<img src="${att.thumbnail_url}" alt="Podgląd załącznika">`;
 					} else {
-						previewHtml = `<span class="dashicons ${attachmentIcon}" title="${att.mime_type}" style="font-size: 32px; vertical-align: middle; margin-right: 10px; width: 50px; text-align: center; display: inline-block;"></span>`;
+						previewHtml = `<span class="dashicons ${attachmentIcon}" title="${att.mime_type}"></span>`;
 					}
 
 					attachmentsHtml += `
 						<li data-attachment-id="${att.id}">
-							<a href="${att.url}" target="_blank" style="display: inline-flex; align-items: center; text-decoration: none; color: inherit;">
+							<a href="${att.url}" target="_blank">
 							   ${previewHtml}
 							   <span>${att.filename}</span>
 							</a>
