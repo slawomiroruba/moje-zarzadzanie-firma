@@ -322,6 +322,21 @@
     margin: 0;
 }
 
+/* Lepsze łamanie długich linków i tekstu */
+.activity-content-display {
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    line-height: 1.6;
+}
+
+.activity-content-display a {
+    word-break: break-all;
+    display: inline-block;
+    max-width: 100%;
+}
+
 .timeline-body textarea {
     width: 100%;
     min-height: 100px;
@@ -380,4 +395,110 @@
 }
 .timeline-attachments li .delete-attachment:hover {
     color: #a00;
+}
+
+/* --- Style dla bogatych kart z linkami - wersja inline --- */
+.rich-link-inline {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 4px; /* Zwiększ odstęp między ikoną a nazwą */
+    padding: 2px 6px; /* Dopasuj padding dla lepszego wyrównania */
+    border: 1px solid #dcdcde;
+    border-radius: 12px;
+    background: #f6f7f7;
+    text-decoration: none;
+    color: #2c3338;
+    font-size: 13px;
+    line-height: 1.5; /* Dopasuj wysokość linii dla lepszego wyrównania */
+    max-width: 200px;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+    margin: 0;
+}
+
+.rich-link-inline:hover {
+    background: #e7e8e9;
+    border-color: #2271b1;
+    text-decoration: none;
+    color: #2c3338;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.rich-link-inline:focus {
+    outline: 1px solid #2271b1;
+    outline-offset: 1px;
+}
+
+.rich-link-inline-favicon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    border-radius: 2px;
+}
+
+.rich-link-inline-favicon.dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    line-height: 14px;
+    color: #646970;
+}
+
+.rich-link-inline-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+    font-weight: 500;
+}
+
+/* Style dla trybu edycji */
+.activity-content-edit .rich-link-inline {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+/* Zachowaj stare style dla kompatybilności - ukryte */
+.rich-link-card {
+    display: none;
+}
+
+/* Dodatkowe style dla lepszej integracji z tekstem */
+.rich-link-inline {
+    /* Dopasuj wysokość linii do tekstu */
+    line-height: inherit;
+}
+
+/* Responsywność dla mniejszych ekranów */
+@media (max-width: 768px) {
+    .rich-link-inline {
+        max-width: 150px;
+        font-size: 12px;
+    }
+}
+
+/* Stan ładowania dla inline linków */
+.rich-link-inline.loading {
+    background: #e9ecef;
+    color: transparent;
+    border-color: #c3c4c7;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.rich-link-inline.loading .rich-link-inline-title {
+    background: #dee2e6;
+    border-radius: 2px;
+}
+
+@keyframes shimmer {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 1;
+    }
 }

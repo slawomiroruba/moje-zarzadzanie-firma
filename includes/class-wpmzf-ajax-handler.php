@@ -23,6 +23,8 @@ class WPMZF_Ajax_Handler
         add_action('wp_ajax_wpmzf_search_companies',  array($this, 'wpmzf_search_companies_ajax_handler'));
         // Rejestracja punktu końcowego dla niezalogowanych użytkowników
         add_action('wp_ajax_nopriv_wpmzf_search_companies', array($this, 'wpmzf_search_companies_ajax_handler'));
+        // Hook do pobierania metadanych linków dla bogatych kart
+        add_action('wp_ajax_wpmzf_get_link_metadata', array($this, 'get_link_metadata'));
     }
 
     /**
@@ -493,5 +495,139 @@ class WPMZF_Ajax_Handler
             'message' => 'Dane osoby zaktualizowane.',
             'company_html' => $company_html
         ]);
+    }
+
+    /**
+     * Pobiera metadane strony (tytuł, favicon) dla danego URL
+     */
+    public function get_link_metadata()
+    {
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+
+        $url = isset($_POST['url']) ? esc_url_raw($_POST['url']) : '';
+        
+        if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+            wp_send_json_error(['message' => 'Nieprawidłowy URL.']);
+            return;
+        }
+
+        // Sprawdź czy metadane już istnieją w cache (opcjonalnie)
+        $cache_key = 'wpmzf_link_metadata_' . md5($url);
+        $cached_data = get_transient($cache_key);
+        
+        if ($cached_data !== false) {
+            wp_send_json_success($cached_data);
+            return;
+        }
+
+        $metadata = $this->fetch_link_metadata($url);
+        
+        if ($metadata) {
+            // Cache na 24 godziny
+            set_transient($cache_key, $metadata, DAY_IN_SECONDS);
+            wp_send_json_success($metadata);
+        } else {
+            wp_send_json_error(['message' => 'Nie udało się pobrać metadanych strony.']);
+        }
+    }
+
+    /**
+     * Pobiera metadane strony (tytuł, favicon, opis) z danego URL
+     */
+    private function fetch_link_metadata($url)
+    {
+        $response = wp_remote_get($url, [
+            'timeout' => 10,
+            'user-agent' => 'Mozilla/5.0 (compatible; WordPress Link Preview Bot)'
+        ]);
+
+        if (is_wp_error($response)) {
+            return false;
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        if (empty($body)) {
+            return false;
+        }
+
+        $dom = new DOMDocument();
+        @$dom->loadHTML($body);
+        $xpath = new DOMXPath($dom);
+
+        $metadata = [
+            'url' => $url,
+            'title' => '',
+            'description' => '',
+            'favicon' => ''
+        ];
+
+        // Pobierz tytuł strony
+        $title_nodes = $xpath->query('//title');
+        if ($title_nodes->length > 0) {
+            $metadata['title'] = trim($title_nodes->item(0)->textContent);
+        }
+
+        // Pobierz opis (meta description)
+        $desc_nodes = $xpath->query('//meta[@name="description"]/@content');
+        if ($desc_nodes->length > 0) {
+            $metadata['description'] = trim($desc_nodes->item(0)->textContent);
+        }
+
+        // Pobierz Open Graph tytuł jeśli dostępny
+        $og_title_nodes = $xpath->query('//meta[@property="og:title"]/@content');
+        if ($og_title_nodes->length > 0 && empty($metadata['title'])) {
+            $metadata['title'] = trim($og_title_nodes->item(0)->textContent);
+        }
+
+        // Pobierz Open Graph opis jeśli dostępny
+        $og_desc_nodes = $xpath->query('//meta[@property="og:description"]/@content');
+        if ($og_desc_nodes->length > 0 && empty($metadata['description'])) {
+            $metadata['description'] = trim($og_desc_nodes->item(0)->textContent);
+        }
+
+        // Pobierz favicon
+        $parsed_url = parse_url($url);
+        $base_url = $parsed_url['scheme'] . '://' . $parsed_url['host'];
+        
+        // Szukaj favicon w różnych miejscach
+        $favicon_queries = [
+            '//link[@rel="icon"]/@href',
+            '//link[@rel="shortcut icon"]/@href',
+            '//link[@rel="apple-touch-icon"]/@href'
+        ];
+
+        foreach ($favicon_queries as $query) {
+            $favicon_nodes = $xpath->query($query);
+            if ($favicon_nodes->length > 0) {
+                $favicon_url = $favicon_nodes->item(0)->textContent;
+                // Jeśli to relatywny URL, zrób z niego absolutny
+                if (strpos($favicon_url, 'http') !== 0) {
+                    if (strpos($favicon_url, '/') === 0) {
+                        $favicon_url = $base_url . $favicon_url;
+                    } else {
+                        $favicon_url = $base_url . '/' . $favicon_url;
+                    }
+                }
+                $metadata['favicon'] = $favicon_url;
+                break;
+            }
+        }
+
+        // Fallback dla favicon
+        if (empty($metadata['favicon'])) {
+            $metadata['favicon'] = $base_url . '/favicon.ico';
+        }
+
+        // Fallback dla tytułu
+        if (empty($metadata['title'])) {
+            $metadata['title'] = $parsed_url['host'];
+        }
+
+        // Ogranicz długość opisu
+        if (strlen($metadata['description']) > 150) {
+            $metadata['description'] = substr($metadata['description'], 0, 147) . '...';
+        }
+
+        return $metadata;
     }
 }

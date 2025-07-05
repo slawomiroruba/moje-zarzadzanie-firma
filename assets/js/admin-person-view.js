@@ -84,6 +84,7 @@ jQuery(document).ready(function ($) {
 	const attachmentsPreviewContainer = $('#wpmzf-attachments-preview'); // Upewnij się, że ID jest poprawne
 
 	let filesToUpload = [];
+	let linkMetadataCache = new Map(); // Cache dla metadanych linków
 
 	// --- Inicjalizacja ---
 	function setDefaultDateTime() {
@@ -94,6 +95,157 @@ jQuery(document).ready(function ($) {
 
 	setDefaultDateTime();
 	loadActivities();
+
+	// --- Podgląd na żywo dla textarea ---
+	let previewTimeout;
+	const activityContentTextarea = $('#wpmzf-activity-content');
+	let previewContainer = null;
+
+	// Utwórz kontener podglądu jeśli nie istnieje
+	function createPreviewContainer() {
+		if (!previewContainer) {
+			previewContainer = $('<div id="wpmzf-activity-preview" style="margin-top: 10px; padding: 10px; border: 1px solid #dcdcde; border-radius: 4px; background: #f9f9f9; min-height: 50px; display: none;"><div class="preview-label" style="font-size: 12px; color: #646970; margin-bottom: 8px;">Podgląd:</div><div class="preview-content"></div></div>');
+			activityContentTextarea.after(previewContainer);
+		}
+	}
+
+	// Obsługa wpisywania w textarea
+	activityContentTextarea.on('input', function () {
+		const content = $(this).val().trim();
+
+		clearTimeout(previewTimeout);
+
+		if (content === '') {
+			if (previewContainer) {
+				previewContainer.hide();
+			}
+			return;
+		}
+
+		// Sprawdź czy tekst zawiera linki
+		const urlRegex = /(https?:\/\/[^\s<>"]+)/gi;
+		const hasLinks = urlRegex.test(content);
+
+		if (!hasLinks) {
+			if (previewContainer) {
+				previewContainer.hide();
+			}
+			return;
+		}
+
+		createPreviewContainer();
+		previewContainer.show();
+		previewContainer.find('.preview-content').html('<p style="color: #646970; font-style: italic;">Generowanie podglądu...</p>');
+
+		// Debounce - czekaj 1 sekundę po zakończeniu pisania
+		previewTimeout = setTimeout(async function () {
+			try {
+				const processedContent = await processRichLinks(content);
+				previewContainer.find('.preview-content').html(processedContent);
+			} catch (error) {
+				console.error('Błąd podczas generowania podglądu:', error);
+				previewContainer.find('.preview-content').html('<p style="color: #d63638;">Błąd podczas generowania podglądu linków.</p>');
+			}
+		}, 1000);
+	});
+
+	// --- Funkcje dla bogatych kart z linkami ---
+	/**
+	 * Wykrywa linki w tekście i zamienia je na bogate karty
+	 */
+	async function processRichLinks(content) {
+		// Regex do wykrywania URL-i
+		const urlRegex = /(https?:\/\/[^\s<>"]+)/gi;
+		const urls = content.match(urlRegex);
+
+		if (!urls) {
+			return content.replace(/\n/g, '<br>');
+		}
+
+		let processedContent = content;
+		const linkCards = new Map();
+
+		// Pobierz metadane dla wszystkich unikalnych URL-i
+		const uniqueUrls = [...new Set(urls)];
+		for (const url of uniqueUrls) {
+			try {
+				const metadata = await getLinkMetadata(url);
+				if (metadata) {
+					const cardHtml = createRichLinkCard(metadata);
+					linkCards.set(url, cardHtml);
+				}
+			} catch (error) {
+				console.log('Błąd pobierania metadanych dla:', url, error);
+				// W przypadku błędu zostaw zwykły link
+				linkCards.set(url, `<a href="${url}" target="_blank">${url}</a>`);
+			}
+		}
+
+		// Zamień wszystkie URL-e na bogate karty lub zwykłe linki
+		processedContent = processedContent.replace(urlRegex, (match) => {
+			return linkCards.get(match) || `<a href="${match}" target="_blank">${match}</a>`;
+		});
+
+		return processedContent.replace(/\n/g, '<br>');
+	}
+
+	/**
+	 * Pobiera metadane linku z cache lub serwera
+	 */
+	async function getLinkMetadata(url) {
+		// Sprawdź cache
+		if (linkMetadataCache.has(url)) {
+			return linkMetadataCache.get(url);
+		}
+
+		return new Promise((resolve, reject) => {
+			$.ajax({
+				url: ajaxurl,
+				type: 'POST',
+				data: {
+					action: 'wpmzf_get_link_metadata',
+					security: securityNonce,
+					url: url
+				},
+				success: function (response) {
+					if (response.success) {
+						linkMetadataCache.set(url, response.data);
+						resolve(response.data);
+					} else {
+						reject(new Error(response.data.message));
+					}
+				},
+				error: function () {
+					reject(new Error('Błąd serwera'));
+				}
+			});
+		});
+	}
+
+	/**
+	 * Tworzy HTML dla bogatej karty linku - wersja inline
+	 */
+	function createRichLinkCard(metadata) {
+		const faviconHtml = metadata.favicon ?
+			`<img src="${metadata.favicon}" alt="" class="rich-link-inline-favicon" onerror="this.style.display='none'">` :
+			'<span class="dashicons dashicons-admin-links rich-link-inline-favicon"></span>';
+
+		// Skróć tytuł jeśli jest za długi
+		const shortTitle = metadata.title.length > 50 ?
+			metadata.title.substring(0, 47) + '...' :
+			metadata.title;
+
+		return `<a href="${metadata.url}" target="_blank" class="rich-link-inline" title="${escapeHtml(metadata.description || metadata.title)}">${faviconHtml}<span class="rich-link-inline-title">${escapeHtml(shortTitle)}</span></a>`;
+	}
+
+	/**
+	 * Escape HTML do bezpiecznego wyświetlania
+	 */
+	function escapeHtml(text) {
+		const div = document.createElement('div');
+		div.textContent = text;
+		return div.innerHTML;
+	}
 
 	// --- Obsługa plików ---
 	attachFileBtn.on('click', function () {
@@ -178,14 +330,16 @@ jQuery(document).ready(function ($) {
 
 
 	// --- Renderowanie osi czasu ---
-	function renderTimeline(activities) {
+	async function renderTimeline(activities) {
 		if (activities.length === 0) {
 			timelineContainer.html('<p><em>Brak zarejestrowanych aktywności. Dodaj pierwszą!</em></p>');
 			return;
 		}
 
 		let html = '';
-		activities.forEach(activity => {
+
+		// Przetwarzaj aktywności asynchronicznie
+		for (const activity of activities) {
 			const iconMap = { 'Notatka': 'dashicons-admin-comments', 'E-mail': 'dashicons-email-alt', 'Telefon': 'dashicons-phone', 'Spotkanie': 'dashicons-groups', 'Spotkanie online': 'dashicons-video-alt3' };
 			const iconClass = iconMap[activity.type] || 'dashicons-marker';
 
@@ -220,6 +374,9 @@ jQuery(document).ready(function ($) {
 				attachmentsHtml += '</ul></div>';
 			}
 
+			// Przetwórz zawartość z bogatymi kartami linków
+			const processedContent = await processRichLinks(activity.content);
+
 			html += `
 				<div class="timeline-item" data-activity-id="${activity.id}">
 					<div class="timeline-avatar">
@@ -240,7 +397,9 @@ jQuery(document).ready(function ($) {
 							</div>
 						</div>
 						<div class="timeline-body">
-							<div class="activity-content-display">${activity.content.replace(/\n/g, '<br>')}</div>
+							<div class="activity-content-display">
+								${processedContent}
+							</div>
 							<div class="activity-content-edit" style="display: none;">
 								<textarea class="activity-edit-textarea">${activity.content}</textarea>
 								<div class="timeline-edit-actions">
@@ -253,7 +412,7 @@ jQuery(document).ready(function ($) {
 					</div>
 				</div>
 			`;
-		});
+		}
 		timelineContainer.html(html);
 	}
 
@@ -418,21 +577,71 @@ jQuery(document).ready(function ($) {
 
 	timelineContainer.on('click', '.edit-activity', function () {
 		const contentDiv = $(this).closest('.timeline-content');
+		const textareaElement = contentDiv.find('.activity-edit-textarea');
+
 		contentDiv.find('.activity-content-display').hide();
 		contentDiv.find('.activity-content-edit').show();
-		contentDiv.find('.activity-edit-textarea').trigger('focus');
+		textareaElement.trigger('focus');
+
+		// Dodaj podgląd dla edycji jeśli nie istnieje
+		let editPreviewContainer = contentDiv.find('.edit-preview-container');
+		if (editPreviewContainer.length === 0) {
+			editPreviewContainer = $('<div class="edit-preview-container" style="margin-top: 10px; padding: 8px; border: 1px solid #dcdcde; border-radius: 4px; background: #f9f9f9; display: none;"><div class="preview-label" style="font-size: 12px; color: #646970; margin-bottom: 8px;">Podgląd:</div><div class="preview-content"></div></div>');
+			textareaElement.after(editPreviewContainer);
+		}
+
+		// Obsługa wpisywania w textarea edycji
+		let editPreviewTimeout;
+		textareaElement.off('input.richPreview').on('input.richPreview', function () {
+			const content = $(this).val().trim();
+
+			clearTimeout(editPreviewTimeout);
+
+			if (content === '') {
+				editPreviewContainer.hide();
+				return;
+			}
+
+			// Sprawdź czy tekst zawiera linki
+			const urlRegex = /(https?:\/\/[^\s<>"]+)/gi;
+			const hasLinks = urlRegex.test(content);
+
+			if (!hasLinks) {
+				editPreviewContainer.hide();
+				return;
+			}
+
+			editPreviewContainer.show();
+			editPreviewContainer.find('.preview-content').html('<p style="color: #646970; font-style: italic;">Generowanie podglądu...</p>');
+
+			// Debounce - czekaj 1 sekundę po zakończeniu pisania
+			editPreviewTimeout = setTimeout(async function () {
+				try {
+					const processedContent = await processRichLinks(content);
+					editPreviewContainer.find('.preview-content').html(processedContent);
+				} catch (error) {
+					console.error('Błąd podczas generowania podglądu:', error);
+					editPreviewContainer.find('.preview-content').html('<p style="color: #d63638;">Błąd podczas generowania podglądu linków.</p>');
+				}
+			}, 1000);
+		});
 	});
 
 	timelineContainer.on('click', '.cancel-activity-edit', function () {
 		const contentDiv = $(this).closest('.timeline-content');
 		contentDiv.find('.activity-content-edit').hide();
 		contentDiv.find('.activity-content-display').show();
-		// Resetowanie wartości textarea do oryginalnej zawartości
-		const originalContent = contentDiv.find('.activity-content-display').html().replace(/<br\s*\/?>/ig, '\n');
-		contentDiv.find('.activity-edit-textarea').val($.trim(originalContent));
+
+		// Ukryj podgląd edycji
+		contentDiv.find('.edit-preview-container').hide();
+
+		// Pobierz oryginalną zawartość z textarea (bez konwersji HTML)
+		const textareaElement = contentDiv.find('.activity-edit-textarea');
+		// Nie robimy konwersji z HTML z powrotem na tekst, bo textarea zawiera oryginalny tekst
+		// Resetujemy tylko jeśli to konieczne
 	});
 
-	timelineContainer.on('click', '.save-activity-edit', function () {
+	timelineContainer.on('click', '.save-activity-edit', async function () {
 		const button = $(this);
 		const contentDiv = button.closest('.timeline-content');
 		const activityId = button.closest('.timeline-item').data('activity-id');
@@ -445,9 +654,11 @@ jQuery(document).ready(function ($) {
 			security: securityNonce,
 			activity_id: activityId,
 			content: newContent
-		}).done(response => {
+		}).done(async function (response) {
 			if (response.success) {
-				contentDiv.find('.activity-content-display').html(newContent.replace(/\n/g, '<br>'));
+				// Przetwórz zawartość z bogatymi kartami linków
+				const processedContent = await processRichLinks(newContent);
+				contentDiv.find('.activity-content-display').html(processedContent);
 				contentDiv.find('.activity-content-edit').hide();
 				contentDiv.find('.activity-content-display').show();
 			} else {
