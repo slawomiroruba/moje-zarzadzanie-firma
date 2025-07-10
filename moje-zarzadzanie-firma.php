@@ -166,6 +166,25 @@ final class WPMZF_Plugin
      */
     public function admin_enqueue_scripts($hook)
     {
+        // Ładuj skrypt dyktowania na WSZYSTKICH stronach admina
+        wp_enqueue_style(
+            'wpmzf-voice-dictation-style',
+            plugin_dir_url(__FILE__) . 'assets/css/voice-dictation.css',
+            array(),
+            filemtime(plugin_dir_path(__FILE__) . 'assets/css/voice-dictation.css')
+        );
+
+        wp_enqueue_script(
+            'wpmzf-voice-dictation-script',
+            plugin_dir_url(__FILE__) . 'assets/js/admin/voice-dictation.js',
+            array('jquery'),
+            filemtime(plugin_dir_path(__FILE__) . 'assets/js/admin/voice-dictation.js'),
+            true
+        );
+
+        // Upewnij się, że TinyMCE jest załadowany, aby event `tinymce-init` działał
+        wp_enqueue_editor();
+
         // Ładuj skrypt kontaktów na wszystkich stronach edycji postów w adminie
         if (in_array($hook, ['post.php', 'post-new.php', 'toplevel_page_wpmzf_dashboard'])) {
             $contacts_js_file = plugin_dir_path(__FILE__) . 'assets/js/admin/contacts.js';

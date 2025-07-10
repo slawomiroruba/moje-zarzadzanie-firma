@@ -179,13 +179,13 @@ jQuery(document).ready(function ($) {
 	// === INICJALIZACJA FUNKCJONALNOŚCI AKTYWNOŚCI ===
 
 	// --- Inicjalizacja ---
-	function setDefaultDateTime() {
+	function setDefaultActivityDateTime() {
 		const now = new Date();
 		now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
 		dateField.val(now.toISOString().slice(0, 16));
 	}
 
-	setDefaultDateTime();
+	setDefaultActivityDateTime();
 	loadActivities();
 
 	// Funkcja renderowania podglądu załączników (musi być zdefiniowana wcześnie)
@@ -1247,7 +1247,7 @@ jQuery(document).ready(function ($) {
 					form[0].reset();
 					filesToUpload = [];
 					renderAttachmentsPreview();
-					setDefaultDateTime();
+					setDefaultActivityDateTime();
 					loadActivities();
 					showNotification('Aktywność została dodana pomyślnie!', 'success');
 				} else {
@@ -1579,7 +1579,7 @@ jQuery(document).ready(function ($) {
 	}
 
 	// Ustaw domyślną datę i godzinę na bieżącą
-	function setDefaultDateTime() {
+	function setDefaultTaskDateTime() {
 		const now = new Date();
 		// Formatuj datę do formatu datetime-local (YYYY-MM-DDTHH:MM)
 		const year = now.getFullYear();
@@ -1593,11 +1593,15 @@ jQuery(document).ready(function ($) {
 	}
 
 	// Ustaw domyślną datę przy inicjalizacji
-	setDefaultDateTime();
+	setDefaultTaskDateTime();
+	// UWAGA: setDefaultDateTime() została usunięta - nie istnieje i powodowała błędy
 
 	// === DODAWANIE ZADANIA ===
 	taskForm.on('submit', function (e) {
 		e.preventDefault();
+		
+		// Oznacz, że handler AJAX jest przypisany
+		$(this).data('ajax-handler-attached', true);
 
 		const taskTitle = taskTitleInput.val().trim();
 		const taskDueDate = taskDueDateInput.val();
@@ -1625,7 +1629,7 @@ jQuery(document).ready(function ($) {
 			.done(function (response) {
 				if (response.success) {
 					taskTitleInput.val(''); // Wyczyść pole tytułu
-					setDefaultDateTime(); // Ustaw nową bieżącą datę zamiast czyścić
+					setDefaultTaskDateTime(); // Ustaw nową bieżącą datę zamiast czyścić
 					loadTasks(); // Odśwież listę zadań
 
 					// Pokaż komunikat sukcesu
