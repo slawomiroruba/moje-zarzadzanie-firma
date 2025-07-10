@@ -17,6 +17,23 @@ class WPMZF_ACF_Fields
         add_filter('acf/validate_value/name=person_phones', array($this, 'validate_person_phones'), 10, 4);
         add_filter('acf/validate_value/name=company_emails', array($this, 'validate_company_emails'), 10, 4);
         add_filter('acf/validate_value/name=company_phones', array($this, 'validate_company_phones'), 10, 4);
+        
+        // Dodajemy auto-przypisanie osoby do nowego projektu
+        add_filter('acf/load_value/name=project_person', array($this, 'auto_assign_person_to_project'), 10, 3);
+    }
+    
+    /**
+     * Automatyczne przypisanie osoby do nowego projektu na podstawie URL parametru
+     */
+    public function auto_assign_person_to_project($value, $post_id, $field) {
+        // Tylko dla nowych projektów (post_id jest stringiem 'new_post' lub numerem dla istniejących)
+        if (is_admin() && isset($_GET['person_id']) && $_GET['post_type'] === 'project' && (strpos($_SERVER['REQUEST_URI'], 'post-new.php') !== false)) {
+            $person_id = intval($_GET['person_id']);
+            if ($person_id > 0 && get_post_type($person_id) === 'person') {
+                return array($person_id); // ACF relationship oczekuje tablicy
+            }
+        }
+        return $value;
     }
 
     /**
@@ -327,7 +344,10 @@ class WPMZF_ACF_Fields
             'title' => 'Szczegóły Projektu',
             'fields' => array(
                 array('key' => 'field_wpmzf_project_status', 'label' => 'Status', 'name' => 'project_status', 'type' => 'select', 'choices' => array('Planowanie' => 'Planowanie', 'W toku' => 'W toku', 'Zakończony' => 'Zakończony')),
-                array('key' => 'field_wpmzf_project_company_relation', 'label' => 'Realizowane dla Firmy', 'name' => 'project_company', 'type' => 'relationship', 'post_type' => array('company'), 'min' => 1, 'max' => 1),
+                array('key' => 'field_wpmzf_project_company_relation', 'label' => 'Realizowane dla Firmy', 'name' => 'project_company', 'type' => 'relationship', 'post_type' => array('company'), 'min' => 0, 'max' => 1),
+                array('key' => 'field_wpmzf_project_person_relation', 'label' => 'Przypisane do Osoby', 'name' => 'project_person', 'type' => 'relationship', 'post_type' => array('person'), 'min' => 0, 'max' => 1),
+                array('key' => 'field_wpmzf_project_start_date', 'label' => 'Data rozpoczęcia', 'name' => 'start_date', 'type' => 'date_picker', 'display_format' => 'Y-m-d', 'return_format' => 'Y-m-d'),
+                array('key' => 'field_wpmzf_project_end_date', 'label' => 'Data zakończenia (deadline)', 'name' => 'end_date', 'type' => 'date_picker', 'display_format' => 'Y-m-d', 'return_format' => 'Y-m-d'),
             ),
             'location' => array(array(array('param' => 'post_type', 'operator' => '==', 'value' => 'project'))),
         ));

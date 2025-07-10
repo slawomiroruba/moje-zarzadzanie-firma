@@ -75,11 +75,15 @@ class WPMZF_Project {
             $this->id = $post->ID;
             $this->name = $post->post_title;
             $this->description = $post->post_content;
-            $this->start_date = get_post_meta($id, 'start_date', true);
-            $this->end_date = get_post_meta($id, 'end_date', true);
+            
+            // Ładujemy dane z ACF
+            $this->start_date = get_field('start_date', $id);
+            $this->end_date = get_field('end_date', $id);
+            $this->status = get_field('project_status', $id);
+            
+            // Pozostałe pola z meta (dla kompatybilności wstecznej)
             $this->budget = get_post_meta($id, 'budget', true);
             $this->company_id = get_post_meta($id, 'company_id', true);
-            $this->status = get_post_meta($id, 'status', true);
         }
     }
 
@@ -190,6 +194,166 @@ class WPMZF_Project {
                 )
             )
         );
+
+        return self::get_projects($args);
+    }
+
+    /**
+     * Pobiera projekty przypisane do konkretnej osoby (bezpośrednio lub przez firmę)
+     *
+     * @param int $person_id ID osoby
+     * @return array
+     */
+    public static function get_projects_by_person($person_id) {
+        $args = array(
+            'meta_query' => array(
+                'relation' => 'OR',
+                // Projekty przypisane bezpośrednio do osoby
+                array(
+                    'key' => 'project_person',
+                    'value' => '"' . $person_id . '"',
+                    'compare' => 'LIKE'
+                ),
+                // Projekty przypisane do firmy osoby (dla kompatybilności wstecznej)
+                array(
+                    'relation' => 'AND',
+                    array(
+                        'key' => 'project_company',
+                        'value' => '',
+                        'compare' => '!='
+                    ),
+                    array(
+                        'key' => 'project_company',
+                        'value' => self::get_person_company_ids($person_id),
+                        'compare' => 'IN'
+                    )
+                )
+            )
+        );
+
+        return self::get_projects($args);
+    }
+
+    /**
+     * Pobiera ID firm przypisanych do osoby
+     *
+     * @param int $person_id ID osoby
+     * @return array
+     */
+    private static function get_person_company_ids($person_id) {
+        $person_companies = get_field('person_company', $person_id);
+        
+        if (empty($person_companies) || !is_array($person_companies)) {
+            return array();
+        }
+        
+        $company_ids = array();
+        foreach ($person_companies as $company) {
+            $company_id = is_object($company) ? $company->ID : $company;
+            if ($company_id) {
+                $company_ids[] = $company_id;
+            }
+        }
+        
+        return $company_ids;
+    }
+
+    /**
+     * Pobiera aktywne projekty przypisane do konkretnej osoby
+     *
+     * @param int $person_id ID osoby
+     * @return array
+     */
+    public static function get_active_projects_by_person($person_id) {
+        $company_ids = self::get_person_company_ids($person_id);
+        
+        $meta_query = array(
+            'relation' => 'AND',
+            array(
+                'relation' => 'OR',
+                // Projekty przypisane bezpośrednio do osoby
+                array(
+                    'key' => 'project_person',
+                    'value' => '"' . $person_id . '"',
+                    'compare' => 'LIKE'
+                ),
+            ),
+            array(
+                'key' => 'project_status',
+                'value' => array('Planowanie', 'W toku'),
+                'compare' => 'IN'
+            )
+        );
+        
+        // Tylko dodaj warunek firmy jeśli osoba ma przypisane firmy
+        if (!empty($company_ids)) {
+            $meta_query[0]['relation'] = 'OR';
+            $meta_query[0][] = array(
+                'relation' => 'AND',
+                array(
+                    'key' => 'project_company',
+                    'value' => '',
+                    'compare' => '!='
+                ),
+                array(
+                    'key' => 'project_company',
+                    'value' => $company_ids,
+                    'compare' => 'IN'
+                )
+            );
+        }
+
+        $args = array('meta_query' => $meta_query);
+
+        return self::get_projects($args);
+    }
+
+    /**
+     * Pobiera zamknięte projekty przypisane do konkretnej osoby
+     *
+     * @param int $person_id ID osoby
+     * @return array
+     */
+    public static function get_completed_projects_by_person($person_id) {
+        $company_ids = self::get_person_company_ids($person_id);
+        
+        $meta_query = array(
+            'relation' => 'AND',
+            array(
+                'relation' => 'OR',
+                // Projekty przypisane bezpośrednio do osoby
+                array(
+                    'key' => 'project_person',
+                    'value' => '"' . $person_id . '"',
+                    'compare' => 'LIKE'
+                ),
+            ),
+            array(
+                'key' => 'project_status',
+                'value' => 'Zakończony',
+                'compare' => '='
+            )
+        );
+        
+        // Tylko dodaj warunek firmy jeśli osoba ma przypisane firmy
+        if (!empty($company_ids)) {
+            $meta_query[0]['relation'] = 'OR';
+            $meta_query[0][] = array(
+                'relation' => 'AND',
+                array(
+                    'key' => 'project_company',
+                    'value' => '',
+                    'compare' => '!='
+                ),
+                array(
+                    'key' => 'project_company',
+                    'value' => $company_ids,
+                    'compare' => 'IN'
+                )
+            );
+        }
+
+        $args = array('meta_query' => $meta_query);
 
         return self::get_projects($args);
     }
