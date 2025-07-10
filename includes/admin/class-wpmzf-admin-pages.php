@@ -7,13 +7,36 @@ class WPMZF_Admin_Pages
     {
         add_action('admin_menu', array($this, 'add_plugin_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_person_view_scripts'));
+        add_action('admin_init', array($this, 'handle_actions'));
     }
     public function enqueue_person_view_scripts($hook)
     {
-        // Hook dla strony dodanej przez add_submenu_page z parent_slug=null to 'admin_page_{page_slug}'.
-        if ('admin_page_wpmzf_person_view' === $hook) {
+        // Hook dla strony dodanej przez add_submenu_page z parent_slug='' to 'admin_page_{page_slug}'.
+        if ('admin_page_wpmzf_view_person' === $hook || 'admin_page_luna-crm-person-view' === $hook) {
             // Włączamy skrypty i style ACF, aby pole 'relationship' działało poprawnie.
-            acf_enqueue_scripts();
+            if (function_exists('acf_enqueue_scripts')) {
+                acf_enqueue_scripts();
+            }
+            
+            // Dodajemy skrypty edytora WYSIWYG
+            wp_enqueue_editor();
+            wp_enqueue_media();
+            
+            // Dodajemy nasze style i skrypty
+            wp_enqueue_style(
+                'wpmzf-person-view',
+                plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/css/admin-styles.css',
+                array(),
+                '1.0.0'
+            );
+            
+            wp_enqueue_script(
+                'wpmzf-person-view',
+                plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/js/admin/person-view.js',
+                array('jquery'),
+                '1.0.0',
+                true
+            );
         }
     }
 
@@ -22,44 +45,75 @@ class WPMZF_Admin_Pages
      */
     public function add_plugin_admin_menu()
     {
-        // Dodajemy główną stronę "Kokpit Firmy"
+        // Główne menu pluginu
         add_menu_page(
-            'Kokpit Firmy',                   // Tytuł strony (w tagu <title>)
-            'Kokpit Firmy',                   // Nazwa w menu
-            'manage_options',                 // Wymagane uprawnienia
-            'wpmzf_dashboard',                // Slug strony
-            array($this, 'render_dashboard_page'), // Funkcja renderująca zawartość
-            'dashicons-dashboard',            // Ikona
-            6                                 // Pozycja w menu
+            'WPMZF',
+            'WPMZF',
+            'manage_options',
+            'wpmzf_dashboard',
+            array($this, 'render_dashboard_page'),
+            'dashicons-businessman',
+            30
         );
 
-        // Dodajemy pod-stronę do zarządzania dokumentami
+        // Submenu Dashboard
         add_submenu_page(
-            'wpmzf_dashboard',                // Slug strony nadrzędnej
-            'Zarządzanie Dokumentami',        // Tytuł strony
-            'Dokumenty',                      // Nazwa w menu
-            'manage_options',                 // Uprawnienia
-            'wpmzf_documents',                // Slug tej pod-strony
-            array($this, 'render_documents_page') // Funkcja renderująca
+            'wpmzf_dashboard',
+            'Dashboard',
+            'Dashboard',
+            'manage_options',
+            'wpmzf_dashboard',
+            array($this, 'render_dashboard_page')
         );
-        // Dodajemy pod-stronę do zarządzania osobami
+
+        // Submenu Osoby
         add_submenu_page(
-            'wpmzf_dashboard',                // Slug strony nadrzędnej
-            'Zarządzanie Osobami',         // Tytuł strony
-            'Osoby',                       // Nazwa w menu
-            'manage_options',                 // Uprawnienia
-            'wpmzf_persons',                 // Slug tej pod-strony
-            array($this, 'render_persons_page') // Funkcja renderująca
+            'wpmzf_dashboard',
+            'Osoby',
+            'Osoby',
+            'manage_options',
+            'wpmzf_persons',
+            array($this, 'render_persons_page')
+        );
+
+        // Submenu Firmy
+        add_submenu_page(
+            'wpmzf_dashboard',
+            'Firmy',
+            'Firmy',
+            'manage_options',
+            'wpmzf_companies',
+            array($this, 'render_companies_page')
+        );
+
+        // Submenu Projekty
+        add_submenu_page(
+            'wpmzf_dashboard',
+            'Projekty',
+            'Projekty',
+            'manage_options',
+            'wpmzf_projects',
+            array($this, 'render_projects_page')
         );
 
         // Rejestrujemy "ukrytą" stronę do widoku pojedynczej osoby.
-        // `parent_slug` jako null ukrywa ją z menu.
+        // `parent_slug` jako '' ukrywa ją z menu.
         add_submenu_page(
             '',                          // Brak rodzica w menu (ukryta)
             'Widok Osoby',               // page_title – tytuł w <title> i nagłówku
             'Widok Osoby',               // menu_title – nazwa w menu (choć tu niewidoczna)
             'manage_options',            // wymagane uprawnienia
-            'wpmzf_person_view',         // slug
+            'wpmzf_view_person',         // slug - zmieniony z wpmzf_person_view na wpmzf_view_person
+            array($this, 'render_single_person_page') // callback renderujący
+        );
+
+        // Dodajemy też starą ścieżkę dla kompatybilności z linkami w kodzie
+        add_submenu_page(
+            '',                          // Brak rodzica w menu (ukryta)
+            'Widok Osoby (Legacy)',      // page_title – tytuł w <title> i nagłówku
+            'Widok Osoby (Legacy)',      // menu_title – nazwa w menu (choć tu niewidoczna)
+            'manage_options',            // wymagane uprawnienia
+            'luna-crm-person-view',      // slug używany w linkach
             array($this, 'render_single_person_page') // callback renderujący
         );
     }
@@ -188,7 +242,10 @@ class WPMZF_Admin_Pages
             'fields'         => 'ids',
             'meta_query'     => [
                 'relation' => 'OR',
-                ['key' => 'person_status', 'value' => 'Zarchiwizowany', 'compare' => '!='],
+                [
+                    'relation' => 'AND',
+                    ['key' => 'person_status', 'value' => ['archived', 'Zarchiwizowany'], 'compare' => 'NOT IN']
+                ],
                 ['key' => 'person_status', 'compare' => 'NOT EXISTS']
             ]
         ]);
@@ -315,24 +372,39 @@ class WPMZF_Admin_Pages
 
             /* Task styles */
             .task-input-wrapper {
-                display: flex;
-                gap: 8px;
-                align-items: center;
+                margin-bottom: 10px;
             }
 
             .task-input-wrapper input[type="text"] {
-                flex: 1;
+                width: 100%;
                 padding: 8px;
                 border: 1px solid #8c8f94;
                 border-radius: 3px;
+            }
+
+            .task-due-date-wrapper label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 600;
+            }
+
+            .task-due-date-wrapper input[type="datetime-local"] {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #8c8f94;
+                border-radius: 3px;
+            }
+
+            .task-submit-wrapper {
+                margin-top: 15px;
             }
 
             .task-item {
                 background: #f9f9f9;
                 border: 1px solid #e0e0e0;
                 border-radius: 4px;
-                padding: 12px;
-                margin-bottom: 10px;
+                padding: 8px 10px;
+                margin-bottom: 6px;
                 position: relative;
             }
 
@@ -347,8 +419,8 @@ class WPMZF_Admin_Pages
             }
 
             .task-item.upcoming {
-                border-left: 4px solid #46b450;
-                background: #f7fff7;
+                border-left: 4px solid #2271b1;
+                background: #f0f6fc;
             }
 
             .task-item.completed {
@@ -356,11 +428,15 @@ class WPMZF_Admin_Pages
                 opacity: 0.7;
             }
 
-            .task-header {
+            .task-content {
+                width: 100%;
+            }
+
+            .task-title-row {
                 display: flex;
                 justify-content: space-between;
                 align-items: flex-start;
-                margin-bottom: 8px;
+                margin-bottom: 4px;
             }
 
             .task-title {
@@ -368,6 +444,28 @@ class WPMZF_Admin_Pages
                 color: #23282d;
                 margin: 0;
                 font-size: 14px;
+                flex: 1;
+                line-height: 1.2;
+                margin-right: 8px;
+            }
+
+            .task-meta-row {
+                display: flex;
+                justify-content: flex-start;
+                align-items: center;
+                font-size: 11px;
+            }
+
+            .task-meta-left {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+
+            .task-meta-right {
+                display: flex;
+                align-items: center;
             }
 
             .task-meta {
@@ -381,11 +479,12 @@ class WPMZF_Admin_Pages
 
             .task-status {
                 display: inline-block;
-                padding: 2px 8px;
-                border-radius: 12px;
-                font-size: 11px;
-                font-weight: 500;
+                padding: 2px 6px;
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: 600;
                 text-transform: uppercase;
+                letter-spacing: 0.3px;
             }
 
             .task-status.do-zrobienia {
@@ -403,20 +502,75 @@ class WPMZF_Admin_Pages
                 color: #155724;
             }
 
+            .task-date {
+                display: inline-block;
+                padding: 2px 6px;
+                background: #f0f0f1;
+                border-radius: 3px;
+                font-size: 11px;
+                font-weight: 500;
+                color: #646970;
+            }
+
+            .task-date.overdue {
+                background: #dc3232;
+                color: white;
+            }
+
+            .task-date.today {
+                background: #ffb900;
+                color: white;
+            }
+
+            .task-date.upcoming {
+                background: #2271b1;
+                color: white;
+            }
+
+            .task-priority-indicator {
+                display: inline-block;
+                padding: 2px 5px;
+                border-radius: 3px;
+                font-size: 9px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .task-priority-indicator.overdue {
+                background: #dc3232;
+                color: white;
+            }
+
+            .task-priority-indicator.today {
+                background: #ffb900;
+                color: white;
+            }
+
+            .task-priority-indicator.upcoming {
+                background: #2271b1;
+                color: white;
+            }
+
             .task-actions {
                 display: flex;
-                gap: 8px;
-                margin-top: 8px;
+                gap: 2px;
+                align-items: center;
+                flex-shrink: 0;
             }
 
             .task-actions .dashicons {
                 cursor: pointer;
                 color: #787c82;
-                font-size: 16px;
+                font-size: 12px;
+                padding: 1px;
+                border-radius: 2px;
+                transition: all 0.2s ease;
             }
 
             .task-actions .dashicons:hover {
                 color: #2271b1;
+                background: rgba(34, 113, 177, 0.1);
             }
 
             #wpmzf-toggle-closed-tasks {
@@ -438,6 +592,70 @@ class WPMZF_Admin_Pages
 
             #wpmzf-toggle-closed-tasks.expanded .dashicons {
                 transform: rotate(90deg);
+            }
+
+            .task-edit-input {
+                width: 100%;
+                padding: 5px;
+                border: 1px solid #ddd;
+                border-radius: 3px;
+                font-size: 14px;
+                font-weight: 600;
+            }
+
+            #task-date-edit-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #task-date-edit-modal > div {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                width: 400px;
+                max-width: 90%;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+
+            #task-date-edit-modal h3 {
+                margin-top: 0;
+                color: #23282d;
+            }
+
+            #task-date-edit-input {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                margin-bottom: 15px;
+                font-size: 14px;
+            }
+
+            .task-message {
+                margin: 10px 0;
+                padding: 8px 12px;
+                border-radius: 4px;
+                border-left: 4px solid transparent;
+            }
+
+            .task-message.notice-success {
+                background: #d4edda;
+                border-left-color: #155724;
+                color: #155724;
+            }
+
+            .task-message.notice-error {
+                background: #f8d7da;
+                border-left-color: #721c24;
+                color: #721c24;
             }
 
             @media screen and (max-width: 1200px) {
@@ -532,11 +750,157 @@ class WPMZF_Admin_Pages
     ?>
         <style>
             /* Single person View Styles */
+            
+            /* Header styles */
+            .person-header {
+                background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+                border: 1px solid #e1e5e9;
+                border-radius: 12px;
+                padding: 24px 28px;
+                margin: 20px 0 28px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .person-header::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 4px;
+                background: linear-gradient(90deg, #2271b1 0%, #1e90ff 50%, #00bcd4 100%);
+            }
+
+            .person-header-left {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .person-header h1 {
+                margin: 0;
+                font-size: 28px;
+                font-weight: 700;
+                color: #1d2327;
+                line-height: 1.2;
+                padding: 0 !important;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            }
+
+            .person-status-badge {
+                display: inline-flex;
+                align-items: center;
+                padding: 4px 12px;
+                border-radius: 16px;
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                width: fit-content;
+            }
+
+            .person-status-badge.status-active {
+                background: #d4edda;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+            }
+
+            .person-status-badge.status-inactive {
+                background: #fff3cd;
+                color: #856404;
+                border: 1px solid #ffeaa7;
+            }
+
+            .person-status-badge.status-archived {
+                background: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+            }
+
+            .person-header-actions {
+                display: flex;
+                gap: 12px;
+                align-items: center;
+            }
+
+            .person-header-actions .button {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 500;
+                padding: 10px 18px;
+                border-radius: 6px;
+                transition: all 0.3s ease;
+                border: 1px solid transparent;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            }
+
+            .person-header-actions .button:not(.button-secondary) {
+                background: #f8f9fa;
+                color: #50575e;
+                border-color: #e1e5e9;
+            }
+
+            .person-header-actions .button:not(.button-secondary):hover {
+                background: #fff;
+                border-color: #2271b1;
+                color: #2271b1;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(34, 113, 177, 0.15);
+            }
+
+            .person-header-actions .button-secondary {
+                background: #2271b1;
+                color: #fff;
+                border-color: #2271b1;
+            }
+
+            .person-header-actions .button-secondary:hover {
+                background: #1e5a8a;
+                border-color: #1e5a8a;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(34, 113, 177, 0.25);
+            }
+
+            .person-header-actions .archive-person-btn {
+                background: #dc3545;
+                border-color: #dc3545;
+            }
+
+            .person-header-actions .archive-person-btn:hover {
+                background: #c82333;
+                border-color: #c82333;
+                box-shadow: 0 4px 12px rgba(220, 53, 69, 0.25);
+            }
+
+            .person-header-actions .unarchive-person-btn {
+                background: #28a745;
+                border-color: #28a745;
+            }
+
+            .person-header-actions .unarchive-person-btn:hover {
+                background: #218838;
+                border-color: #218838;
+                box-shadow: 0 4px 12px rgba(40, 167, 69, 0.25);
+            }
+
+            .person-header-actions .button .dashicons {
+                line-height: 1;
+                font-size: 16px;
+            }
+
             .dossier-grid {
                 display: grid;
                 grid-template-columns: 320px 1fr 360px;
                 gap: 24px;
-                margin-top: 24px;
+                margin-top: 0;
             }
 
             .dossier-left-column,
@@ -610,16 +974,74 @@ class WPMZF_Admin_Pages
                 color: #1d2327;
                 font-weight: 500;
             }
-
-            .dossier-box .dossier-content ul {
-                margin: 0;
-                padding-left: 20px;
+            
+            /* Contact styles */
+            .contacts-list {
+                margin-top: 8px;
             }
-
-            .dossier-box .dossier-content ul li {
+            
+            .contact-item {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 6px;
+                padding: 6px 0;
+                border-bottom: 1px solid #f0f0f1;
+            }
+            
+            .contact-item:last-child {
+                border-bottom: none;
+                margin-bottom: 0;
+            }
+            
+            .contact-item.is-primary {
+                background: #f6f7f7;
+                padding: 8px 12px;
+                border-radius: 4px;
+                border: 1px solid #c3c4c7;
                 margin-bottom: 8px;
-                line-height: 1.5;
             }
+            
+            .contact-link {
+                color: #2271b1;
+                text-decoration: none;
+                font-weight: 500;
+            }
+            
+            .contact-link:hover {
+                color: #135e96;
+                text-decoration: underline;
+            }
+            
+            .primary-badge {
+                background: #2271b1;
+                color: #fff;
+                font-size: 11px;
+                font-weight: 500;
+                padding: 2px 6px;
+                border-radius: 10px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .no-contacts {
+                color: #8c8f94;
+                font-style: italic;
+                font-size: 14px;
+            }
+            
+            .email-item .contact-link:before {
+                content: "✉";
+                margin-right: 6px;
+                color: #8c8f94;
+            }
+            
+            .phone-item .contact-link:before {
+                content: "☎";
+                margin-right: 6px;
+                color: #8c8f94;
+            }
+            /* End of Contact styles */
 
             .dossier-content .timeline-attachments {
                 margin-top: 10px;
@@ -663,6 +1085,7 @@ class WPMZF_Admin_Pages
                 margin-top: 10px;
                 padding-top: 10px;
                 border-top: 1px solid #dcdcde;
+                display: none; /* Ukryty domyślnie - pokazywany przez JS gdy są załączniki */
             }
 
             #wpmzf-attachments-preview .attachment-item {
@@ -738,8 +1161,8 @@ class WPMZF_Admin_Pages
                 background: #f9f9f9;
                 border: 1px solid #e0e0e0;
                 border-radius: 4px;
-                padding: 12px;
-                margin-bottom: 10px;
+                padding: 8px 10px;
+                margin-bottom: 6px;
                 position: relative;
             }
 
@@ -754,8 +1177,8 @@ class WPMZF_Admin_Pages
             }
 
             .task-item.upcoming {
-                border-left: 4px solid #46b450;
-                background: #f7fff7;
+                border-left: 4px solid #2271b1;
+                background: #f0f6fc;
             }
 
             .task-item.completed {
@@ -763,11 +1186,15 @@ class WPMZF_Admin_Pages
                 opacity: 0.7;
             }
 
-            .task-header {
+            .task-content {
+                width: 100%;
+            }
+
+            .task-title-row {
                 display: flex;
                 justify-content: space-between;
                 align-items: flex-start;
-                margin-bottom: 8px;
+                margin-bottom: 4px;
             }
 
             .task-title {
@@ -775,6 +1202,28 @@ class WPMZF_Admin_Pages
                 color: #23282d;
                 margin: 0;
                 font-size: 14px;
+                flex: 1;
+                line-height: 1.2;
+                margin-right: 8px;
+            }
+
+            .task-meta-row {
+                display: flex;
+                justify-content: flex-start;
+                align-items: center;
+                font-size: 11px;
+            }
+
+            .task-meta-left {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+
+            .task-meta-right {
+                display: flex;
+                align-items: center;
             }
 
             .task-meta {
@@ -788,11 +1237,12 @@ class WPMZF_Admin_Pages
 
             .task-status {
                 display: inline-block;
-                padding: 2px 8px;
-                border-radius: 12px;
-                font-size: 11px;
-                font-weight: 500;
+                padding: 2px 6px;
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: 600;
                 text-transform: uppercase;
+                letter-spacing: 0.3px;
             }
 
             .task-status.do-zrobienia {
@@ -810,20 +1260,75 @@ class WPMZF_Admin_Pages
                 color: #155724;
             }
 
+            .task-date {
+                display: inline-block;
+                padding: 2px 6px;
+                background: #f0f0f1;
+                border-radius: 3px;
+                font-size: 11px;
+                font-weight: 500;
+                color: #646970;
+            }
+
+            .task-date.overdue {
+                background: #dc3232;
+                color: white;
+            }
+
+            .task-date.today {
+                background: #ffb900;
+                color: white;
+            }
+
+            .task-date.upcoming {
+                background: #2271b1;
+                color: white;
+            }
+
+            .task-priority-indicator {
+                display: inline-block;
+                padding: 2px 5px;
+                border-radius: 3px;
+                font-size: 9px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .task-priority-indicator.overdue {
+                background: #dc3232;
+                color: white;
+            }
+
+            .task-priority-indicator.today {
+                background: #ffb900;
+                color: white;
+            }
+
+            .task-priority-indicator.upcoming {
+                background: #2271b1;
+                color: white;
+            }
+
             .task-actions {
                 display: flex;
-                gap: 8px;
-                margin-top: 8px;
+                gap: 2px;
+                align-items: center;
+                flex-shrink: 0;
             }
 
             .task-actions .dashicons {
                 cursor: pointer;
                 color: #787c82;
-                font-size: 16px;
+                font-size: 12px;
+                padding: 1px;
+                border-radius: 2px;
+                transition: all 0.2s ease;
             }
 
             .task-actions .dashicons:hover {
                 color: #2271b1;
+                background: rgba(34, 113, 177, 0.1);
             }
 
             #wpmzf-toggle-closed-tasks {
@@ -847,16 +1352,100 @@ class WPMZF_Admin_Pages
                 transform: rotate(90deg);
             }
 
+            .task-edit-input {
+                width: 100%;
+                padding: 5px;
+                border: 1px solid #ddd;
+                border-radius: 3px;
+                font-size: 14px;
+                font-weight: 600;
+            }
+
+            #task-date-edit-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #task-date-edit-modal > div {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                width: 400px;
+                max-width: 90%;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+
+            #task-date-edit-modal h3 {
+                margin-top: 0;
+                color: #23282d;
+            }
+
+            #task-date-edit-input {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                margin-bottom: 15px;
+                font-size: 14px;
+            }
+
+            .task-message {
+                margin: 10px 0;
+                padding: 8px 12px;
+                border-radius: 4px;
+                border-left: 4px solid transparent;
+            }
+
+            .task-message.notice-success {
+                background: #d4edda;
+                border-left-color: #155724;
+                color: #155724;
+            }
+
+            .task-message.notice-error {
+                background: #f8d7da;
+                border-left-color: #721c24;
+                color: #721c24;
+            }
+
             @media screen and (max-width: 1200px) {
                 .dossier-grid {
                     grid-template-columns: 1fr;
-                    gap: 16px;
                 }
                 
                 .dossier-left-column,
                 .dossier-center-column,
                 .dossier-right-column {
                     gap: 16px;
+                }
+                
+                .person-header {
+                    margin: 16px 0 20px;
+                    padding: 20px 24px;
+                    flex-direction: column;
+                    gap: 16px;
+                    align-items: flex-start;
+                }
+
+                .person-header-left {
+                    width: 100%;
+                }
+                
+                .person-header h1 {
+                    font-size: 24px;
+                }
+
+                .person-header-actions {
+                    width: 100%;
+                    justify-content: flex-end;
                 }
             }
 
@@ -874,17 +1463,103 @@ class WPMZF_Admin_Pages
                     font-size: 11px;
                     padding: 4px 8px;
                 }
+                
+                .person-header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 16px;
+                    padding: 16px;
+                }
+
+                .person-header h1 {
+                    font-size: 20px;
+                }
+
+                .person-header-actions {
+                    width: 100%;
+                    justify-content: stretch;
+                    flex-wrap: wrap;
+                }
+
+                .person-header-actions .button {
+                    flex: 1;
+                    justify-content: center;
+                    min-width: 120px;
+                }
+                
+                .person-header h1 {
+                    font-size: 20px;
+                }
+                
+                .person-header-actions {
+                    width: 100%;
+                    justify-content: flex-end;
+                }
+                
+                .person-header-actions .button {
+                    padding: 6px 12px;
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    font-size: 12px;
+                }
             }
         </style>
 
         <div class="wrap">
-            <h1><?php echo esc_html($person_title); ?></h1>
-
-            <div class="nav-tab-wrapper">
-                <a href="#" class="nav-tab nav-tab-active">Dane i Aktywności</a>
-                <!-- <a href="#" class="nav-tab">Zadania</a>
-                <a href="#" class="nav-tab">Dokumenty</a>
-                <a href="#" class="nav-tab">Płatności</a> -->
+            <div class="person-header">
+                <div class="person-header-left">
+                    <h1><?php echo esc_html($person_title); ?></h1>
+                    <?php 
+                    // Pobieramy status osoby - może być po polsku lub angielsku
+                    $current_status = $person_fields['person_status'] ?? 'active';
+                    
+                    // Mapowanie statusów - obsługujemy polskie i angielskie wartości
+                    $status_labels = [
+                        'active' => 'Aktywny',
+                        'inactive' => 'Nieaktywny', 
+                        'archived' => 'Zarchiwizowany',
+                        'Aktywny' => 'Aktywny',
+                        'Nieaktywny' => 'Nieaktywny',
+                        'Zarchiwizowany' => 'Zarchiwizowany'
+                    ];
+                    
+                    // Ustalamy CSS class na podstawie statusu
+                    $css_class = 'status-active'; // domyślna
+                    if (in_array($current_status, ['inactive', 'Nieaktywny'])) {
+                        $css_class = 'status-inactive';
+                    } elseif (in_array($current_status, ['archived', 'Zarchiwizowany'])) {
+                        $css_class = 'status-archived';
+                    }
+                    
+                    // Pobieramy etykietę do wyświetlenia
+                    $display_status = $status_labels[$current_status] ?? $current_status;
+                    ?>
+                    <div class="person-status-badge <?php echo esc_attr($css_class); ?>">
+                        <?php echo esc_html($display_status ?: 'Aktywny'); ?>
+                    </div>
+                </div>
+                <div class="person-header-actions">
+                    <?php 
+                    // Sprawdzamy czy osoba jest zarchiwizowana
+                    $is_archived = in_array($current_status, ['archived', 'Zarchiwizowany']);
+                    ?>
+                    <?php if (!$is_archived): ?>
+                        <button type="button" class="button button-secondary archive-person-btn" data-person-id="<?php echo esc_attr($person_id); ?>">
+                            <span class="dashicons dashicons-archive"></span>
+                            Archiwizuj
+                        </button>
+                    <?php else: ?>
+                        <button type="button" class="button button-secondary unarchive-person-btn" data-person-id="<?php echo esc_attr($person_id); ?>">
+                            <span class="dashicons dashicons-undo"></span>
+                            Przywróć z archiwum
+                        </button>
+                    <?php endif; ?>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=wpmzf_persons')); ?>" class="button">
+                        <span class="dashicons dashicons-arrow-left-alt"></span>
+                        Powrót do listy
+                    </a>
+                </div>
             </div>
 
             <div class="dossier-grid">
@@ -908,8 +1583,16 @@ class WPMZF_Admin_Pages
                                         }
                                         ?>
                                     </span></p>
-                                <p><strong>Email:</strong> <a data-field="person_email" href="mailto:<?php echo esc_attr((string)($person_fields['person_email'] ?? '')); ?>"><?php echo esc_html((string)($person_fields['person_email'] ?? 'Brak')); ?></a></p>
-                                <p><strong>Telefon:</strong> <span data-field="person_phone"><?php echo esc_html((string)($person_fields['person_phone'] ?? 'Brak')); ?></span></p>
+                                <p><strong>E-maile:</strong> 
+                                    <div data-field="person_emails">
+                                        <?php echo WPMZF_Contact_Helper::render_emails_display(WPMZF_Contact_Helper::get_person_emails($person_id)); ?>
+                                    </div>
+                                </p>
+                                <p><strong>Telefony:</strong> 
+                                    <div data-field="person_phones">
+                                        <?php echo WPMZF_Contact_Helper::render_phones_display(WPMZF_Contact_Helper::get_person_phones($person_id)); ?>
+                                    </div>
+                                </p>
                                 <p><strong>Adres:</strong> <span data-field="person_address"><?php
                                 $address_group = is_array($person_fields['person_address'] ?? null) ? $person_fields['person_address'] : [];
                                 $address_parts = [
@@ -926,8 +1609,13 @@ class WPMZF_Admin_Pages
                                         'active' => 'Aktywny',
                                         'inactive' => 'Nieaktywny',
                                         'archived' => 'Zarchiwizowany',
+                                        'Aktywny' => 'Aktywny',
+                                        'Nieaktywny' => 'Nieaktywny',
+                                        'Zarchiwizowany' => 'Zarchiwizowany'
                                     ];
-                                    echo esc_html($status_labels[(string)($person_fields['person_status'] ?? '')] ?? 'Brak');
+                                    $current_status = $person_fields['person_status'] ?? 'active';
+                                    $display_status = isset($status_labels[$current_status]) ? $status_labels[$current_status] : $current_status;
+                                    echo esc_html($display_status ?: 'Aktywny');
                                     ?>
                                 </span></p>
                             </div>
@@ -938,17 +1626,6 @@ class WPMZF_Admin_Pages
 
                                     <label for="person_position">Stanowisko:</label>
                                     <input type="text" id="person_position" name="person_position" value="<?php echo esc_attr((string)($person_fields['person_position'] ?? '')); ?>">
-
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label for="person_email">Email:</label>
-                                            <input type="email" id="person_email" name="person_email" value="<?php echo esc_attr((string)($person_fields['person_email'] ?? '')); ?>">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="person_phone">Telefon:</label>
-                                            <input type="text" id="person_phone" name="person_phone" value="<?php echo esc_attr((string)($person_fields['person_phone'] ?? '')); ?>">
-                                        </div>
-                                    </div>
 
                                     <label for="company_search_select">Firma:</label>
                                     <select id="company_search_select" name="person_company" style="width: 100%;">
@@ -1024,7 +1701,20 @@ class WPMZF_Admin_Pages
                                 <input type="file" id="wpmzf-activity-files-input" name="activity_files[]" multiple style="display: none;">
 
                                 <div id="wpmzf-activity-main-editor">
-                                    <textarea name="content" id="wpmzf-activity-content" placeholder="Dodaj notatkę, opisz spotkanie..." required></textarea>
+                                    <?php
+                                    // Wstawiamy placeholder zamiast edytora
+                                    echo '<div id="wpmzf-editor-placeholder" class="wpmzf-editor-placeholder">';
+                                    echo '<div class="placeholder-text">Wpisz treść notatki...</div>';
+                                    echo '</div>';
+                                    
+                                    // Kontener na edytor TinyMCE (początkowo ukryty)
+                                    echo '<div id="wpmzf-editor-container" style="display: none;">';
+                                    
+                                    // Generujemy tylko textarea - TinyMCE zostanie zainicjalizowany przez JavaScript
+                                    echo '<textarea id="wpmzf-activity-content" name="content" rows="6" style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; font-size: 14px; line-height: 1.5; resize: vertical;"></textarea>';
+                                    
+                                    echo '</div>';
+                                    ?>
                                 </div>
 
                                 <div id="wpmzf-activity-meta-controls">
@@ -1043,7 +1733,7 @@ class WPMZF_Admin_Pages
                                         <button type="submit" id="wpmzf-submit-activity-btn" class="button button-primary">Dodaj aktywność</button>
                                     </div>
                                 </div>
-                                <div id="wpmzf-attachments-preview"></div>
+                                <div id="wpmzf-attachments-preview-container"></div>
                             </form>
                         </div>
                     </div>
@@ -1067,7 +1757,13 @@ class WPMZF_Admin_Pages
                                 
                                 <div class="task-input-wrapper">
                                     <input type="text" id="wpmzf-task-title" name="task_title" placeholder="Wpisz treść zadania..." required>
-                                    <button type="submit" class="button button-primary">Dodaj</button>
+                                </div>
+                                <div class="task-due-date-wrapper" style="margin-top: 10px;">
+                                    <label for="wpmzf-task-due-date" style="display: block; margin-bottom: 5px; font-weight: 600;">Termin wykonania:</label>
+                                    <input type="datetime-local" id="wpmzf-task-due-date" name="task_due_date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                </div>
+                                <div class="task-submit-wrapper" style="margin-top: 15px;">
+                                    <button type="submit" class="button button-primary">Dodaj zadanie</button>
                                 </div>
                             </form>
                         </div>
@@ -1077,7 +1773,6 @@ class WPMZF_Admin_Pages
                         <h2 class="dossier-title">Zadania</h2>
                         <div class="dossier-content">
                             <div id="wpmzf-open-tasks">
-                                <h4>Otwarte zadania</h4>
                                 <div id="wpmzf-open-tasks-list">
                                     <p><em>Ładowanie zadań...</em></p>
                                 </div>
@@ -1098,5 +1793,35 @@ class WPMZF_Admin_Pages
         </div>
 
 <?php
+    }
+
+    /**
+     * Renderuje stronę firm
+     */
+    public function render_companies_page()
+    {
+        echo '<div class="wrap">';
+        echo '<h1>Firmy</h1>';
+        echo '<p>Zarządzanie firmami - strona w budowie.</p>';
+        echo '</div>';
+    }
+
+    /**
+     * Renderuje stronę projektów
+     */
+    public function render_projects_page()
+    {
+        echo '<div class="wrap">';
+        echo '<h1>Projekty</h1>';
+        echo '<p>Zarządzanie projektami - strona w budowie.</p>';
+        echo '</div>';
+    }
+
+    /**
+     * Obsługuje akcje admin (AJAX, itp.)
+     */
+    public function handle_actions()
+    {
+        // Tutaj będą obsługiwane akcje admin
     }
 }

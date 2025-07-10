@@ -44,9 +44,9 @@ class WPMZF_persons_List_Table extends WP_List_Table {
     function column_default($item, $column_name) {
         switch ($column_name) {
             case 'email':
-                return get_field('person_email', $item->ID);
+                return WPMZF_Contact_Helper::get_primary_person_email($item->ID) ?? 'Brak';
             case 'phone':
-                 return get_field('person_phone', $item->ID);
+                return WPMZF_Contact_Helper::get_primary_person_phone($item->ID) ?? 'Brak';
             case 'date':
                 return get_the_date('Y-m-d H:i', $item->ID);
             default:
@@ -65,7 +65,7 @@ class WPMZF_persons_List_Table extends WP_List_Table {
         }
 
         // Linki akcji (View, Edit, Archive...)
-        $view_link = sprintf('?page=wpmzf_person_view&person_id=%s', $item->ID);
+        $view_link = sprintf('?page=luna-crm-person-view&person_id=%s', $item->ID);
         $actions = [
             'view'    => '<a href="' . $view_link . '">Zobacz teczkę</a>',
             'archive' => '<a href="?page=' . $_REQUEST['page'] . '&action=archive&person=' . $item->ID . '">Archiwizuj</a>',

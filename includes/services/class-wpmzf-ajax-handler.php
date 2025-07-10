@@ -19,6 +19,8 @@ class WPMZF_Ajax_Handler
         add_action('wp_ajax_delete_wpmzf_attachment', array($this, 'delete_attachment'));
         // Hook do aktualizacji danych osoby
         add_action('wp_ajax_wpmzf_update_person_details', array($this, 'update_person_details'));
+        // Hook do archiwizacji osoby
+        add_action('wp_ajax_wpmzf_toggle_person_archive', array($this, 'toggle_person_archive'));
         // Rejestracja punktu końcowego dla zalogowanych użytkowników
         add_action('wp_ajax_wpmzf_search_companies',  array($this, 'wpmzf_search_companies_ajax_handler'));
         // Rejestracja punktu końcowego dla niezalogowanych użytkowników
@@ -28,6 +30,7 @@ class WPMZF_Ajax_Handler
         // Hooks dla zadań
         add_action('wp_ajax_add_wpmzf_task', array($this, 'add_task'));
         add_action('wp_ajax_get_wpmzf_tasks', array($this, 'get_tasks'));
+        add_action('wp_ajax_get_wpmzf_task_date', array($this, 'get_task_date'));
         add_action('wp_ajax_update_wpmzf_task_status', array($this, 'update_task_status'));
         add_action('wp_ajax_delete_wpmzf_task', array($this, 'delete_task'));
     }
@@ -420,8 +423,6 @@ class WPMZF_Ajax_Handler
         // 1. Aktualizacja prostych pól tekstowych i select
         $simple_fields = [
             'person_position' => 'sanitize_text_field',
-            'person_email'    => 'sanitize_email',
-            'person_phone'    => 'sanitize_text_field',
             'person_status'   => 'sanitize_text_field',
         ];
 
@@ -495,10 +496,17 @@ class WPMZF_Ajax_Handler
         if ($company_id_to_save) {
             $company_html = sprintf('<a href="%s">%s</a>', esc_url(get_edit_post_link($company_id_to_save)), esc_html(get_the_title($company_id_to_save)));
         }
+        
+        // Przygotuj odświeżone HTML dla kontaktów
+        $contacts_html = [
+            'emails' => WPMZF_Contact_Helper::render_emails_display(WPMZF_Contact_Helper::get_person_emails($person_id)),
+            'phones' => WPMZF_Contact_Helper::render_phones_display(WPMZF_Contact_Helper::get_person_phones($person_id))
+        ];
 
         wp_send_json_success([
             'message' => 'Dane osoby zaktualizowane.',
-            'company_html' => $company_html
+            'company_html' => $company_html,
+            'contacts_html' => $contacts_html
         ]);
     }
 
@@ -645,6 +653,7 @@ class WPMZF_Ajax_Handler
 
         $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
         $task_title = isset($_POST['task_title']) ? sanitize_text_field($_POST['task_title']) : '';
+        $task_due_date = isset($_POST['task_due_date']) ? sanitize_text_field($_POST['task_due_date']) : '';
 
         if (!$person_id || empty($task_title)) {
             wp_send_json_error(['message' => 'Brak wymaganych danych.']);
@@ -672,6 +681,13 @@ class WPMZF_Ajax_Handler
             update_field('task_status', 'Do zrobienia', $task_id);
             update_field('task_assigned_person', $person_id, $task_id);
             update_field('task_start_date', current_time('Y-m-d H:i:s'), $task_id);
+            
+            // Zapisanie daty zakończenia jeśli została podana
+            if (!empty($task_due_date)) {
+                // Konwertujemy format datetime-local do formatu MySQL
+                $due_date_formatted = date('Y-m-d H:i:s', strtotime($task_due_date));
+                update_field('task_end_date', $due_date_formatted, $task_id);
+            }
             
             wp_send_json_success(['message' => 'Zadanie dodane pomyślnie.', 'task_id' => $task_id]);
         } else {
@@ -742,15 +758,62 @@ class WPMZF_Ajax_Handler
         }
         wp_reset_postdata();
 
-        // Sortowanie otwartych zadań według priorytetu
+        // Sortowanie otwartych zadań według priorytetu (spóźnione, dzisiejsze, przyszłe)
         usort($open_tasks, function($a, $b) {
+            // Najpierw sortujemy według priorytetu
             $priority_order = ['overdue' => 0, 'today' => 1, 'upcoming' => 2];
-            return $priority_order[$a['priority']] - $priority_order[$b['priority']];
+            $priority_diff = $priority_order[$a['priority']] - $priority_order[$b['priority']];
+            
+            if ($priority_diff !== 0) {
+                return $priority_diff;
+            }
+            
+            // Jeśli priorytet jest taki sam, sortujemy według daty
+            if (!empty($a['end_date']) && !empty($b['end_date'])) {
+                return strtotime($a['end_date']) - strtotime($b['end_date']);
+            }
+            
+            // Zadania bez daty na końcu
+            if (empty($a['end_date']) && !empty($b['end_date'])) {
+                return 1;
+            }
+            
+            if (!empty($a['end_date']) && empty($b['end_date'])) {
+                return -1;
+            }
+            
+            return 0;
         });
 
         wp_send_json_success([
             'open_tasks' => $open_tasks,
             'closed_tasks' => $closed_tasks
+        ]);
+    }
+
+    /**
+     * Pobiera datę zadania
+     */
+    public function get_task_date()
+    {
+        check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
+
+        $task_id = isset($_POST['task_id']) ? intval($_POST['task_id']) : 0;
+        
+        if (!$task_id) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID zadania.']);
+            return;
+        }
+
+        if (get_post_type($task_id) !== 'task') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID zadania.']);
+            return;
+        }
+
+        $due_date = get_field('task_end_date', $task_id);
+        
+        wp_send_json_success([
+            'due_date' => $due_date
         ]);
     }
 
@@ -763,16 +826,21 @@ class WPMZF_Ajax_Handler
             return 'upcoming';
         }
 
-        $today = current_time('Y-m-d');
-        $task_date = date('Y-m-d', strtotime($end_date));
+        $now = current_time('timestamp');
+        $task_timestamp = strtotime($end_date);
 
-        if ($task_date < $today) {
+        // Porównujemy z dokładnością do godziny
+        if ($task_timestamp < $now) {
             return 'overdue';
-        } elseif ($task_date === $today) {
+        } 
+        
+        // Sprawdzamy czy to dzisiaj (do końca dnia)
+        $today_end = strtotime('today 23:59:59', $now);
+        if ($task_timestamp <= $today_end) {
             return 'today';
-        } else {
-            return 'upcoming';
         }
+        
+        return 'upcoming';
     }
 
     /**
@@ -785,6 +853,7 @@ class WPMZF_Ajax_Handler
         $task_id = isset($_POST['task_id']) ? intval($_POST['task_id']) : 0;
         $new_status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : '';
         $new_title = isset($_POST['title']) ? sanitize_text_field($_POST['title']) : '';
+        $new_due_date = isset($_POST['due_date']) ? sanitize_text_field($_POST['due_date']) : '';
 
         if (!$task_id) {
             wp_send_json_error(['message' => 'Brak ID zadania.']);
@@ -831,18 +900,39 @@ class WPMZF_Ajax_Handler
             $updated_fields[] = 'title';
         }
 
+        // Aktualizacja daty zakończenia
+        if (isset($_POST['due_date'])) {
+            if (!empty($new_due_date)) {
+                // Konwertujemy format datetime-local do formatu MySQL
+                $due_date_formatted = date('Y-m-d H:i:s', strtotime($new_due_date));
+                update_field('task_end_date', $due_date_formatted, $task_id);
+            } else {
+                // Usuń datę jeśli pole jest puste
+                update_field('task_end_date', '', $task_id);
+            }
+            $updated_fields[] = 'due_date';
+        }
+
         if (empty($updated_fields)) {
             wp_send_json_error(['message' => 'Brak danych do aktualizacji.']);
             return;
         }
 
         $message = 'Zadanie zostało zaktualizowane.';
-        if (in_array('status', $updated_fields) && in_array('title', $updated_fields)) {
+        if (in_array('status', $updated_fields) && in_array('title', $updated_fields) && in_array('due_date', $updated_fields)) {
+            $message = 'Status, tytuł i termin zadania zostały zaktualizowane.';
+        } elseif (in_array('status', $updated_fields) && in_array('title', $updated_fields)) {
             $message = 'Status i tytuł zadania zostały zaktualizowane.';
+        } elseif (in_array('status', $updated_fields) && in_array('due_date', $updated_fields)) {
+            $message = 'Status i termin zadania zostały zaktualizowane.';
+        } elseif (in_array('title', $updated_fields) && in_array('due_date', $updated_fields)) {
+            $message = 'Tytuł i termin zadania zostały zaktualizowane.';
         } elseif (in_array('status', $updated_fields)) {
             $message = 'Status zadania został zaktualizowany.';
         } elseif (in_array('title', $updated_fields)) {
             $message = 'Tytuł zadania został zaktualizowany.';
+        } elseif (in_array('due_date', $updated_fields)) {
+            $message = 'Termin zadania został zaktualizowany.';
         }
 
         wp_send_json_success(['message' => $message]);
@@ -873,6 +963,62 @@ class WPMZF_Ajax_Handler
             wp_send_json_success(['message' => 'Zadanie usunięte.']);
         } else {
             wp_send_json_error(['message' => 'Nie udało się usunąć zadania.']);
+        }
+    }
+
+    /**
+     * Przełącza status archiwizacji osoby
+     */
+    public function toggle_person_archive()
+    {
+        // Sprawdzenie nonce dla bezpieczeństwa
+        if (!wp_verify_nonce($_POST['security'] ?? '', 'wpmzf_person_view_nonce')) {
+            wp_send_json_error(['message' => 'Błąd bezpieczeństwa.']);
+            return;
+        }
+
+        $person_id = intval($_POST['person_id'] ?? 0);
+        
+        if (!$person_id) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
+            return;
+        }
+
+        // Sprawdzenie czy wpis istnieje i jest typu 'person'
+        if (get_post_type($person_id) !== 'person') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
+            return;
+        }
+
+        // Sprawdzenie uprawnień
+        if (!current_user_can('edit_post', $person_id)) {
+            wp_send_json_error(['message' => 'Brak uprawnień do edycji tej osoby.']);
+            return;
+        }
+
+        // Pobranie obecnego statusu
+        $current_status = get_field('person_status', $person_id) ?: 'active';
+        
+        // Przełączenie statusu
+        $new_status = ($current_status === 'archived') ? 'active' : 'archived';
+        
+        // Aktualizacja statusu
+        $updated = update_field('person_status', $new_status, $person_id);
+        
+        if ($updated !== false) {
+            $status_labels = [
+                'active' => 'Aktywny',
+                'inactive' => 'Nieaktywny', 
+                'archived' => 'Zarchiwizowany'
+            ];
+            
+            wp_send_json_success([
+                'message' => $new_status === 'archived' ? 'Osoba została zarchiwizowana.' : 'Osoba została przywrócona z archiwum.',
+                'new_status' => $new_status,
+                'status_label' => $status_labels[$new_status]
+            ]);
+        } else {
+            wp_send_json_error(['message' => 'Nie udało się zaktualizować statusu osoby.']);
         }
     }
 }

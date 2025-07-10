@@ -11,6 +11,12 @@ class WPMZF_ACF_Fields
         // Używamy hooka 'acf/include_fields', który jest dedykowany do rejestracji pól w kodzie.
         add_action('acf/include_fields', array($this, 'register_all_field_groups'));
         add_filter('acf/fields/relationship/query/key=field_wpmzf_person_company_relation', array($this, 'extend_company_relationship_search'), 10, 3);
+        
+        // Dodajemy walidację dla pól kontaktowych
+        add_filter('acf/validate_value/name=person_emails', array($this, 'validate_person_emails'), 10, 4);
+        add_filter('acf/validate_value/name=person_phones', array($this, 'validate_person_phones'), 10, 4);
+        add_filter('acf/validate_value/name=company_emails', array($this, 'validate_company_emails'), 10, 4);
+        add_filter('acf/validate_value/name=company_phones', array($this, 'validate_company_phones'), 10, 4);
     }
 
     /**
@@ -66,6 +72,82 @@ class WPMZF_ACF_Fields
                     'name'  => 'company_nip',
                     'type'  => 'text',
                 ),
+                // Pole dla adresów e-mail firmy
+                array(
+                    'key' => 'field_wpmzf_company_emails',
+                    'label' => 'Adresy e-mail',
+                    'name' => 'company_emails',
+                    'type' => 'repeater',
+                    'button_label' => 'Dodaj adres e-mail',
+                    'min' => 0,
+                    'max' => 10,
+                    'sub_fields' => array(
+                        array(
+                            'key' => 'field_wpmzf_company_email_address',
+                            'label' => 'Adres e-mail',
+                            'name' => 'email_address',
+                            'type' => 'email',
+                            'required' => 1,
+                            'placeholder' => 'np. kontakt@firma.pl',
+                            'wrapper' => array('width' => '40'),
+                        ),
+                        array(
+                            'key' => 'field_wpmzf_company_email_type',
+                            'label' => 'Typ/Opis',
+                            'name' => 'email_type',
+                            'type' => 'text',
+                            'placeholder' => 'np. główny, marketing, wsparcie, fakturowanie...',
+                            'wrapper' => array('width' => '40'),
+                        ),
+                        array(
+                            'key' => 'field_wpmzf_company_email_is_primary',
+                            'label' => 'Główny',
+                            'name' => 'is_primary',
+                            'type' => 'true_false',
+                            'message' => 'To jest główny adres e-mail',
+                            'default_value' => 0,
+                            'wrapper' => array('width' => '20'),
+                        ),
+                    ),
+                ),
+                // Pole dla numerów telefonów firmy
+                array(
+                    'key' => 'field_wpmzf_company_phones',
+                    'label' => 'Numery telefonów',
+                    'name' => 'company_phones',
+                    'type' => 'repeater',
+                    'button_label' => 'Dodaj numer telefonu',
+                    'min' => 0,
+                    'max' => 10,
+                    'sub_fields' => array(
+                        array(
+                            'key' => 'field_wpmzf_company_phone_number',
+                            'label' => 'Numer telefonu',
+                            'name' => 'phone_number',
+                            'type' => 'text',
+                            'required' => 1,
+                            'placeholder' => 'np. +48 12 345 67 89',
+                            'wrapper' => array('width' => '40'),
+                        ),
+                        array(
+                            'key' => 'field_wpmzf_company_phone_type',
+                            'label' => 'Typ/Opis',
+                            'name' => 'phone_type',
+                            'type' => 'text',
+                            'placeholder' => 'np. centrala, dział sprzedaży, wsparcie techniczne...',
+                            'wrapper' => array('width' => '40'),
+                        ),
+                        array(
+                            'key' => 'field_wpmzf_company_phone_is_primary',
+                            'label' => 'Główny',
+                            'name' => 'is_primary',
+                            'type' => 'true_false',
+                            'message' => 'To jest główny numer telefonu',
+                            'default_value' => 0,
+                            'wrapper' => array('width' => '20'),
+                        ),
+                    ),
+                ),
                 array(
                     'key'        => 'field_wpmzf_company_address_group',
                     'label'      => 'Adres',
@@ -106,17 +188,81 @@ class WPMZF_ACF_Fields
                     'name'  => 'person_position',
                     'type'  => 'text',
                 ),
+                // Pole dla adresów e-mail
                 array(
-                    'key'   => 'field_wpmzf_person_email',
-                    'label' => 'Adres e-mail',
-                    'name'  => 'person_email',
-                    'type'  => 'email',
+                    'key' => 'field_wpmzf_person_emails',
+                    'label' => 'Adresy e-mail',
+                    'name' => 'person_emails',
+                    'type' => 'repeater',
+                    'button_label' => 'Dodaj adres e-mail',
+                    'min' => 0,
+                    'max' => 10,
+                    'sub_fields' => array(
+                        array(
+                            'key' => 'field_wpmzf_person_email_address',
+                            'label' => 'Adres e-mail',
+                            'name' => 'email_address',
+                            'type' => 'email',
+                            'required' => 1,
+                            'placeholder' => 'np. jan.kowalski@example.com',
+                            'wrapper' => array('width' => '40'),
+                        ),
+                        array(
+                            'key' => 'field_wpmzf_person_email_type',
+                            'label' => 'Typ/Opis',
+                            'name' => 'email_type',
+                            'type' => 'text',
+                            'placeholder' => 'np. służbowy, prywatny, marketing...',
+                            'wrapper' => array('width' => '40'),
+                        ),
+                        array(
+                            'key' => 'field_wpmzf_person_email_is_primary',
+                            'label' => 'Główny',
+                            'name' => 'is_primary',
+                            'type' => 'true_false',
+                            'message' => 'To jest główny adres e-mail',
+                            'default_value' => 0,
+                            'wrapper' => array('width' => '20'),
+                        ),
+                    ),
                 ),
+                // Pole dla numerów telefonów
                 array(
-                    'key'   => 'field_wpmzf_person_phone',
-                    'label' => 'Numer telefonu',
-                    'name'  => 'person_phone',
-                    'type'  => 'text',
+                    'key' => 'field_wpmzf_person_phones',
+                    'label' => 'Numery telefonów',
+                    'name' => 'person_phones',
+                    'type' => 'repeater',
+                    'button_label' => 'Dodaj numer telefonu',
+                    'min' => 0,
+                    'max' => 10,
+                    'sub_fields' => array(
+                        array(
+                            'key' => 'field_wpmzf_person_phone_number',
+                            'label' => 'Numer telefonu',
+                            'name' => 'phone_number',
+                            'type' => 'text',
+                            'required' => 1,
+                            'placeholder' => 'np. +48 123 456 789',
+                            'wrapper' => array('width' => '40'),
+                        ),
+                        array(
+                            'key' => 'field_wpmzf_person_phone_type',
+                            'label' => 'Typ/Opis',
+                            'name' => 'phone_type',
+                            'type' => 'text',
+                            'placeholder' => 'np. służbowy, prywatny, alarmowy...',
+                            'wrapper' => array('width' => '40'),
+                        ),
+                        array(
+                            'key' => 'field_wpmzf_person_phone_is_primary',
+                            'label' => 'Główny',
+                            'name' => 'is_primary',
+                            'type' => 'true_false',
+                            'message' => 'To jest główny numer telefonu',
+                            'default_value' => 0,
+                            'wrapper' => array('width' => '20'),
+                        ),
+                    ),
                 ),
                 array(
                     'key'        => 'field_wpmzf_person_address_group',
@@ -136,7 +282,7 @@ class WPMZF_ACF_Fields
                     'type'      => 'relationship',
                     'post_type' => array('company'),
                     'filters'   => array('search'),
-                    'max'       => 1,    // max pozostaje, usuń 'min' żeby nie było wymagane
+                    'max'       => 5,    // max pozostaje, usuń 'min' żeby nie było wymagane
                 ),
             ),
             'location' => array(
@@ -389,5 +535,97 @@ class WPMZF_ACF_Fields
             ),
             'position' => 'side', // Wyświetlaj te pola w kolumnie bocznej
         ));
+    }
+    
+    /**
+     * Waliduje że tylko jeden e-mail osoby może być oznaczony jako główny
+     */
+    public function validate_person_emails($valid, $value, $field, $input)
+    {
+        if (!$valid || !is_array($value)) {
+            return $valid;
+        }
+        
+        $primary_count = 0;
+        foreach ($value as $email) {
+            if (!empty($email['is_primary'])) {
+                $primary_count++;
+            }
+        }
+        
+        if ($primary_count > 1) {
+            return 'Tylko jeden adres e-mail może być oznaczony jako główny.';
+        }
+        
+        return $valid;
+    }
+    
+    /**
+     * Waliduje że tylko jeden telefon osoby może być oznaczony jako główny
+     */
+    public function validate_person_phones($valid, $value, $field, $input)
+    {
+        if (!$valid || !is_array($value)) {
+            return $valid;
+        }
+        
+        $primary_count = 0;
+        foreach ($value as $phone) {
+            if (!empty($phone['is_primary'])) {
+                $primary_count++;
+            }
+        }
+        
+        if ($primary_count > 1) {
+            return 'Tylko jeden numer telefonu może być oznaczony jako główny.';
+        }
+        
+        return $valid;
+    }
+    
+    /**
+     * Waliduje że tylko jeden e-mail firmy może być oznaczony jako główny
+     */
+    public function validate_company_emails($valid, $value, $field, $input)
+    {
+        if (!$valid || !is_array($value)) {
+            return $valid;
+        }
+        
+        $primary_count = 0;
+        foreach ($value as $email) {
+            if (!empty($email['is_primary'])) {
+                $primary_count++;
+            }
+        }
+        
+        if ($primary_count > 1) {
+            return 'Tylko jeden adres e-mail może być oznaczony jako główny.';
+        }
+        
+        return $valid;
+    }
+    
+    /**
+     * Waliduje że tylko jeden telefon firmy może być oznaczony jako główny
+     */
+    public function validate_company_phones($valid, $value, $field, $input)
+    {
+        if (!$valid || !is_array($value)) {
+            return $valid;
+        }
+        
+        $primary_count = 0;
+        foreach ($value as $phone) {
+            if (!empty($phone['is_primary'])) {
+                $primary_count++;
+            }
+        }
+        
+        if ($primary_count > 1) {
+            return 'Tylko jeden numer telefonu może być oznaczony jako główny.';
+        }
+        
+        return $valid;
     }
 }

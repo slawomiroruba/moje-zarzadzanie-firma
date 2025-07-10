@@ -1,0 +1,223 @@
+/**
+ * Luna CRM UI Card Component
+ *
+ * @package WPMZF
+ */
+
+.luna-crm-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.luna-crm-card .card-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.luna-crm-card .card-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.luna-crm-card .card-content {
+    padding: 20px;
+}
+
+.luna-crm-card .card-footer {
+    background: #f8f9fa;
+    border-top: 1px solid #e0e0e0;
+    padding: 15px 20px;
+    font-size: 14px;
+    color: #666;
+}
+
+.luna-crm-card .card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.luna-crm-card .card-actions .button {
+    padding: 6px 12px;
+    height: auto;
+    line-height: 1.2;
+}
+
+/* Simple Card */
+.luna-crm-simple-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.luna-crm-simple-card h3 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+/* Stat Card */
+.luna-crm-stat-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.luna-crm-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #007cba;
+}
+
+.luna-crm-stat-card.color-green::before {
+    background: #00a32a;
+}
+
+.luna-crm-stat-card.color-red::before {
+    background: #d63638;
+}
+
+.luna-crm-stat-card.color-orange::before {
+    background: #ffb900;
+}
+
+.luna-crm-stat-card .stat-icon {
+    font-size: 32px;
+    color: #007cba;
+    margin-bottom: 12px;
+}
+
+.luna-crm-stat-card .stat-content h3 {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    color: #333;
+}
+
+.luna-crm-stat-card .stat-content p {
+    font-size: 14px;
+    color: #666;
+    margin: 0;
+}
+
+.luna-crm-stat-card .stat-trend {
+    margin-top: 12px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.luna-crm-stat-card .stat-trend.trend-up {
+    color: #00a32a;
+}
+
+.luna-crm-stat-card .stat-trend.trend-down {
+    color: #d63638;
+}
+
+/* List Card */
+.luna-crm-list-card .card-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.luna-crm-list-card .card-list-item {
+    padding: 12px 0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.luna-crm-list-card .card-list-item:last-child {
+    border-bottom: none;
+}
+
+.luna-crm-list-card .empty-message {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    margin: 20px 0;
+}
+
+/* Progress Card */
+.luna-crm-progress-card .progress-wrapper {
+    margin-top: 16px;
+}
+
+.luna-crm-progress-card .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.luna-crm-progress-card .progress-fill {
+    height: 100%;
+    background: #007cba;
+    transition: width 0.3s ease;
+}
+
+.luna-crm-progress-card .progress-fill.color-green {
+    background: #00a32a;
+}
+
+.luna-crm-progress-card .progress-fill.color-red {
+    background: #d63638;
+}
+
+.luna-crm-progress-card .progress-fill.color-orange {
+    background: #ffb900;
+}
+
+.luna-crm-progress-card .progress-text {
+    text-align: right;
+    font-size: 12px;
+    color: #666;
+    font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .luna-crm-card .card-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+    
+    .luna-crm-card .card-content {
+        padding: 15px;
+    }
+    
+    .luna-crm-stat-card {
+        padding: 16px;
+    }
+    
+    .luna-crm-stat-card .stat-content h3 {
+        font-size: 24px;
+    }
+}

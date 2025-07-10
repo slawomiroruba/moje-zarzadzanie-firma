@@ -20,7 +20,7 @@ define('WPMZF_PLUGIN_PATH', plugin_dir_path(__FILE__));
  */
 function activate_wpmzf_plugin()
 {
-    require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-activator.php';
+    require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-activator.php';
     WPMZF_Activator::activate();
 }
 register_activation_hook(__FILE__, 'activate_wpmzf_plugin');
@@ -73,22 +73,54 @@ final class WPMZF_Plugin
      */
     private function load_dependencies()
     {
+        // Core
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-loader.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-activator.php';
 
-        require_once WPMZF_PLUGIN_PATH . 'includes/abstracts/class-wpmzf-abstract-cpt.php';
-        require_once WPMZF_PLUGIN_PATH . 'includes/objects/class-wpmzf-contact.php';
+        // Abstracts
+        // require_once WPMZF_PLUGIN_PATH . 'includes/abstracts/class-wpmzf-abstract-cpt.php'; // Przestarzała klasa
 
+        // Data
+        require_once WPMZF_PLUGIN_PATH . 'includes/data/class-wpmzf-post-types.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/data/class-wpmzf-taxonomies.php';
 
-        // ---
+        // Models
+        // require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-contact.php'; // Przestarzały model
+        require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-user.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-company.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-person.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-project.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-time-entry.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-activity.php';
 
-        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-access-control.php'; // Kontrola dostępu
-        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-cpts.php';             // Typy treści
-        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-admin-columns.php';    // Kolumny w adminie
-        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-meta-boxes.php';       // Meta boxy
-        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-admin-pages.php';      // Strony w adminie
-        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-documents-list-table.php'; // Tabela
-        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-acf-fields.php'; // Pola ACF
-        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-persons-list-table.php';
-        require_once WPMZF_PLUGIN_PATH . 'includes/class-wpmzf-ajax-handler.php';
+        // Repositories
+        require_once WPMZF_PLUGIN_PATH . 'includes/repositories/class-wpmzf-user-repository.php';
+
+        // Services
+        require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-user-service.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-time-tracking.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-reports.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-contact-helper.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-ajax-handler.php';
+
+        // Controllers
+        require_once WPMZF_PLUGIN_PATH . 'includes/controllers/class-wpmzf-user-controller.php';
+
+        // Admin
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-admin.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-admin-pages.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-admin-columns.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-custom-columns.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-meta-boxes.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/card/simple-card.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-documents-list-table.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-persons-list-table.php';
+
+        // Data
+        require_once WPMZF_PLUGIN_PATH . 'includes/data/class-wpmzf-acf-fields.php';
+
+        // Legacy files
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-access-control.php';
     }
 
     /**
@@ -96,16 +128,35 @@ final class WPMZF_Plugin
      */
     private function init_components()
     {
+        // Core components
+        new WPMZF_Loader();
+        new WPMZF_Post_Types();
+        new WPMZF_Taxonomies();
+
+        // Services
+        new WPMZF_Time_Tracking();
+        new WPMZF_Reports();
+
+        // Admin
+        new WPMZF_Admin();
+        new WPMZF_Admin_Pages(); // Przywrócone - potrzebne dla widoku osoby i statystyk
+        new WPMZF_Custom_Columns_Service();
+
+        // REST API Controllers
+        add_action('rest_api_init', function() {
+            $user_controller = new WPMZF_User_Controller();
+            $user_controller->register_routes();
+        });
+
+        // Legacy components
         new WPMZF_Access_Control();
-        new WPMZF_CPTs();
-        new WPMZF_Contact();
-        // new WPMZF_Admin_Columns();
+        // new WPMZF_Contact(); // Przestarzały model
         new WPMZF_Meta_Boxes();
-        new WPMZF_Admin_Pages();
-        if (class_exists('ACF')) { // Uruchom klasę tylko jeśli ACF jest aktywne
+        new WPMZF_Ajax_Handler();
+        
+        if (class_exists('ACF')) {
             new WPMZF_ACF_Fields();
         }
-        new WPMZF_Ajax_Handler();
     }
 
     /**
@@ -115,29 +166,67 @@ final class WPMZF_Plugin
      */
     public function admin_enqueue_scripts($hook)
     {
-        // Sprawdzamy, czy jesteśmy na stronie widoku pojedynczej osoby
-        // 'toplevel_page_wpmzf_dashboard' to główna strona, a my jesteśmy na ukrytej podstronie,
-        // więc musimy sprawdzić parametr 'page'.
-        if (isset($_GET['page']) && $_GET['page'] === 'wpmzf_person_view') {
-
-            // Dodaj ten styl z wersją opartą na filemtime
-            $css_file = plugin_dir_path(__FILE__) . 'assets/css/admin-person-view.css';
+        // Ładuj skrypt kontaktów na wszystkich stronach edycji postów w adminie
+        if (in_array($hook, ['post.php', 'post-new.php', 'toplevel_page_wpmzf_dashboard'])) {
+            $contacts_js_file = plugin_dir_path(__FILE__) . 'assets/js/admin/contacts.js';
+            if (file_exists($contacts_js_file)) {
+                wp_enqueue_script(
+                    'wpmzf-contacts-js',
+                    plugin_dir_url(__FILE__) . 'assets/js/admin/contacts.js',
+                    array('jquery'),
+                    filemtime($contacts_js_file),
+                    true
+                );
+            }
+        }
+        
+        // Ładuj skrypty Luna CRM na stronach wtyczki
+        if (strpos($hook, 'luna-crm') !== false) {
+            // Style
             wp_enqueue_style(
-                'wpmzf-person-view-css',
-                plugin_dir_url(__FILE__) . 'assets/css/admin-person-view.css',
+                'luna-crm-admin',
+                plugin_dir_url(__FILE__) . 'assets/css/admin-styles.css',
                 array(),
-                filemtime($css_file)
+                filemtime(plugin_dir_path(__FILE__) . 'assets/css/admin-styles.css')
             );
-
-            // Dodaj ten skrypt z wersją opartą na filemtime
-            $js_file = plugin_dir_path(__FILE__) . 'assets/js/admin-person-view.js';
+            
+            // Dashboard script
             wp_enqueue_script(
-                'wpmzf-person-view-js',
-                plugin_dir_url(__FILE__) . 'assets/js/admin-person-view.js',
+                'luna-crm-dashboard',
+                plugin_dir_url(__FILE__) . 'assets/js/admin/dashboard.js',
                 array('jquery'),
-                filemtime($js_file),
+                filemtime(plugin_dir_path(__FILE__) . 'assets/js/admin/dashboard.js'),
                 true
             );
+            
+            // Time tracking script
+            wp_enqueue_script(
+                'luna-crm-time-tracking',
+                plugin_dir_url(__FILE__) . 'assets/js/admin/time-tracking.js',
+                array('jquery'),
+                filemtime(plugin_dir_path(__FILE__) . 'assets/js/admin/time-tracking.js'),
+                true
+            );
+            
+            // Localize scripts
+            wp_localize_script('luna-crm-dashboard', 'wpmzf_dashboard', array(
+                'nonce' => wp_create_nonce('wpmzf_nonce'),
+                'ajaxurl' => admin_url('admin-ajax.php')
+            ));
+            
+            wp_localize_script('luna-crm-time-tracking', 'wpmzf_time', array(
+                'nonce' => wp_create_nonce('wpmzf_nonce'),
+                'ajaxurl' => admin_url('admin-ajax.php'),
+                'projects' => array_map(function($project) {
+                    return array('id' => $project->id, 'name' => $project->name);
+                }, WPMZF_Project::get_projects())
+            ));
+        }
+        
+        // Legacy support - sprawdzanie widoku pojedynczej osoby
+        if (isset($_GET['page']) && ($_GET['page'] === 'wpmzf_person_view' || $_GET['page'] === 'luna-crm-person-view')) {
+            // Style i skrypty są już ładowane przez WPMZF_Admin_Pages
+            // Usunięto duplikację ładowania assets
         }
     }
 
@@ -211,78 +300,6 @@ final class WPMZF_Plugin
  */
 function wpmzf_run_plugin()
 {
-
     return WPMZF_Plugin::get_instance();
 }
 wpmzf_run_plugin();
-
-
-add_shortcode('current_year', function () {
-    return date('Y');
-});
-
-// Plik: moje-zarzadzanie-firma.php (na samym końcu)
-
-add_filter( 'site_transient_update_plugins', 'wpmzf_block_acp_updates' );
-
-function wpmzf_block_acp_updates( $transient ) {
-    // Sprawdzamy, czy w ogóle są jakieś informacje o aktualizacjach
-    if ( ! isset( $transient->response ) ) {
-        return $transient;
-    }
-
-    // Ścieżka do głównego pliku wtyczki Admin Columns Pro
-    $plugin_slug = 'admin-columns-pro/admin-columns-pro.php';
-
-    // Jeśli wtyczka jest na liście do aktualizacji, usuwamy ją
-    if ( isset( $transient->response[$plugin_slug] ) ) {
-        unset( $transient->response[$plugin_slug] );
-    }
-
-    return $transient;
-}
-
-// Rejestracja kolumn Admin Columns Pro
-add_action('ac/services', function ( AC\Container $container ) {
-    // Sprawdzamy, czy usługa, której potrzebujemy, jest dostępna
-    if ( ! method_exists($container, 'has') || ! $container->has('services.common') ) {
-        return;
-    }
-
-    // Dołączamy nasz plik z definicjami kolumn
-    require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpmzf-custom-columns.php';
-    
-    // Rejestrujemy naszą główną klasę-serwis, a Admin Columns zajmie się resztą
-    $container->get('services.common')->add( new WPMZF_Custom_Columns_Service() );
-
-}, 10, 1);
-
-function my_custom_function( $post_id ) {
-    // Tutaj możesz umieścić swoją logikę, która zwraca dane do wyświetlenia
-    // Na przykład, pobieranie niestandardowego pola lub wykonanie zapytania
-    $custom_data = get_post_meta( $post_id, 'my_custom_field', true );
-    
-    // Zwracamy dane lub komunikat, jeśli nie ma danych
-    return get_the_ID();
-}
-
-// Dodaj kolumnę "Custom Data" do CPT "person"
-add_filter( 'manage_person_posts_columns', function( $columns ) {
-    // Możesz zmienić pozycję dodając przed lub po istniejących kluczach
-    $columns['custom_data'] = __( 'Custom Data', 'moje-zarzadzanie-firma' );
-    return $columns;
-} );
-
-// Wypełnij kolumnę danymi zwracanymi przez swoją funkcję
-add_action( 'manage_person_posts_custom_column', function( $column, $post_id ) {
-    if ( 'custom_data' === $column ) {
-        // my_custom_function() powinna przyjmować ID wpisu i zwracać ciąg do wyświetlenia
-        echo esc_html( my_custom_function( $post_id ) );
-    }
-}, 10, 2 );
-
-// (Opcjonalnie) Uczyń kolumnę sortowalną
-add_filter( 'manage_edit-person_sortable_columns', function( $columns ) {
-    $columns['custom_data'] = 'custom_data';
-    return $columns;
-} );

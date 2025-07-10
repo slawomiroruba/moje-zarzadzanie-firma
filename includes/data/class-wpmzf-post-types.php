@@ -2,7 +2,7 @@
 /**
  * Plik odpowiedzialny za rejestrację wszystkich niestandardowych typów treści (CPT) w systemie.
  */
-class WPMZF_CPTs {
+class WPMZF_Post_Types {
 
     public function __construct() {
         // Rejestrujemy CPT przy inicjalizacji WordPressa.
