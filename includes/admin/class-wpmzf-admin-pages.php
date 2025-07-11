@@ -37,6 +37,13 @@ class WPMZF_Admin_Pages
                 '1.0.0',
                 true
             );
+            
+            // Przekaż zmienne do JavaScript
+            wp_localize_script('wpmzf-person-view', 'wpmzfPersonView', array(
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('wpmzf_person_view_nonce'),
+                'taskNonce' => wp_create_nonce('wpmzf_task_nonce')
+            ));
         }
     }
 

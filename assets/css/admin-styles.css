@@ -2006,6 +2006,28 @@
     text-align: center;
 }
 
+/* Form row for side-by-side fields */
+.luna-crm-form-row {
+    display: flex;
+    gap: 15px;
+    padding: 0 20px;
+    margin-bottom: 20px;
+}
+
+.luna-crm-form-row .luna-crm-form-group {
+    flex: 1;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+/* Spinner styles for project form */
+.luna-crm-form-actions .spinner.is-active {
+    float: none;
+    margin: 0 10px;
+    display: inline-block;
+    visibility: visible;
+}
+
 /* Header */
 .luna-crm-header {
     display: flex;

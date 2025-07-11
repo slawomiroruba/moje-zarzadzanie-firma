@@ -79,7 +79,12 @@ function showNotification(message, type = 'info') {
 jQuery(document).ready(function ($) {
 	// --- Zmienne ---
 	const personId = $('input[name="person_id"]').val();
-	const securityNonce = $('#wpmzf_security').val();
+	// Używamy zmiennych z wp_localize_script jeśli są dostępne, w przeciwnym razie fallback
+	const securityNonce = (typeof wpmzfPersonView !== 'undefined' && wpmzfPersonView.nonce) ? 
+		wpmzfPersonView.nonce : $('#wpmzf_security').val();
+	const taskSecurityNonce = (typeof wpmzfPersonView !== 'undefined' && wpmzfPersonView.taskNonce) ? 
+		wpmzfPersonView.taskNonce : $('#wpmzf_task_security').val();
+	
 	const form = $('#wpmzf-add-activity-form');
 	const timelineContainer = $('#wpmzf-activity-timeline');
 	const submitButton = $('#wpmzf-submit-activity-btn');
@@ -95,7 +100,6 @@ jQuery(document).ready(function ($) {
 	const openTasksList = $('#wpmzf-open-tasks-list');
 	const closedTasksList = $('#wpmzf-closed-tasks-list');
 	const toggleClosedTasks = $('#wpmzf-toggle-closed-tasks');
-	const taskSecurityNonce = $('#wpmzf_task_security').val();
 
 	let filesToUpload = [];
 	let linkMetadataCache = new Map();
@@ -2114,4 +2118,281 @@ jQuery(document).ready(function ($) {
 			arrow.removeClass('dashicons-arrow-right').addClass('dashicons-arrow-down');
 		}
 	});
+
+	// === OBSŁUGA PROJEKTÓW/ZLECEŃ ===
+	
+	// Obsługa przycisku "Nowe zlecenie"
+	$(document).on('click', '#add-new-project-btn', function(e) {
+		e.preventDefault();
+		openProjectModal();
+	});
+
+	// Obsługa rozwijania zakończonych projektów
+	$(document).on('click', '#toggle-completed-projects', function(e) {
+		e.preventDefault();
+		const arrow = $(this).find('.dashicons');
+		const completedList = $('#completed-projects-list');
+
+		if (completedList.is(':visible')) {
+			completedList.slideUp();
+			arrow.removeClass('dashicons-arrow-down').addClass('dashicons-arrow-right');
+			$(this).removeClass('expanded');
+		} else {
+			completedList.slideDown();
+			arrow.removeClass('dashicons-arrow-right').addClass('dashicons-arrow-down');
+			$(this).addClass('expanded');
+		}
+	});
+
+	// Funkcja otwierania modala dodawania projektu
+	function openProjectModal() {
+		// Sprawdź czy modal już istnieje
+		if ($('#project-modal').length === 0) {
+			createProjectModal();
+		}
+		
+		// Wyczyść formularz i pokaż modal
+		$('#project-form')[0].reset();
+		$('#project-modal').show();
+		
+		// Ustaw domyślną datę rozpoczęcia na dzisiaj
+		const today = new Date().toISOString().slice(0, 10);
+		$('#project-start-date').val(today);
+		
+		// Fokus na pierwszym polu
+		$('#project-name').focus();
+	}
+
+	// Funkcja tworzenia modala
+	function createProjectModal() {
+		const modalHtml = `
+			<div id="project-modal" class="luna-crm-modal" style="display: none;">
+				<div class="luna-crm-modal-content">
+					<div class="luna-crm-modal-header">
+						<h2>Dodaj nowe zlecenie</h2>
+						<button class="luna-crm-modal-close">&times;</button>
+					</div>
+					
+					<form id="project-form">
+						<div class="luna-crm-form-group">
+							<label for="project-name">Nazwa zlecenia *</label>
+							<input type="text" id="project-name" name="project_name" required>
+						</div>
+						
+						<div class="luna-crm-form-group">
+							<label for="project-description">Opis</label>
+							<textarea id="project-description" name="project_description" rows="4"></textarea>
+						</div>
+						
+						<div class="luna-crm-form-row">
+							<div class="luna-crm-form-group">
+								<label for="project-start-date">Data rozpoczęcia</label>
+								<input type="date" id="project-start-date" name="start_date">
+							</div>
+							
+							<div class="luna-crm-form-group">
+								<label for="project-end-date">Termin zakończenia</label>
+								<input type="date" id="project-end-date" name="end_date">
+							</div>
+						</div>
+						
+						<div class="luna-crm-form-group">
+							<label for="project-budget">Budżet</label>
+							<input type="text" id="project-budget" name="budget" placeholder="np. 5000 PLN">
+						</div>
+						
+						<div class="luna-crm-form-group">
+							<label for="project-company">Firma</label>
+							<select id="project-company" name="company_id" style="width: 100%;">
+								<option value="">Wybierz firmę (opcjonalnie)</option>
+							</select>
+						</div>
+						
+						<div class="luna-crm-form-actions">
+							<button type="submit" class="button button-primary">Dodaj zlecenie</button>
+							<button type="button" class="button cancel-project">Anuluj</button>
+							<span class="spinner" style="float: none; margin: 0 10px;"></span>
+						</div>
+					</form>
+				</div>
+			</div>
+		`;
+		
+		$('body').append(modalHtml);
+		
+		// Inicjalizuj Select2 dla firm
+		$('#project-company').select2({
+			width: '100%',
+			placeholder: 'Wybierz firmę (opcjonalnie)',
+			allowClear: true,
+			ajax: {
+				url: ajaxurl,
+				dataType: 'json',
+				delay: 250,
+				data: function (params) {
+					return {
+						action: 'wpmzf_search_companies',
+						security: securityNonce,
+						term: params.term
+					};
+				},
+				processResults: function (data) {
+					if (data.success && Array.isArray(data.data)) {
+						return { results: data.data };
+					}
+					return { results: [] };
+				},
+				cache: true
+			},
+			minimumInputLength: 2,
+			language: {
+				inputTooShort: function () {
+					return 'Wpisz przynajmniej 2 znaki';
+				},
+				loadingMore: function () {
+					return 'Wczytywanie wyników…';
+				},
+				noResults: function () {
+					return 'Nie znaleziono firmy';
+				},
+				searching: function () {
+					return 'Szukanie…';
+				}
+			}
+		});
+		
+		// Obsługa zamykania modala
+		$(document).on('click', '.luna-crm-modal-close, .cancel-project', function() {
+			$('#project-modal').hide();
+		});
+		
+		// Obsługa wysyłania formularza
+		$(document).on('submit', '#project-form', function(e) {
+			e.preventDefault();
+			submitProject();
+		});
+	}
+
+	// Funkcja wysyłania formularza projektu
+	function submitProject() {
+		const form = $('#project-form');
+		const spinner = form.find('.spinner');
+		const submitBtn = form.find('button[type="submit"]');
+		
+		// Pokaż spinner i zablokuj przycisk
+		spinner.addClass('is-active');
+		submitBtn.prop('disabled', true);
+		
+		const formData = {
+			action: 'add_wpmzf_project',
+			security: securityNonce,
+			person_id: personId,
+			project_name: $('#project-name').val(),
+			project_description: $('#project-description').val(),
+			start_date: $('#project-start-date').val(),
+			end_date: $('#project-end-date').val(),
+			budget: $('#project-budget').val(),
+			company_id: $('#project-company').val()
+		};
+		
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: formData,
+			success: function(response) {
+				spinner.removeClass('is-active');
+				submitBtn.prop('disabled', false);
+				
+				if (response.success) {
+					$('#project-modal').hide();
+					showNotification('Zlecenie zostało dodane pomyślnie!', 'success');
+					
+					// Odśwież listę projektów
+					refreshProjectsList();
+				} else {
+					showNotification('Błąd: ' + (response.data.message || 'Nieznany błąd'), 'error');
+				}
+			},
+			error: function() {
+				spinner.removeClass('is-active');
+				submitBtn.prop('disabled', false);
+				showNotification('Wystąpił błąd serwera.', 'error');
+			}
+		});
+	}
+
+	// Funkcja odświeżania listy projektów
+	function refreshProjectsList() {
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'get_wpmzf_projects',
+				security: securityNonce,
+				person_id: personId
+			},
+			success: function(response) {
+				if (response.success) {
+					updateProjectsDisplay(response.data);
+				}
+			}
+		});
+	}
+
+	// Funkcja aktualizacji wyświetlania projektów
+	function updateProjectsDisplay(data) {
+		const projectsContainer = $('.dossier-box').filter(function() {
+			return $(this).find('h2.dossier-title').text().trim() === 'Zlecenia';
+		}).find('.dossier-content');
+		
+		let html = '';
+		
+		// Aktywne projekty
+		if (data.active_projects && data.active_projects.length > 0) {
+			html += '<div class="projects-section">';
+			html += '<h4 style="margin: 0 0 10px 0; color: #1d2327; font-size: 13px; font-weight: 600;">Aktywne zlecenia:</h4>';
+			html += '<ul class="projects-list">';
+			
+			data.active_projects.forEach(function(project) {
+				html += '<li class="project-item active-project">';
+				html += '<div class="project-info">';
+				html += '<a href="#" class="project-link" data-project-id="' + project.id + '">' + escapeHtml(project.name) + '</a>';
+				html += '<span class="project-deadline">Termin: ' + escapeHtml(project.deadline) + '</span>';
+				html += '</div>';
+				html += '</li>';
+			});
+			
+			html += '</ul>';
+			html += '</div>';
+		}
+		
+		// Zakończone projekty
+		if (data.completed_projects && data.completed_projects.length > 0) {
+			html += '<div class="projects-section" style="margin-top: 20px;">';
+			html += '<h4 style="cursor: pointer; margin: 0 0 10px 0; color: #646970; font-size: 13px; font-weight: 600;" id="toggle-completed-projects">';
+			html += '<span class="dashicons dashicons-arrow-right"></span> Zakończone zlecenia (' + data.completed_projects.length + ')';
+			html += '</h4>';
+			html += '<ul class="projects-list" id="completed-projects-list" style="display: none;">';
+			
+			data.completed_projects.forEach(function(project) {
+				html += '<li class="project-item completed-project">';
+				html += '<div class="project-info">';
+				html += '<a href="#" class="project-link" data-project-id="' + project.id + '">' + escapeHtml(project.name) + '</a>';
+				html += '<span class="project-deadline">Termin: ' + escapeHtml(project.deadline) + '</span>';
+				html += '</div>';
+				html += '</li>';
+			});
+			
+			html += '</ul>';
+			html += '</div>';
+		}
+		
+		// Jeśli brak projektów
+		if ((!data.active_projects || data.active_projects.length === 0) && 
+			(!data.completed_projects || data.completed_projects.length === 0)) {
+			html = '<p><em>Brak zleceń dla tej osoby.</em></p>';
+		}
+		
+		projectsContainer.html(html);
+	}
 });

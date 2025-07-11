@@ -33,6 +33,9 @@ class WPMZF_Ajax_Handler
         add_action('wp_ajax_get_wpmzf_task_date', array($this, 'get_task_date'));
         add_action('wp_ajax_update_wpmzf_task_status', array($this, 'update_task_status'));
         add_action('wp_ajax_delete_wpmzf_task', array($this, 'delete_task'));
+        // Hooks dla projektów/zleceń
+        add_action('wp_ajax_add_wpmzf_project', array($this, 'add_project'));
+        add_action('wp_ajax_get_wpmzf_projects', array($this, 'get_projects_for_person'));
     }
 
     /**
@@ -1020,5 +1023,129 @@ class WPMZF_Ajax_Handler
         } else {
             wp_send_json_error(['message' => 'Nie udało się zaktualizować statusu osoby.']);
         }
+    }
+
+    /**
+     * Dodaje nowy projekt/zlecenie
+     */
+    public function add_project()
+    {
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+
+        $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
+        $project_name = isset($_POST['project_name']) ? sanitize_text_field($_POST['project_name']) : '';
+        $project_description = isset($_POST['project_description']) ? wp_kses_post($_POST['project_description']) : '';
+        $start_date = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
+        $end_date = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : '';
+        $budget = isset($_POST['budget']) ? sanitize_text_field($_POST['budget']) : '';
+        $company_id = isset($_POST['company_id']) ? intval($_POST['company_id']) : 0;
+
+        if (!$person_id || empty($project_name)) {
+            wp_send_json_error(['message' => 'Brak wymaganych danych (ID osoby, nazwa projektu).']);
+            return;
+        }
+
+        if (get_post_type($person_id) !== 'person') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
+            return;
+        }
+
+        // Tworzenie nowego projektu
+        $project_data = [
+            'post_title'   => $project_name,
+            'post_content' => $project_description,
+            'post_status'  => 'publish',
+            'post_type'    => 'project',
+            'post_author'  => get_current_user_id(),
+        ];
+
+        $project_id = wp_insert_post($project_data);
+
+        if ($project_id && !is_wp_error($project_id)) {
+            // Zapisanie pól ACF
+            update_field('project_status', 'Planowanie', $project_id);
+            
+            // Przypisanie osoby do projektu
+            update_field('project_person', array($person_id), $project_id);
+            
+            // Zapisanie dat jeśli zostały podane
+            if (!empty($start_date)) {
+                update_field('start_date', $start_date, $project_id);
+            }
+            
+            if (!empty($end_date)) {
+                update_field('end_date', $end_date, $project_id);
+            }
+            
+            // Zapisanie budżetu jeśli został podany
+            if (!empty($budget)) {
+                update_field('budget', $budget, $project_id);
+            }
+            
+            // Przypisanie firmy jeśli została wybrana
+            if ($company_id) {
+                update_field('project_company', array($company_id), $project_id);
+            }
+            
+            wp_send_json_success([
+                'message' => 'Projekt został dodany pomyślnie.',
+                'project_id' => $project_id,
+                'project_name' => $project_name
+            ]);
+        } else {
+            wp_send_json_error(['message' => 'Błąd podczas tworzenia projektu.']);
+        }
+    }
+
+    /**
+     * Pobiera projekty dla danej osoby
+     */
+    public function get_projects_for_person()
+    {
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+
+        $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
+        
+        if (!$person_id) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
+            return;
+        }
+
+        $active_projects = WPMZF_Project::get_active_projects_by_person($person_id);
+        $completed_projects = WPMZF_Project::get_completed_projects_by_person($person_id);
+
+        $active_projects_data = [];
+        $completed_projects_data = [];
+
+        foreach ($active_projects as $project) {
+            $deadline = get_field('end_date', $project->id);
+            $deadline_text = $deadline ? date('d.m.Y', strtotime($deadline)) : 'Brak terminu';
+            
+            $active_projects_data[] = [
+                'id' => $project->id,
+                'name' => $project->name,
+                'deadline' => $deadline_text,
+                'deadline_raw' => $deadline,
+                'edit_link' => get_edit_post_link($project->id)
+            ];
+        }
+
+        foreach ($completed_projects as $project) {
+            $deadline = get_field('end_date', $project->id);
+            $deadline_text = $deadline ? date('d.m.Y', strtotime($deadline)) : 'Brak terminu';
+            
+            $completed_projects_data[] = [
+                'id' => $project->id,
+                'name' => $project->name,
+                'deadline' => $deadline_text,
+                'deadline_raw' => $deadline,
+                'edit_link' => get_edit_post_link($project->id)
+            ];
+        }
+
+        wp_send_json_success([
+            'active_projects' => $active_projects_data,
+            'completed_projects' => $completed_projects_data
+        ]);
     }
 }
