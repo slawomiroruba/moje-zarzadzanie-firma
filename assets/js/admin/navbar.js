@@ -260,11 +260,11 @@
             const navbar = $('.wpmzf-navbar');
             const wpMenuWrap = $('#adminmenuback');
             
-            if (wpMenuWrap.length) {
-                const isCollapsed = $('body').hasClass('folded');
-                const sidebarWidth = isCollapsed ? 36 : 160;
-                navbar.css('left', sidebarWidth + 'px');
-            }
+            // if (wpMenuWrap.length) {
+            //     const isCollapsed = $('body').hasClass('folded');
+            //     const sidebarWidth = isCollapsed ? 36 : 160;
+            //     navbar.css('left', sidebarWidth + 'px');
+            // }
         }
 
         // Sprawdź na początku

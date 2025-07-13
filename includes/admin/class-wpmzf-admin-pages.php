@@ -272,7 +272,7 @@ class WPMZF_Admin_Pages
         // Renderuj nawigację i header
         WPMZF_View_Helper::render_complete_header(array(
             'title' => 'Dashboard',
-            'subtitle' => 'Przegląd najważniejszych informacji o Twojej firmie',
+            'subtitle' => 'Dzisiaj: ' . date_i18n('j F Y', current_time('timestamp')),
             'breadcrumbs' => array(
                 array('label' => 'Dashboard', 'url' => '')
             ),
@@ -690,11 +690,6 @@ class WPMZF_Admin_Pages
         </style>
 
         <div class="wrap">
-            <div class="dashboard-header">
-                <h1>Witaj w kokpicie Twojej firmy!</h1>
-                <p style="margin: 8px 0 0; color: #646970; font-size: 16px;">Dzisiaj: <?php echo date_i18n('j F Y', current_time('timestamp')); ?></p>
-            </div>
-
             <!-- Szybkie statystyki -->
             <div class="quick-stats">
                 <div class="stat-tile <?php echo $overdue_tasks > 0 ? 'overdue' : ''; ?>">
