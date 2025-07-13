@@ -10,21 +10,37 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Renderuj nawigację i header
+WPMZF_View_Helper::render_complete_header(array(
+    'title' => 'Projekty',
+    'subtitle' => 'Zarządzaj projektami i śledź ich postęp',
+    'breadcrumbs' => array(
+        array('label' => 'Dashboard', 'url' => admin_url('admin.php?page=wpmzf_dashboard')),
+        array('label' => 'Projekty', 'url' => '')
+    ),
+    'actions' => array(
+        array(
+            'label' => 'Dodaj projekt',
+            'url' => admin_url('post-new.php?post_type=project'),
+            'icon' => '➕',
+            'class' => 'button button-primary'
+        ),
+        array(
+            'label' => 'Zarządzaj zadaniami',
+            'url' => admin_url('edit.php?post_type=task'),
+            'icon' => '✅',
+            'class' => 'button'
+        )
+    )
+));
+
 // Pobieranie projektów
 $projects = WPMZF_Project::get_projects();
 $companies = WPMZF_Company::get_companies();
 ?>
 
-<div class="wrap">
-    <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-    
-    <div class="luna-crm-projects">
-        <div class="luna-crm-header">
-            <button class="button button-primary" id="add-project">
-                <span class="dashicons dashicons-plus"></span> Dodaj projekt
-            </button>
-        </div>
-        
+<div class="wrap">    
+    <div class="luna-crm-projects">        
         <div class="luna-crm-projects-grid">
             <?php if (!empty($projects)): ?>
                 <?php foreach ($projects as $project): ?>

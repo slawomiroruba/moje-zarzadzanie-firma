@@ -23,12 +23,26 @@ class WPMZF_Ajax_Handler
         add_action('wp_ajax_wpmzf_toggle_person_archive', array($this, 'toggle_person_archive'));
         // Hook do archiwizacji firmy
         add_action('wp_ajax_wpmzf_toggle_company_archive', array($this, 'toggle_company_archive'));
+        // Hooks dla firm
+        add_action('wp_ajax_wpmzf_save_company', array($this, 'save_company'));
+        add_action('wp_ajax_wpmzf_get_company', array($this, 'get_company'));
+        add_action('wp_ajax_wpmzf_delete_company', array($this, 'delete_company'));
+        // Hooks dla osób
+        add_action('wp_ajax_wpmzf_save_person', array($this, 'save_person'));
+        add_action('wp_ajax_wpmzf_get_person', array($this, 'get_person'));
+        add_action('wp_ajax_wpmzf_delete_person', array($this, 'delete_person'));
         // Rejestracja punktu końcowego dla zalogowanych użytkowników
         add_action('wp_ajax_wpmzf_search_companies',  array($this, 'wpmzf_search_companies_ajax_handler'));
-        // Rejestracja punktu końcowego dla niezalogowanych użytkowników
-        add_action('wp_ajax_nopriv_wpmzf_search_companies', array($this, 'wpmzf_search_companies_ajax_handler'));
+        // Usunięto 'wp_ajax_nopriv_' dla bezpieczeństwa - wyszukiwanie firm tylko dla zalogowanych
+        // Hook do wyszukiwania polecających
+        add_action('wp_ajax_wpmzf_search_referrers', array($this, 'wpmzf_search_referrers_ajax_handler'));
         // Hook do pobierania metadanych linków dla bogatych kart
         add_action('wp_ajax_wpmzf_get_link_metadata', array($this, 'get_link_metadata'));
+        // Hooks dla ważnych linków
+        add_action('wp_ajax_wpmzf_add_important_link', array($this, 'add_important_link'));
+        add_action('wp_ajax_wpmzf_get_important_links', array($this, 'get_important_links'));
+        add_action('wp_ajax_wpmzf_update_important_link', array($this, 'update_important_link'));
+        add_action('wp_ajax_wpmzf_delete_important_link', array($this, 'delete_important_link'));
         // Hooks dla zadań
         add_action('wp_ajax_add_wpmzf_task', array($this, 'add_task'));
         add_action('wp_ajax_get_wpmzf_tasks', array($this, 'get_tasks'));
@@ -38,6 +52,13 @@ class WPMZF_Ajax_Handler
         // Hooks dla projektów/zleceń
         add_action('wp_ajax_add_wpmzf_project', array($this, 'add_project'));
         add_action('wp_ajax_get_wpmzf_projects', array($this, 'get_projects_for_person'));
+        
+        // Hooks dla widoku projektu
+        add_action('wp_ajax_wpmzf_update_project', array($this, 'update_project'));
+        add_action('wp_ajax_wpmzf_get_project_tasks', array($this, 'get_project_tasks'));
+        add_action('wp_ajax_wpmzf_add_project_task', array($this, 'add_project_task'));
+        add_action('wp_ajax_wpmzf_add_project_activity', array($this, 'add_project_activity'));
+        add_action('wp_ajax_wpmzf_delete_activity', array($this, 'delete_activity'));
     }
 
     /**
@@ -45,8 +66,24 @@ class WPMZF_Ajax_Handler
      */
     public function wpmzf_search_companies_ajax_handler()
     {
+        // Rate limiting
+        if (WPMZF_Rate_Limiter::is_rate_limited('search')) {
+            wp_send_json_error(['message' => 'Za dużo żądań wyszukiwania. Spróbuj ponownie za chwilę.'], 429);
+            return;
+        }
+        
+        // Sprawdzenie uprawnień
+        if (!current_user_can('edit_posts')) {
+            WPMZF_Logger::log_security_violation('search_companies - insufficient permissions');
+            wp_send_json_error(['message' => 'Brak uprawnień.']);
+            return;
+        }
+        
         // Bezpieczeństwo: sprawdzanie nonca
         check_ajax_referer('wpmzf_person_view_nonce', 'security');
+
+        // Increment rate limit counter
+        WPMZF_Rate_Limiter::increment_counter('search');
 
         // Pobranie i zwalidowanie terminu wyszukiwania
         $search_term = isset($_REQUEST['term']) ? sanitize_text_field(wp_unslash($_REQUEST['term'])) : '';
@@ -110,6 +147,77 @@ class WPMZF_Ajax_Handler
 
         // Zwracamy unikalne wyniki w formacie JSON
         wp_send_json_success(array_values($results));
+    }
+
+    /**
+     * Handler AJAX do wyszukiwania polecających (osoby i firmy)
+     */
+    public function wpmzf_search_referrers_ajax_handler()
+    {
+        // Sprawdzenie uprawnień
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(['message' => 'Brak uprawnień.']);
+            return;
+        }
+        
+        // Weryfikacja bezpieczeństwa
+        if (!check_ajax_referer('wpmzf_person_view_nonce', 'security', false)) {
+            wp_send_json_error(['message' => 'Błąd weryfikacji bezpieczeństwa.']);
+            return;
+        }
+
+        $search_term = sanitize_text_field($_GET['term'] ?? '');
+
+        if (empty($search_term)) {
+            wp_send_json_success([]);
+        }
+
+        $results = [];
+
+        // Wyszukiwanie osób
+        $args_persons = [
+            'post_type'      => 'person',
+            'post_status'    => 'publish',
+            's'              => $search_term,
+            'posts_per_page' => 10,
+        ];
+
+        $query_persons = new WP_Query($args_persons);
+
+        if ($query_persons->have_posts()) {
+            while ($query_persons->have_posts()) {
+                $query_persons->the_post();
+                $results[] = [
+                    'id'   => get_the_ID(),
+                    'text' => '👤 ' . get_the_title(),
+                ];
+            }
+        }
+        wp_reset_postdata();
+
+        // Wyszukiwanie firm
+        $args_companies = [
+            'post_type'      => 'company',
+            'post_status'    => 'publish',
+            's'              => $search_term,
+            'posts_per_page' => 10,
+        ];
+
+        $query_companies = new WP_Query($args_companies);
+
+        if ($query_companies->have_posts()) {
+            while ($query_companies->have_posts()) {
+                $query_companies->the_post();
+                $results[] = [
+                    'id'   => get_the_ID(),
+                    'text' => '🏢 ' . get_the_title(),
+                ];
+            }
+        }
+        wp_reset_postdata();
+
+        // Zwracamy wyniki w formacie JSON
+        wp_send_json_success($results);
     }
 
 
@@ -208,130 +316,187 @@ class WPMZF_Ajax_Handler
      */
     public function get_activities()
     {
-        check_ajax_referer('wpmzf_person_view_nonce', 'security');
-
-        $person_id = isset($_GET['person_id']) ? intval($_GET['person_id']) : 0;
-        $company_id = isset($_GET['company_id']) ? intval($_GET['company_id']) : 0;
+        $timer_id = WPMZF_Performance_Monitor::start_timer('get_activities');
         
-        // Debug logging
-        error_log('WPMZF get_activities: person_id=' . $person_id . ', company_id=' . $company_id);
+        try {
+            check_ajax_referer('wpmzf_person_view_nonce', 'security');
+
+            // Sprawdź uprawnienia
+            if (!current_user_can('edit_posts')) {
+                WPMZF_Logger::log_security_violation('get_activities - insufficient permissions');
+                wp_send_json_error(['message' => 'Brak uprawnień.']);
+                return;
+            }
+
+            // Debug - sprawdź wszystkie dane POST
+            WPMZF_Logger::debug('get_activities called', $_POST);
         
-        if (!$person_id && !$company_id) {
-            error_log('WPMZF get_activities: No person_id or company_id provided');
-            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby lub firmy.']);
-            return;
-        }
-
-        // Przygotowanie zapytania w zależności od typu encji
-        $meta_query = [];
-        if ($person_id) {
-            $meta_query[] = [
-                'key' => 'related_person',
-                'value' => $person_id,
-                'compare' => '='
-            ];
-        } else {
-            $meta_query[] = [
-                'key' => 'related_company',
-                'value' => $company_id,
-                'compare' => '='
-            ];
-        }
-
-        $args = [
-            'post_type' => 'activity',
-            'posts_per_page' => -1,
-            'meta_key' => 'activity_date',
-            'orderby' => 'meta_value',
-            'order' => 'DESC', // Najnowsze na górze
-            'meta_query' => $meta_query
-        ];
-
-        $activities_query = new WP_Query($args);
-        $activities_data = [];
-        
-        // Debug logging - szczegółowe informacje o zapytaniu
-        error_log('WPMZF get_activities: Query args: ' . print_r($args, true));
-        error_log('WPMZF get_activities: Found posts: ' . $activities_query->found_posts);
-
-        // Jeśli nie znaleziono aktywności dla firmy, sprawdź alternative meta keys
-        if ($company_id && $activities_query->found_posts == 0) {
-            error_log('WPMZF get_activities: Testing alternative meta keys for company');
+            $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
+            $company_id = isset($_POST['company_id']) ? intval($_POST['company_id']) : 0;
             
-            // Test z field_wpmzf_activity_related_company
-            $test_args = [
-                'post_type' => 'activity',
-                'posts_per_page' => -1,
-                'meta_query' => [[
-                    'key' => 'field_wpmzf_activity_related_company',
+            // Debug logging
+            error_log('WPMZF get_activities: person_id=' . $person_id . ', company_id=' . $company_id);
+            
+            if (!$person_id && !$company_id) {
+                error_log('WPMZF get_activities: No person_id or company_id provided');
+                wp_send_json_error(['message' => 'Nieprawidłowe ID osoby lub firmy.' . "personid = " . $person_id . "company_id=" . $company_id]);
+                return;
+            }
+
+            // Sprawdzenie cache
+            $entity_type = $person_id ? 'person' : 'company';
+            $entity_id = $person_id ?: $company_id;
+            $cache_key = "activities_for_{$entity_type}_{$entity_id}";
+            
+            $cached_activities = WPMZF_Cache_Manager::get($cache_key, 'activities');
+            if ($cached_activities !== false) {
+                WPMZF_Performance_Monitor::end_timer($timer_id, ['cache_hit' => true]);
+                wp_send_json_success(['activities' => $cached_activities]);
+                return;
+            }
+
+            // Przygotowanie zapytania w zależności od typu encji
+            $meta_query = [];
+            if ($person_id) {
+                $meta_query[] = [
+                    'key' => 'related_person',
+                    'value' => $person_id,
+                    'compare' => '='
+                ];
+            } else {
+                $meta_query[] = [
+                    'key' => 'related_company',
                     'value' => $company_id,
                     'compare' => '='
-                ]]
-            ];
-            $test_query = new WP_Query($test_args);
-            error_log('WPMZF get_activities: Found with field_wpmzf_activity_related_company: ' . $test_query->found_posts);
-            
-            // Jeśli znaleziono z alternatywnym kluczem, użyj tego
-            if ($test_query->found_posts > 0) {
-                $activities_query = $test_query;
-            }
-        }
-
-        if ($activities_query->have_posts()) {
-            while ($activities_query->have_posts()) {
-                $activities_query->the_post();
-                $activity_id = get_the_ID();
-                $author_id = get_the_author_meta('ID');
-
-                // Pobieranie załączników z pola repeater
-                $attachments_repeater = get_field('activity_attachments', $activity_id);
-                $attachments_data = [];
-                if ($attachments_repeater) {
-                    foreach ($attachments_repeater as $row) {
-                        // Upewnij się, że sub-pole istnieje i ma wartość
-                        if (isset($row['attachment_file']) && $row['attachment_file']) {
-                            $attachment_id = $row['attachment_file'];
-
-                            $attachment_data = [
-                                'id'        => $attachment_id,
-                                'url'       => wp_get_attachment_url($attachment_id),
-                                'filename'  => basename(get_attached_file($attachment_id)),
-                                'mime_type' => get_post_mime_type($attachment_id)
-                            ];
-
-                            if (wp_attachment_is_image($attachment_id)) {
-                                $thumbnail_src = wp_get_attachment_image_src($attachment_id, 'thumbnail');
-                                if ($thumbnail_src) {
-                                    $attachment_data['thumbnail_url'] = $thumbnail_src[0];
-                                }
-                            }
-
-                            $attachments_data[] = $attachment_data;
-                        }
-                    }
-                }
-
-                $activity_type_value = get_field('activity_type', $activity_id);
-                $activity_type_field = get_field_object('field_wpmzf_activity_type');
-                $activity_type_label = $activity_type_value;
-                if ($activity_type_field && isset($activity_type_field['choices'][$activity_type_value])) {
-                    $activity_type_label = $activity_type_field['choices'][$activity_type_value];
-                }
-
-                $activities_data[] = [
-                    'id' => $activity_id,
-                    'content' => get_the_content(),
-                    'date' => get_field('activity_date', $activity_id),
-                    'type' => $activity_type_label,
-                    'author' => get_the_author_meta('display_name', $author_id),
-                    'avatar' => get_avatar_url($author_id),
-                    'attachments' => $attachments_data
                 ];
             }
-        }
-        wp_reset_postdata();
 
-        wp_send_json_success($activities_data);
+            $args = [
+                'post_type' => 'activity',
+                'post_status' => 'publish',
+                'posts_per_page' => 50, // Ograniczenie dla wydajności
+                'orderby' => 'date',
+                'order' => 'DESC',
+                'meta_query' => $meta_query
+            ];
+
+            $activities_query = new WP_Query($args);
+            $activities = [];
+
+            if ($activities_query->have_posts()) {
+                while ($activities_query->have_posts()) {
+                    $activities_query->the_post();
+                    
+                    $activity_id = get_the_ID();
+                    $attachments = get_field('activity_attachments', $activity_id) ?: [];
+                    
+                    $activities[] = [
+                        'id' => $activity_id,
+                        'title' => get_the_title(),
+                        'content' => get_the_content(),
+                        'date' => get_the_date('Y-m-d H:i:s'),
+                        'author' => get_the_author(),
+                        'type' => get_field('activity_type', $activity_id),
+                        'attachments' => $this->format_attachments($attachments)
+                    ];
+                }
+                wp_reset_postdata();
+            }
+
+            // Zapisz w cache
+            WPMZF_Cache_Manager::set($cache_key, $activities, 'activities', 1800); // 30 minut
+
+            WPMZF_Performance_Monitor::end_timer($timer_id, [
+                'activities_count' => count($activities),
+                'cache_hit' => false
+            ]);
+
+            wp_send_json_success(['activities' => $activities]);
+
+        } catch (Exception $e) {
+            WPMZF_Logger::error('Failed to get activities', [
+                'error' => $e->getMessage(),
+                'person_id' => $person_id ?? 0,
+                'company_id' => $company_id ?? 0,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            WPMZF_Performance_Monitor::end_timer($timer_id, ['error' => $e->getMessage()]);
+            
+            wp_send_json_error(['message' => 'Wystąpił błąd podczas pobierania aktywności: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Formatuje załączniki dla odpowiedzi JSON
+     *
+     * @param array $attachments Załączniki z ACF
+     * @return array
+     */
+    private function format_attachments($attachments) {
+        if (empty($attachments) || !is_array($attachments)) {
+            return [];
+        }
+
+        $formatted = [];
+        foreach ($attachments as $attachment) {
+            if (isset($attachment['attachment_file']) && !empty($attachment['attachment_file'])) {
+                $attachment_id = $attachment['attachment_file'];
+                
+                if (is_array($attachment_id)) {
+                    $attachment_id = $attachment_id['ID'] ?? 0;
+                }
+                
+                $attachment_id = intval($attachment_id);
+                
+                if ($attachment_id > 0) {
+                    $attachment_post = get_post($attachment_id);
+                    if ($attachment_post) {
+                        $formatted[] = [
+                            'id' => $attachment_id,
+                            'title' => $attachment_post->post_title,
+                            'url' => wp_get_attachment_url($attachment_id),
+                            'type' => get_post_mime_type($attachment_id),
+                            'size' => size_format(filesize(get_attached_file($attachment_id)))
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $formatted;
+    }
+
+    /**
+     * Pobiera pojedynczą aktywność
+     */
+    public function get_single_activity() {
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+        
+        $activity_id = intval($_POST['activity_id'] ?? 0);
+        
+        if (!$activity_id) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID aktywności.']);
+            return;
+        }
+        
+        $activity = get_post($activity_id);
+        if (!$activity || $activity->post_type !== 'activity') {
+            wp_send_json_error(['message' => 'Aktywność nie została znaleziona.']);
+            return;
+        }
+        
+        $activity_data = [
+            'id' => $activity->ID,
+            'title' => $activity->post_title,
+            'content' => $activity->post_content,
+            'date' => $activity->post_date,
+            'author' => get_the_author_meta('display_name', $activity->post_author),
+            'type' => get_field('activity_type', $activity->ID),
+            'attachments' => $this->format_attachments(get_field('activity_attachments', $activity->ID) ?: [])
+        ];
+        
+        wp_send_json_success(['activity' => $activity_data]);
     }
 
     /**
@@ -339,23 +504,67 @@ class WPMZF_Ajax_Handler
      */
     public function upload_attachment()
     {
-        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+        try {
+            // Rate limiting dla uploadów
+            if (WPMZF_Rate_Limiter::is_rate_limited('upload')) {
+                wp_send_json_error(['message' => 'Za dużo uploadów. Spróbuj ponownie za chwilę.'], 429);
+                return;
+            }
+            
+            check_ajax_referer('wpmzf_person_view_nonce', 'security');
 
-        if (empty($_FILES['file'])) {
-            wp_send_json_error(['message' => 'Brak pliku do przesłania.']);
-            return;
-        }
+            // Sprawdź uprawnienia
+            if (!current_user_can('upload_files')) {
+                WPMZF_Logger::log_security_violation('upload_attachment - insufficient permissions');
+                wp_send_json_error(['message' => 'Brak uprawnień do przesyłania plików.']);
+                return;
+            }
 
-        require_once(ABSPATH . 'wp-admin/includes/file.php');
-        require_once(ABSPATH . 'wp-admin/includes/image.php');
-        require_once(ABSPATH . 'wp-admin/includes/media.php');
+            // Increment rate limit counter
+            WPMZF_Rate_Limiter::increment_counter('upload');
 
-        $attachment_id = media_handle_upload('file', 0);
+            if (empty($_FILES['file'])) {
+                wp_send_json_error(['message' => 'Brak pliku do przesłania.']);
+                return;
+            }
 
-        if (is_wp_error($attachment_id)) {
-            wp_send_json_error(['message' => $attachment_id->get_error_message()]);
-        } else {
-            wp_send_json_success(['id' => $attachment_id]);
+            // Walidacja pliku
+            $validation_result = WPMZF_File_Validator::validate_file($_FILES['file']);
+            if ($validation_result !== true) {
+                WPMZF_Logger::warning('File validation failed', [
+                    'errors' => $validation_result,
+                    'file' => $_FILES['file']['name']
+                ]);
+                wp_send_json_error(['message' => implode(' ', $validation_result)]);
+                return;
+            }
+
+            require_once(ABSPATH . 'wp-admin/includes/file.php');
+            require_once(ABSPATH . 'wp-admin/includes/image.php');
+            require_once(ABSPATH . 'wp-admin/includes/media.php');
+
+            $attachment_id = media_handle_upload('file', 0);
+
+            if (is_wp_error($attachment_id)) {
+                WPMZF_Logger::error('File upload failed', [
+                    'error' => $attachment_id->get_error_message(),
+                    'file' => $_FILES['file']['name']
+                ]);
+                wp_send_json_error(['message' => $attachment_id->get_error_message()]);
+            } else {
+                WPMZF_Logger::info('File uploaded successfully', [
+                    'attachment_id' => $attachment_id,
+                    'file' => $_FILES['file']['name']
+                ]);
+                wp_send_json_success(['id' => $attachment_id]);
+            }
+            
+        } catch (Exception $e) {
+            WPMZF_Logger::error('Error in upload_attachment', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            wp_send_json_error(['message' => 'Wystąpił błąd podczas przesyłania pliku.']);
         }
     }
 
@@ -556,6 +765,20 @@ class WPMZF_Ajax_Handler
             update_field('field_wpmzf_person_company_relation', null, $person_id);
         }
 
+        // Obsługa pola polecającego
+        $referrer_data = isset($_POST['person_referrer']) ? sanitize_text_field(wp_unslash($_POST['person_referrer'])) : null;
+        if (!empty($referrer_data) && is_numeric($referrer_data)) {
+            $referrer_id = intval($referrer_data);
+            // Sprawdź czy to jest prawidłowa osoba lub firma
+            $referrer_post = get_post($referrer_id);
+            if ($referrer_post && in_array(get_post_type($referrer_id), ['person', 'company'])) {
+                update_field('person_referrer', array($referrer_id), $person_id);
+            }
+        } else {
+            // Jeśli polecający został usunięty z pola, czyścimy wartość
+            update_field('person_referrer', null, $person_id);
+        }
+
         // 3. Specjalna obsługa grupy pól "Adres"
         $address_data = [];
         // Zbieramy dane adresu z POST i mapujemy na nazwy sub-pól z definicji ACF
@@ -577,6 +800,17 @@ class WPMZF_Ajax_Handler
             $company_html = sprintf('<a href="%s">%s</a>', esc_url(get_edit_post_link($company_id_to_save)), esc_html(get_the_title($company_id_to_save)));
         }
         
+        // Przygotuj dane zwrotne dla polecającego
+        $referrer_html = '';
+        $referrer = get_field('person_referrer', $person_id);
+        if ($referrer && is_array($referrer) && !empty($referrer)) {
+            $referrer_post = get_post($referrer[0]);
+            if ($referrer_post) {
+                $referrer_type = get_post_type($referrer_post->ID) === 'company' ? '🏢' : '👤';
+                $referrer_html = $referrer_type . ' ' . esc_html($referrer_post->post_title);
+            }
+        }
+        
         // Przygotuj odświeżone HTML dla kontaktów
         $contacts_html = [
             'emails' => WPMZF_Contact_Helper::render_emails_display(WPMZF_Contact_Helper::get_person_emails($person_id)),
@@ -586,6 +820,7 @@ class WPMZF_Ajax_Handler
         wp_send_json_success([
             'message' => 'Dane osoby zaktualizowane.',
             'company_html' => $company_html,
+            'referrer_html' => $referrer_html,
             'contacts_html' => $contacts_html
         ]);
     }
@@ -733,11 +968,13 @@ class WPMZF_Ajax_Handler
 
         $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
         $company_id = isset($_POST['company_id']) ? intval($_POST['company_id']) : 0;
+        $project_id = isset($_POST['project_id']) ? intval($_POST['project_id']) : 0;
         $task_title = isset($_POST['task_title']) ? sanitize_text_field($_POST['task_title']) : '';
         $task_due_date = isset($_POST['task_due_date']) ? sanitize_text_field($_POST['task_due_date']) : '';
+        $assigned_user = isset($_POST['assigned_user']) ? intval($_POST['assigned_user']) : 0;
 
-        if ((!$person_id && !$company_id) || empty($task_title)) {
-            wp_send_json_error(['message' => 'Brak wymaganych danych.']);
+        if ((!$person_id && !$company_id && !$project_id) || empty($task_title)) {
+            wp_send_json_error(['message' => 'Brak wymaganych danych (tytuł zadania i przynajmniej jedna relacja).']);
             return;
         }
 
@@ -750,6 +987,39 @@ class WPMZF_Ajax_Handler
         if ($company_id && get_post_type($company_id) !== 'company') {
             wp_send_json_error(['message' => 'Nieprawidłowe ID firmy.']);
             return;
+        }
+
+        if ($project_id && get_post_type($project_id) !== 'project') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID projektu.']);
+            return;
+        }
+
+        // Sprawdź czy przypisany użytkownik istnieje i czy ma odpowiednie uprawnienia
+        if ($assigned_user > 0) {
+            $user = get_user_by('ID', $assigned_user);
+            if (!$user) {
+                wp_send_json_error(['message' => 'Wybrany użytkownik nie istnieje.']);
+                return;
+            }
+            
+            // Opcjonalnie: sprawdź czy użytkownik ma powiązanego pracownika
+            $employee_query = new WP_Query([
+                'post_type' => 'employee',
+                'meta_query' => [
+                    [
+                        'key' => 'employee_user',
+                        'value' => $assigned_user,
+                        'compare' => '='
+                    ]
+                ],
+                'posts_per_page' => 1
+            ]);
+            
+            if (!$employee_query->have_posts()) {
+                wp_send_json_error(['message' => 'Wybrany użytkownik nie ma powiązanego profilu pracownika.']);
+                return;
+            }
+            wp_reset_postdata();
         }
 
         // Tworzenie zadania
@@ -770,8 +1040,17 @@ class WPMZF_Ajax_Handler
             // Przypisanie do odpowiedniej encji
             if ($person_id) {
                 update_field('task_assigned_person', $person_id, $task_id);
-            } else {
+            }
+            if ($company_id) {
                 update_field('task_assigned_company', $company_id, $task_id);
+            }
+            if ($project_id) {
+                update_field('task_assigned_project', $project_id, $task_id);
+            }
+            
+            // Przypisanie do użytkownika
+            if ($assigned_user > 0) {
+                update_field('task_assigned_user', $assigned_user, $task_id);
             }
             
             update_field('task_start_date', current_time('Y-m-d H:i:s'), $task_id);
@@ -841,6 +1120,16 @@ class WPMZF_Ajax_Handler
                 $start_date = get_field('task_start_date', $task_id);
                 $end_date = get_field('task_end_date', $task_id);
                 $description = get_field('task_description', $task_id);
+                $assigned_user_id = get_field('task_assigned_user', $task_id);
+                
+                // Pobierz informacje o przypisanym użytkowniku
+                $assigned_user_name = '';
+                if ($assigned_user_id) {
+                    $user = get_user_by('ID', $assigned_user_id);
+                    if ($user) {
+                        $assigned_user_name = $user->display_name;
+                    }
+                }
 
                 $task_data = [
                     'id' => $task_id,
@@ -850,6 +1139,8 @@ class WPMZF_Ajax_Handler
                     'start_date' => $start_date,
                     'end_date' => $end_date,
                     'due_date' => $end_date, // Alias for JavaScript compatibility
+                    'assigned_user_id' => $assigned_user_id,
+                    'assigned_user_name' => $assigned_user_name,
                     'priority' => $this->get_task_priority($end_date),
                     'edit_link' => get_edit_post_link($task_id)
                 ];
@@ -1298,6 +1589,691 @@ class WPMZF_Ajax_Handler
             ]);
         } else {
             wp_send_json_error(['message' => 'Nie udało się zaktualizować statusu firmy.']);
+        }
+    }
+
+    /**
+     * Aktualizuje dane projektu
+     */
+    public function update_project()
+    {
+        check_ajax_referer('wpmzf_project_view_nonce', 'security');
+
+        $project_id = isset($_POST['project_id']) ? intval($_POST['project_id']) : 0;
+        
+        if (!$project_id || get_post_type($project_id) !== 'project') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID projektu.']);
+            return;
+        }
+
+        // Pobierz dane z formularza
+        $project_title = isset($_POST['project_title']) ? sanitize_text_field($_POST['project_title']) : '';
+        $project_description = isset($_POST['project_description']) ? wp_kses_post($_POST['project_description']) : '';
+        $project_status = isset($_POST['project_status']) ? sanitize_text_field($_POST['project_status']) : '';
+        $project_budget = isset($_POST['project_budget']) ? floatval($_POST['project_budget']) : 0;
+        $start_date = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
+        $end_date = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : '';
+
+        if (empty($project_title)) {
+            wp_send_json_error(['message' => 'Nazwa projektu jest wymagana.']);
+            return;
+        }
+
+        // Aktualizuj post
+        $post_data = [
+            'ID' => $project_id,
+            'post_title' => $project_title,
+            'post_content' => $project_description
+        ];
+
+        $updated = wp_update_post($post_data);
+
+        if (is_wp_error($updated)) {
+            wp_send_json_error(['message' => 'Błąd podczas aktualizacji projektu.']);
+            return;
+        }
+
+        // Aktualizuj pola ACF
+        if ($project_status) {
+            update_field('project_status', $project_status, $project_id);
+        }
+        
+        if ($project_budget > 0) {
+            update_field('project_budget', $project_budget, $project_id);
+        }
+        
+        if ($start_date) {
+            update_field('start_date', $start_date, $project_id);
+        }
+        
+        if ($end_date) {
+            update_field('end_date', $end_date, $project_id);
+        }
+
+        wp_send_json_success([
+            'message' => 'Projekt został zaktualizowany.',
+            'project_id' => $project_id
+        ]);
+    }
+
+    /**
+     * Pobiera zadania dla projektu
+     */
+    public function get_project_tasks()
+    {
+        check_ajax_referer('wpmzf_task_nonce', 'security');
+
+        $project_id = isset($_POST['project_id']) ? intval($_POST['project_id']) : 0;
+        
+        if (!$project_id || get_post_type($project_id) !== 'project') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID projektu.']);
+            return;
+        }
+
+        // Pobierz zadania przypisane do projektu
+        $tasks_args = [
+            'post_type' => 'task',
+            'posts_per_page' => -1,
+            'meta_query' => [
+                [
+                    'key' => 'task_project',
+                    'value' => '"' . $project_id . '"',
+                    'compare' => 'LIKE'
+                ]
+            ],
+            'orderby' => 'date',
+            'order' => 'DESC'
+        ];
+
+        $tasks_query = new WP_Query($tasks_args);
+        $open_tasks = [];
+        $closed_tasks = [];
+
+        if ($tasks_query->have_posts()) {
+            while ($tasks_query->have_posts()) {
+                $tasks_query->the_post();
+                $task_id = get_the_ID();
+                $task_status = get_field('task_status', $task_id) ?: 'Do zrobienia';
+                
+                $task_data = [
+                    'id' => $task_id,
+                    'title' => get_the_title(),
+                    'content' => get_the_content(),
+                    'status' => $task_status,
+                    'start_date' => get_field('task_start_date', $task_id),
+                    'end_date' => get_field('task_end_date', $task_id),
+                    'date_created' => get_the_date('Y-m-d H:i:s')
+                ];
+                
+                if ($task_status === 'Zrobione') {
+                    $closed_tasks[] = $task_data;
+                } else {
+                    $open_tasks[] = $task_data;
+                }
+            }
+            wp_reset_postdata();
+        }
+
+        wp_send_json_success([
+            'open_tasks' => $open_tasks,
+            'closed_tasks' => $closed_tasks
+        ]);
+    }
+
+    /**
+     * Dodaje nowe zadanie do projektu
+     */
+    public function add_project_task()
+    {
+        check_ajax_referer('wpmzf_task_nonce', 'security');
+
+        $project_id = isset($_POST['project_id']) ? intval($_POST['project_id']) : 0;
+        $task_title = isset($_POST['task_title']) ? sanitize_text_field($_POST['task_title']) : '';
+        $assigned_user = isset($_POST['assigned_user']) ? intval($_POST['assigned_user']) : 0;
+        
+        if (!$project_id || get_post_type($project_id) !== 'project') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID projektu.']);
+            return;
+        }
+
+        if (empty($task_title)) {
+            wp_send_json_error(['message' => 'Tytuł zadania jest wymagany.']);
+            return;
+        }
+
+        // Walidacja przypisanego użytkownika
+        if ($assigned_user > 0) {
+            $user = get_user_by('id', $assigned_user);
+            if (!$user) {
+                wp_send_json_error(['message' => 'Nieprawidłowy użytkownik.']);
+                return;
+            }
+            
+            // Sprawdź czy użytkownik jest powiązany z pracownikiem
+            $employee_helper = new WPMZF_Employee_Helper();
+            $employee = $employee_helper->get_employee_by_user_id($assigned_user);
+            if (!$employee) {
+                wp_send_json_error(['message' => 'Wybrany użytkownik nie jest pracownikiem.']);
+                return;
+            }
+        }
+
+        // Utwórz zadanie
+        $task_data = [
+            'post_title' => $task_title,
+            'post_content' => '',
+            'post_status' => 'publish',
+            'post_type' => 'task',
+            'post_author' => get_current_user_id(),
+        ];
+
+        $task_id = wp_insert_post($task_data);
+
+        if ($task_id && !is_wp_error($task_id)) {
+            // Przypisz zadanie do projektu
+            update_field('task_project', [$project_id], $task_id);
+            
+            // Ustaw domyślny status
+            update_field('task_status', 'Do zrobienia', $task_id);
+            
+            // Przypisz użytkownika jeśli podano
+            if ($assigned_user > 0) {
+                update_field('task_assigned_user', $assigned_user, $task_id);
+            }
+
+            wp_send_json_success([
+                'message' => 'Zadanie zostało dodane.',
+                'task_id' => $task_id
+            ]);
+        } else {
+            wp_send_json_error(['message' => 'Błąd podczas tworzenia zadania.']);
+        }
+    }
+
+    /**
+     * Dodaje nową aktywność do projektu
+     */
+    public function add_project_activity()
+    {
+        check_ajax_referer('wpmzf_project_view_nonce', 'security');
+
+        $project_id = isset($_POST['project_id']) ? intval($_POST['project_id']) : 0;
+        $activity_content = isset($_POST['activity_content']) ? wp_kses_post($_POST['activity_content']) : '';
+        $activity_type = isset($_POST['activity_type']) ? sanitize_text_field($_POST['activity_type']) : 'note';
+        
+        if (!$project_id || get_post_type($project_id) !== 'project') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID projektu.']);
+            return;
+        }
+
+        if (empty($activity_content)) {
+            wp_send_json_error(['message' => 'Treść aktywności jest wymagana.']);
+            return;
+        }
+
+        // Utwórz aktywność
+        $activity_data = [
+            'post_title' => 'Aktywność projektu: ' . get_the_title($project_id),
+            'post_content' => $activity_content,
+            'post_status' => 'publish',
+            'post_type' => 'activity',
+            'post_author' => get_current_user_id(),
+        ];
+
+        $activity_id = wp_insert_post($activity_data);
+
+        if ($activity_id && !is_wp_error($activity_id)) {
+            // Przypisz aktywność do projektu
+            update_field('related_project', $project_id, $activity_id);
+            
+            // Ustaw typ aktywności
+            update_field('activity_type', $activity_type, $activity_id);
+            
+            // Ustaw datę aktywności na teraz
+            update_field('activity_date', current_time('Y-m-d H:i:s'), $activity_id);
+
+            wp_send_json_success([
+                'message' => 'Aktywność została dodana.',
+                'activity_id' => $activity_id
+            ]);
+        } else {
+            wp_send_json_error(['message' => 'Błąd podczas tworzenia aktywności.']);
+        }
+    }
+
+    /**
+     * Zapisz firmę (dodaj nową lub edytuj istniejącą)
+     */
+    public function save_company()
+    {
+        if (!wp_verify_nonce($_POST['nonce'], 'wpmzf_nonce')) {
+            wp_send_json_error(['message' => 'Nieprawidłowy token bezpieczeństwa.']);
+            return;
+        }
+
+        $company_id = intval($_POST['id'] ?? 0);
+        $name = sanitize_text_field($_POST['name'] ?? '');
+        $nip = sanitize_text_field($_POST['nip'] ?? '');
+        $address = sanitize_textarea_field($_POST['address'] ?? '');
+        $phone = sanitize_text_field($_POST['phone'] ?? '');
+        $email = sanitize_email($_POST['email'] ?? '');
+        $website = esc_url_raw($_POST['website'] ?? '');
+        $referrer_data = isset($_POST['company_referrer']) ? sanitize_text_field(wp_unslash($_POST['company_referrer'])) : null;
+
+        if (empty($name)) {
+            wp_send_json_error(['message' => 'Nazwa firmy jest wymagana.']);
+            return;
+        }
+
+        $post_data = [
+            'post_title' => $name,
+            'post_type' => 'company',
+            'post_status' => 'publish',
+        ];
+
+        if ($company_id > 0) {
+            // Edycja istniejącej firmy
+            $post_data['ID'] = $company_id;
+            $result = wp_update_post($post_data);
+        } else {
+            // Dodanie nowej firmy
+            $result = wp_insert_post($post_data);
+        }
+
+        if (!is_wp_error($result) && $result) {
+            $company_id = ($company_id > 0) ? $company_id : $result;
+            
+            // Aktualizuj pola customowe
+            update_field('company_nip', $nip, $company_id);
+            update_field('company_address', $address, $company_id);
+            update_field('company_phone', $phone, $company_id);
+            update_field('company_email', $email, $company_id);
+            update_field('company_website', $website, $company_id);
+            
+            // Obsługa polecającego
+            if (!empty($referrer_data)) {
+                $referrer_id = intval($referrer_data);
+                update_field('company_referrer', array($referrer_id), $company_id);
+            } else {
+                update_field('company_referrer', null, $company_id);
+            }
+
+            wp_send_json_success([
+                'message' => 'Firma została zapisana.',
+                'company_id' => $company_id
+            ]);
+        } else {
+            wp_send_json_error(['message' => 'Błąd podczas zapisywania firmy.']);
+        }
+    }
+
+    /**
+     * Pobierz dane firmy
+     */
+    public function get_company()
+    {
+        if (!wp_verify_nonce($_POST['nonce'], 'wpmzf_nonce')) {
+            wp_send_json_error(['message' => 'Nieprawidłowy token bezpieczeństwa.']);
+            return;
+        }
+
+        $company_id = intval($_POST['company_id'] ?? 0);
+        
+        if (!$company_id || get_post_type($company_id) !== 'company') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID firmy.']);
+            return;
+        }
+
+        $company = get_post($company_id);
+        $fields = get_fields($company_id);
+        
+        $referrer = get_field('company_referrer', $company_id);
+        $referrer_id = '';
+        if ($referrer && is_array($referrer) && !empty($referrer)) {
+            $referrer_id = $referrer[0];
+        }
+
+        wp_send_json_success([
+            'name' => $company->post_title,
+            'nip' => $fields['company_nip'] ?? '',
+            'address' => $fields['company_address'] ?? '',
+            'phone' => $fields['company_phone'] ?? '',
+            'email' => $fields['company_email'] ?? '',
+            'website' => $fields['company_website'] ?? '',
+            'company_referrer' => $referrer_id,
+        ]);
+    }
+
+    /**
+     * Usuń firmę
+     */
+    public function delete_company()
+    {
+        if (!wp_verify_nonce($_POST['nonce'], 'wpmzf_nonce')) {
+            wp_send_json_error(['message' => 'Nieprawidłowy token bezpieczeństwa.']);
+            return;
+        }
+
+        $company_id = intval($_POST['company_id'] ?? 0);
+        
+        if (!$company_id || get_post_type($company_id) !== 'company') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID firmy.']);
+            return;
+        }
+
+        $result = wp_delete_post($company_id, true);
+
+        if ($result) {
+            wp_send_json_success(['message' => 'Firma została usunięta.']);
+        } else {
+            wp_send_json_error(['message' => 'Błąd podczas usuwania firmy.']);
+        }
+    }
+
+    /**
+     * Zapisz osobę (dodaj nową lub edytuj istniejącą)
+     */
+    public function save_person()
+    {
+        if (!wp_verify_nonce($_POST['nonce'], 'wpmzf_nonce')) {
+            wp_send_json_error(['message' => 'Nieprawidłowy token bezpieczeństwa.']);
+            return;
+        }
+
+        $person_id = intval($_POST['id'] ?? 0);
+        $first_name = sanitize_text_field($_POST['first_name'] ?? '');
+        $last_name = sanitize_text_field($_POST['last_name'] ?? '');
+        $email = sanitize_email($_POST['email'] ?? '');
+        $phone = sanitize_text_field($_POST['phone'] ?? '');
+        $position = sanitize_text_field($_POST['position'] ?? '');
+        $company_id = intval($_POST['company_id'] ?? 0);
+        $referrer_data = isset($_POST['person_referrer']) ? sanitize_text_field(wp_unslash($_POST['person_referrer'])) : null;
+
+        if (empty($first_name) || empty($last_name)) {
+            wp_send_json_error(['message' => 'Imię i nazwisko są wymagane.']);
+            return;
+        }
+
+        $full_name = trim($first_name . ' ' . $last_name);
+
+        $post_data = [
+            'post_title' => $full_name,
+            'post_type' => 'person',
+            'post_status' => 'publish',
+        ];
+
+        if ($person_id > 0) {
+            // Edycja istniejącej osoby
+            $post_data['ID'] = $person_id;
+            $result = wp_update_post($post_data);
+        } else {
+            // Dodanie nowej osoby
+            $result = wp_insert_post($post_data);
+        }
+
+        if (!is_wp_error($result) && $result) {
+            $person_id = ($person_id > 0) ? $person_id : $result;
+            
+            // Aktualizuj pola customowe
+            update_field('person_first_name', $first_name, $person_id);
+            update_field('person_last_name', $last_name, $person_id);
+            update_field('person_email', $email, $person_id);
+            update_field('person_phone', $phone, $person_id);
+            update_field('person_position', $position, $person_id);
+            
+            if ($company_id > 0) {
+                update_field('person_company', array($company_id), $person_id);
+            } else {
+                update_field('person_company', null, $person_id);
+            }
+            
+            // Obsługa polecającego
+            if (!empty($referrer_data)) {
+                $referrer_id = intval($referrer_data);
+                update_field('person_referrer', array($referrer_id), $person_id);
+            } else {
+                update_field('person_referrer', null, $person_id);
+            }
+
+            wp_send_json_success([
+                'message' => 'Osoba została zapisana.',
+                'person_id' => $person_id
+            ]);
+        } else {
+            wp_send_json_error(['message' => 'Błąd podczas zapisywania osoby.']);
+        }
+    }
+
+    /**
+     * Pobierz dane osoby
+     */
+    public function get_person()
+    {
+        if (!wp_verify_nonce($_POST['nonce'], 'wpmzf_nonce')) {
+            wp_send_json_error(['message' => 'Nieprawidłowy token bezpieczeństwa.']);
+            return;
+        }
+
+        $person_id = intval($_POST['person_id'] ?? 0);
+        
+        if (!$person_id || get_post_type($person_id) !== 'person') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
+            return;
+        }
+
+        $person = get_post($person_id);
+        $fields = get_fields($person_id);
+        
+        $company = get_field('person_company', $person_id);
+        $company_id = '';
+        if ($company && is_array($company) && !empty($company)) {
+            $company_id = $company[0];
+        }
+        
+        $referrer = get_field('person_referrer', $person_id);
+        $referrer_id = '';
+        if ($referrer && is_array($referrer) && !empty($referrer)) {
+            $referrer_id = $referrer[0];
+        }
+
+        wp_send_json_success([
+            'first_name' => $fields['person_first_name'] ?? '',
+            'last_name' => $fields['person_last_name'] ?? '',
+            'email' => $fields['person_email'] ?? '',
+            'phone' => $fields['person_phone'] ?? '',
+            'position' => $fields['person_position'] ?? '',
+            'company_id' => $company_id,
+            'person_referrer' => $referrer_id,
+        ]);
+    }
+
+    /**
+     * Usuń osobę
+     */
+    public function delete_person()
+    {
+        if (!wp_verify_nonce($_POST['nonce'], 'wpmzf_nonce')) {
+            wp_send_json_error(['message' => 'Nieprawidłowy token bezpieczeństwa.']);
+            return;
+        }
+
+        $person_id = intval($_POST['person_id'] ?? 0);
+        
+        if (!$person_id || get_post_type($person_id) !== 'person') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
+            return;
+        }
+
+        $result = wp_delete_post($person_id, true);
+
+        if ($result) {
+            wp_send_json_success(['message' => 'Osoba została usunięta.']);
+        } else {
+            wp_send_json_error(['message' => 'Błąd podczas usuwania osoby.']);
+        }
+    }
+
+    /**
+     * Dodaje nowy ważny link
+     */
+    public function add_important_link() {
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+
+        $url = sanitize_url($_POST['url'] ?? '');
+        $custom_title = sanitize_text_field($_POST['custom_title'] ?? '');
+        $object_id = intval($_POST['object_id'] ?? 0);
+        $object_type = sanitize_text_field($_POST['object_type'] ?? '');
+
+        if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+            wp_send_json_error(['message' => 'Nieprawidłowy URL']);
+            return;
+        }
+
+        if (empty($object_id) || empty($object_type)) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID obiektu lub typ']);
+            return;
+        }
+
+        $link_data = array(
+            'url' => $url,
+            'custom_title' => $custom_title,
+            'object_id' => $object_id,
+            'object_type' => $object_type
+        );
+
+        $link = WPMZF_Important_Link::create($link_data);
+
+        if (is_wp_error($link)) {
+            wp_send_json_error(['message' => $link->get_error_message()]);
+            return;
+        }
+
+        wp_send_json_success([
+            'message' => 'Link został dodany',
+            'link' => array(
+                'id' => $link->id,
+                'url' => $link->url,
+                'title' => $link->get_display_title(),
+                'favicon' => $link->get_favicon_url(),
+                'custom_title' => $link->custom_title,
+                'fetched_title' => $link->fetched_title
+            )
+        ]);
+    }
+
+    /**
+     * Pobiera ważne linki dla obiektu
+     */
+    public function get_important_links() {
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+
+        $object_id = intval($_POST['object_id'] ?? 0);
+        $object_type = sanitize_text_field($_POST['object_type'] ?? '');
+
+        if (empty($object_id) || empty($object_type)) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID obiektu lub typ']);
+            return;
+        }
+
+        $links = WPMZF_Important_Link::get_links_for_object($object_id, $object_type);
+        $links_data = array();
+
+        foreach ($links as $link) {
+            $links_data[] = array(
+                'id' => $link->id,
+                'url' => $link->url,
+                'title' => $link->get_display_title(),
+                'favicon' => $link->get_favicon_url(),
+                'custom_title' => $link->custom_title,
+                'fetched_title' => $link->fetched_title,
+                'created_at' => $link->created_at
+            );
+        }
+
+        wp_send_json_success(['links' => $links_data]);
+    }
+
+    /**
+     * Aktualizuje ważny link
+     */
+    public function update_important_link() {
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+
+        $link_id = intval($_POST['link_id'] ?? 0);
+        $url = sanitize_url($_POST['url'] ?? '');
+        $custom_title = sanitize_text_field($_POST['custom_title'] ?? '');
+
+        if (empty($link_id)) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID linku']);
+            return;
+        }
+
+        if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+            wp_send_json_error(['message' => 'Nieprawidłowy URL']);
+            return;
+        }
+
+        $link = new WPMZF_Important_Link($link_id);
+        if (empty($link->id)) {
+            wp_send_json_error(['message' => 'Link nie został znaleziony']);
+            return;
+        }
+
+        $link->url = $url;
+        $link->custom_title = $custom_title;
+        
+        // Jeśli URL się zmienił, wyczyść pobrany tytuł żeby zostać pobrany ponownie
+        $old_url = get_post_meta($link_id, 'url', true);
+        if ($old_url !== $url) {
+            $link->fetched_title = '';
+            $link->favicon_url = '';
+        }
+
+        $result = $link->save();
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(['message' => $result->get_error_message()]);
+            return;
+        }
+
+        wp_send_json_success([
+            'message' => 'Link został zaktualizowany',
+            'link' => array(
+                'id' => $link->id,
+                'url' => $link->url,
+                'title' => $link->get_display_title(),
+                'favicon' => $link->get_favicon_url(),
+                'custom_title' => $link->custom_title,
+                'fetched_title' => $link->fetched_title
+            )
+        ]);
+    }
+
+    /**
+     * Usuwa ważny link
+     */
+    public function delete_important_link() {
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+
+        $link_id = intval($_POST['link_id'] ?? 0);
+
+        if (empty($link_id)) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID linku']);
+            return;
+        }
+
+        $link = new WPMZF_Important_Link($link_id);
+        if (empty($link->id)) {
+            wp_send_json_error(['message' => 'Link nie został znaleziony']);
+            return;
+        }
+
+        $result = $link->delete();
+
+        if ($result) {
+            wp_send_json_success(['message' => 'Link został usunięty']);
+        } else {
+            wp_send_json_error(['message' => 'Błąd podczas usuwania linku']);
         }
     }
 }

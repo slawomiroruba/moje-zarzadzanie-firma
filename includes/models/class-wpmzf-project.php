@@ -80,9 +80,9 @@ class WPMZF_Project {
             $this->start_date = get_field('start_date', $id);
             $this->end_date = get_field('end_date', $id);
             $this->status = get_field('project_status', $id);
+            $this->budget = get_field('project_budget', $id);
             
-            // Pozostałe pola z meta (dla kompatybilności wstecznej)
-            $this->budget = get_post_meta($id, 'budget', true);
+            // Pole company_id z meta dla kompatybilności wstecznej
             $this->company_id = get_post_meta($id, 'company_id', true);
         }
     }

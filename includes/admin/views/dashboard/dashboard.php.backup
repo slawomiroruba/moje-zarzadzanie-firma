@@ -10,6 +10,29 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Renderuj nawigację i header
+WPMZF_View_Helper::render_complete_header(array(
+    'title' => 'Dashboard',
+    'subtitle' => 'Przegląd najważniejszych informacji o Twojej firmie',
+    'breadcrumbs' => array(
+        array('label' => 'Dashboard', 'url' => '')
+    ),
+    'actions' => array(
+        array(
+            'label' => 'Dodaj firmę',
+            'url' => admin_url('post-new.php?post_type=company'),
+            'icon' => '🏢',
+            'class' => 'button button-primary'
+        ),
+        array(
+            'label' => 'Dodaj osobę',
+            'url' => admin_url('post-new.php?post_type=person'),
+            'icon' => '👤',
+            'class' => 'button'
+        )
+    )
+));
+
 // Pobieranie danych do dashboardu
 $companies_count = wp_count_posts('company')->publish;
 $persons_count = wp_count_posts('person')->publish;

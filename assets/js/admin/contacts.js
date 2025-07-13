@@ -1,27 +1,61 @@
-jQuery(document).ready(function ($) {
+// Utility functions - vanilla JS helpers
+function ready(fn) {
+	if (document.readyState !== 'loading') {
+		fn();
+	} else {
+		document.addEventListener('DOMContentLoaded', fn);
+	}
+}
+
+function $(selector, context = document) {
+	return context.querySelector(selector);
+}
+
+function $$(selector, context = document) {
+	return context.querySelectorAll(selector);
+}
+
+ready(function() {
 
 	// Funkcja walidacji tylko jednego głównego kontaktu w repeaterze
 	function validateSinglePrimary(repeaterFieldName) {
-		$(document).on('change', `[data-name="${repeaterFieldName}"] input[data-name="is_primary"]`, function () {
-			const currentRepeater = $(this).closest(`[data-name="${repeaterFieldName}"]`);
+		// Delegacja eventów dla dynamicznie dodawanych elementów
+		document.addEventListener('change', function(e) {
+			if (e.target.matches(`[data-name="${repeaterFieldName}"] input[data-name="is_primary"]`)) {
+				const currentRepeater = e.target.closest(`[data-name="${repeaterFieldName}"]`);
 
-			if ($(this).is(':checked')) {
-				// Jeśli ten checkbox został zaznaczony, odznacz wszystkie inne w tym repeaterze
-				currentRepeater.find('input[data-name="is_primary"]').not(this).prop('checked', false);
+				if (e.target.checked) {
+					// Jeśli ten checkbox został zaznaczony, odznacz wszystkie inne w tym repeaterze
+					const otherCheckboxes = currentRepeater.querySelectorAll('input[data-name="is_primary"]');
+					otherCheckboxes.forEach(checkbox => {
+						if (checkbox !== e.target) {
+							checkbox.checked = false;
+						}
+					});
 
-				// Dodaj klasę CSS do rzędu z głównym kontaktem
-				$(this).closest('.acf-row').addClass('has-primary-contact');
-				currentRepeater.find('.acf-row').not($(this).closest('.acf-row')).removeClass('has-primary-contact');
-			} else {
-				// Usuń klasę jeśli checkbox został odznaczony
-				$(this).closest('.acf-row').removeClass('has-primary-contact');
+					// Dodaj klasę CSS do rzędu z głównym kontaktem
+					const currentRow = e.target.closest('.acf-row');
+					currentRow.classList.add('has-primary-contact');
+					
+					// Usuń klasę z innych rzędów
+					const allRows = currentRepeater.querySelectorAll('.acf-row');
+					allRows.forEach(row => {
+						if (row !== currentRow) {
+							row.classList.remove('has-primary-contact');
+						}
+					});
+				} else {
+					// Usuń klasę jeśli checkbox został odznaczony
+					e.target.closest('.acf-row').classList.remove('has-primary-contact');
+				}
 			}
 		});
 
 		// Inicjalna sprawdzenie przy ładowaniu strony
 		setTimeout(() => {
-			$(`[data-name="${repeaterFieldName}"] input[data-name="is_primary"]:checked`).each(function () {
-				$(this).closest('.acf-row').addClass('has-primary-contact');
+			const checkedBoxes = document.querySelectorAll(`[data-name="${repeaterFieldName}"] input[data-name="is_primary"]:checked`);
+			checkedBoxes.forEach(checkbox => {
+				checkbox.closest('.acf-row').classList.add('has-primary-contact');
 			});
 		}, 500);
 	}
@@ -258,23 +292,45 @@ jQuery(document).ready(function ($) {
         </style>
     `;
 
-	$('head').append(contactFieldsStyle);
+	// Dodaj style do head
+	const head = document.head || document.getElementsByTagName('head')[0];
+	const style = document.createElement('style');
+	style.type = 'text/css';
+	style.innerHTML = contactFieldsStyle;
+	head.appendChild(style);
 
 	// Pokaż powiadomienie przy próbie zaznaczenia drugiego głównego kontaktu
-	$(document).on('change', '[data-name*="emails"] input[data-name="is_primary"], [data-name*="phones"] input[data-name="is_primary"]', function () {
-		if ($(this).is(':checked')) {
-			const fieldType = $(this).closest('[data-name*="emails"]').length ? 'e-mail' : 'telefon';
-			const otherChecked = $(this).closest('.acf-repeater').find('input[data-name="is_primary"]:checked').not(this);
+	document.addEventListener('change', function(e) {
+		if (e.target.matches('[data-name*="emails"] input[data-name="is_primary"], [data-name*="phones"] input[data-name="is_primary"]')) {
+			if (e.target.checked) {
+				const fieldType = e.target.closest('[data-name*="emails"]') ? 'e-mail' : 'telefon';
+				const repeater = e.target.closest('.acf-repeater');
+				const otherChecked = repeater.querySelectorAll('input[data-name="is_primary"]:checked');
+				
+				// Sprawdź czy są inne zaznaczone checkboxy (oprócz aktualnego)
+				const otherCheckedArray = Array.from(otherChecked).filter(checkbox => checkbox !== e.target);
 
-			if (otherChecked.length > 0) {
-				// Pokaż krótkie powiadomienie
-				const notice = $(`<div class="notice notice-info is-dismissible" style="margin: 10px 0;"><p>Oznaczono nowy główny ${fieldType}. Poprzedni został automatycznie odznaczony.</p></div>`);
-				$(this).closest('.acf-field').before(notice);
+				if (otherCheckedArray.length > 0) {
+					// Pokaż krótkie powiadomienie
+					const notice = document.createElement('div');
+					notice.className = 'notice notice-info is-dismissible';
+					notice.style.margin = '10px 0';
+					notice.innerHTML = `<p>Oznaczono nowy główny ${fieldType}. Poprzedni został automatycznie odznaczony.</p>`;
+					
+					const fieldContainer = e.target.closest('.acf-field');
+					fieldContainer.parentNode.insertBefore(notice, fieldContainer);
 
-				// Usuń powiadomienie po 3 sekundach
-				setTimeout(() => {
-					notice.fadeOut(() => notice.remove());
-				}, 3000);
+					// Usuń powiadomienie po 3 sekundach z animacją
+					setTimeout(() => {
+						notice.style.transition = 'opacity 0.3s ease';
+						notice.style.opacity = '0';
+						setTimeout(() => {
+							if (notice.parentNode) {
+								notice.parentNode.removeChild(notice);
+							}
+						}, 300);
+					}, 3000);
+				}
 			}
 		}
 	});

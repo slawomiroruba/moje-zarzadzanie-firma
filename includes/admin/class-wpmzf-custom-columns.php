@@ -43,6 +43,7 @@ class WPMZF_Custom_Columns_Service {
         $new_columns['company_nip'] = 'NIP';
         $new_columns['company_email'] = 'Email';
         $new_columns['company_phone'] = 'Telefon';
+        $new_columns['company_referrer'] = 'Polecający';
         $new_columns['date'] = $columns['date'];
         return $new_columns;
     }
@@ -68,6 +69,20 @@ class WPMZF_Custom_Columns_Service {
                 $phone = get_field('company_phone', $post_id);
                 echo $phone ? "<a href='tel:$phone'>$phone</a>" : '-';
                 break;
+            case 'company_referrer':
+                $referrer = get_field('company_referrer', $post_id);
+                if ($referrer && is_array($referrer) && !empty($referrer)) {
+                    $referrer_post = get_post($referrer[0]);
+                    if ($referrer_post) {
+                        $referrer_type = get_post_type($referrer_post->ID) === 'company' ? '🏢' : '👤';
+                        echo $referrer_type . ' ' . esc_html($referrer_post->post_title);
+                    } else {
+                        echo '-';
+                    }
+                } else {
+                    echo '-';
+                }
+                break;
         }
     }
 
@@ -81,6 +96,7 @@ class WPMZF_Custom_Columns_Service {
         $new_columns['person_email'] = 'Email';
         $new_columns['person_phone'] = 'Telefon';
         $new_columns['person_company'] = 'Firma';
+        $new_columns['person_referrer'] = 'Polecający';
         $new_columns['date'] = $columns['date'];
         return $new_columns;
     }
@@ -118,6 +134,20 @@ class WPMZF_Custom_Columns_Service {
                 $company = get_field('person_company', $post_id);
                 if ($company) {
                     echo get_the_title($company);
+                } else {
+                    echo '-';
+                }
+                break;
+            case 'person_referrer':
+                $referrer = get_field('person_referrer', $post_id);
+                if ($referrer && is_array($referrer) && !empty($referrer)) {
+                    $referrer_post = get_post($referrer[0]);
+                    if ($referrer_post) {
+                        $referrer_type = get_post_type($referrer_post->ID) === 'company' ? '🏢' : '👤';
+                        echo $referrer_type . ' ' . esc_html($referrer_post->post_title);
+                    } else {
+                        echo '-';
+                    }
                 } else {
                     echo '-';
                 }

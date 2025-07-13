@@ -76,6 +76,15 @@ final class WPMZF_Plugin
         // Core
         require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-loader.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-activator.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-logger.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-file-validator.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-backup-manager.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-rate-limiter.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-cache-manager.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-performance-monitor.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-error-handler.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-database-optimizer.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-cron-manager.php';
 
         // Abstracts
         // require_once WPMZF_PLUGIN_PATH . 'includes/abstracts/class-wpmzf-abstract-cpt.php'; // Przestarzała klasa
@@ -92,9 +101,11 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-project.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-time-entry.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-activity.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-important-link.php';
 
         // Repositories
         require_once WPMZF_PLUGIN_PATH . 'includes/repositories/class-wpmzf-user-repository.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/repositories/class-wpmzf-important-link-repository.php';
 
         // Services
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-user-service.php';
@@ -102,6 +113,7 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-reports.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-contact-helper.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-ajax-handler.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-employee-helper.php';
 
         // Controllers
         require_once WPMZF_PLUGIN_PATH . 'includes/controllers/class-wpmzf-user-controller.php';
@@ -109,9 +121,12 @@ final class WPMZF_Plugin
         // Admin
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-admin.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-admin-pages.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-debug-admin-page.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-admin-columns.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-custom-columns.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-meta-boxes.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/class-wpmzf-navbar.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/class-wpmzf-view-helper.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/card/simple-card.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-documents-list-table.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-persons-list-table.php';
@@ -120,8 +135,9 @@ final class WPMZF_Plugin
         // Data
         require_once WPMZF_PLUGIN_PATH . 'includes/data/class-wpmzf-acf-fields.php';
 
-        // Legacy files
+        // Security and access control
         require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-access-control.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-frontend-blocker.php';
     }
 
     /**
@@ -129,8 +145,14 @@ final class WPMZF_Plugin
      */
     private function init_components()
     {
+        // Initialize core systems first
+        WPMZF_Error_Handler::init();
+        WPMZF_Cache_Manager::init();
+        WPMZF_Performance_Monitor::init();
+        
         // Core components
         new WPMZF_Loader();
+        new WPMZF_Cron_Manager();
         new WPMZF_Post_Types();
         new WPMZF_Taxonomies();
 
@@ -139,9 +161,14 @@ final class WPMZF_Plugin
         new WPMZF_Reports();
 
         // Admin
-        new WPMZF_Admin();
-        new WPMZF_Admin_Pages(); // Przywrócone - potrzebne dla widoku osoby i statystyk
+        // new WPMZF_Admin(); // WYŁĄCZONE - duplikuje funkcjonalność WPMZF_Admin_Pages
+        new WPMZF_Admin_Pages(); 
+        WPMZF_Debug_Admin_Page::init();
         new WPMZF_Custom_Columns_Service();
+        // new WPMZF_Navbar(); // WYŁĄCZONE - navbar jest renderowany przez WPMZF_View_Helper::render_complete_header()
+        
+        // Inicjalizuj WPMZF_View_Helper
+        WPMZF_View_Helper::init();
 
         // REST API Controllers
         add_action('rest_api_init', function() {
@@ -149,15 +176,24 @@ final class WPMZF_Plugin
             $user_controller->register_routes();
         });
 
+        // Security and access control
+        new WPMZF_Frontend_Blocker();
+        
         // Legacy components
-        new WPMZF_Access_Control();
-        // new WPMZF_Contact(); // Przestarzały model
         new WPMZF_Meta_Boxes();
         new WPMZF_Ajax_Handler();
         
         if (class_exists('ACF')) {
             new WPMZF_ACF_Fields();
         }
+
+        // Schedule automatic backups
+        if (!wp_next_scheduled('wpmzf_daily_backup')) {
+            wp_schedule_event(time(), 'daily', 'wpmzf_daily_backup');
+        }
+        
+        // Hook for automatic backup
+        add_action('wpmzf_daily_backup', array($this, 'create_daily_backup'));
     }
 
     /**
@@ -173,6 +209,15 @@ final class WPMZF_Plugin
             plugin_dir_url(__FILE__) . 'assets/css/voice-dictation.css',
             array(),
             filemtime(plugin_dir_path(__FILE__) . 'assets/css/voice-dictation.css')
+        );
+
+        // Ładuj skrypty walidacji na wszystkich stronach admina
+        wp_enqueue_script(
+            'wpmzf-validation-script',
+            plugin_dir_url(__FILE__) . 'assets/js/admin/validation.js',
+            array(),
+            filemtime(plugin_dir_path(__FILE__) . 'assets/js/admin/validation.js'),
+            true
         );
 
         wp_enqueue_script(
@@ -277,7 +322,25 @@ final class WPMZF_Plugin
         if (get_current_screen()->post_type === 'employee') {
             $defaults['title_reply'] = 'Dodaj nową notatkę';
             $defaults['label_submit'] = 'Dodaj notatkę';
-            $defaults['comment_field'] = '<p class="comment-form-comment"><textarea id="comment" name="comment" cols="45" rows="5" aria-required="true" placeholder="Wpisz treść notatki, transkrypcję rozmowy, treść maila..."></textarea></p>';
+            
+            // Używamy wp_editor zamiast zwykłego textarea
+            ob_start();
+            echo '<p class="comment-form-comment">';
+            wp_editor('', 'comment', array(
+                'textarea_name' => 'comment',
+                'textarea_rows' => 5,
+                'media_buttons' => false,
+                'teeny' => true,
+                'quicktags' => true,
+                'tinymce' => array(
+                    'toolbar1' => 'bold,italic,underline,link,unlink,undo,redo',
+                    'toolbar2' => '',
+                    'height' => 150
+                )
+            ));
+            echo '</p>';
+            $defaults['comment_field'] = ob_get_clean();
+            
             $defaults['comment_notes_before'] = ''; // Usuwa informację o dozwolonych tagach HTML
         }
         return $defaults;
@@ -312,6 +375,60 @@ final class WPMZF_Plugin
             }
         }
         return $translated_text;
+    }
+
+    /**
+     * Create daily backup
+     */
+    public function create_daily_backup() {
+        $result = WPMZF_Backup_Manager::create_backup();
+        
+        if (!is_wp_error($result)) {
+            // Clean old backups
+            WPMZF_Backup_Manager::cleanup_old_backups();
+            
+            WPMZF_Logger::info('Daily backup completed successfully');
+        } else {
+            WPMZF_Logger::error('Daily backup failed', [
+                'error' => $result->get_error_message()
+            ]);
+        }
+    }
+
+    /**
+     * Plugin activation hook
+     */
+    public function on_plugin_activation() {
+        try {
+            WPMZF_Logger::info('Plugin activation started');
+            
+            // Initialize database optimizer and create indexes
+            $database_optimizer = new WPMZF_Database_Optimizer();
+            $indexes_result = $database_optimizer->create_database_indexes();
+            
+            if ($indexes_result['success']) {
+                WPMZF_Logger::info('Database indexes created successfully', ['count' => $indexes_result['success_count']]);
+            } else {
+                WPMZF_Logger::warning('Some database indexes could not be created', ['errors' => $indexes_result['errors']]);
+            }
+            
+            // Create initial backup on activation
+            $backup_manager = new WPMZF_Backup_Manager();
+            $backup_result = $backup_manager->create_backup('plugin_activation');
+            
+            if ($backup_result['success']) {
+                WPMZF_Logger::info('Initial backup created on activation', ['file' => $backup_result['file']]);
+            }
+            
+            // Initialize cache directories
+            $cache_manager = new WPMZF_Cache_Manager();
+            $cache_manager->init();
+            
+            WPMZF_Logger::info('Plugin activation completed successfully');
+            
+        } catch (Exception $e) {
+            WPMZF_Logger::error('Error during plugin activation', ['error' => $e->getMessage()]);
+        }
     }
 }
 

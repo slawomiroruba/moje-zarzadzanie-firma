@@ -79,15 +79,26 @@ function showNotification(message, type = 'info') {
 jQuery(document).ready(function ($) {
 	// --- Zmienne ---
 	const companyId = $('input[name="company_id"]').val();
-	// Używamy zmiennych z wp_localize_script jeśli są dostępne, w przeciwnym razie fallback
-	const securityNonce = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.nonce) ? 
-		wpmzfCompanyView.nonce : $('#wpmzf_security').val();
-	const taskSecurityNonce = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.taskNonce) ? 
-		wpmzfCompanyView.taskNonce : $('#wpmzf_task_security').val();
+	console.log('Company ID found:', companyId); // Debug
 	
+	// Używamy zmiennych z wp_localize_script jeśli są dostępne, w przeciwnym razie fallback
+	const securityNonce = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.nonce) ?
+		wpmzfCompanyView.nonce : $('#wpmzf_security').val();
+	const taskSecurityNonce = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.taskNonce) ?
+		wpmzfCompanyView.taskNonce : $('#wpmzf_task_security').val();
+
+	console.log('Security nonce:', securityNonce); // Debug
+	console.log('Task security nonce:', taskSecurityNonce); // Debug
+
+	// Sprawdź czy companyId jest prawidłowe
+	if (!companyId || companyId === '' || companyId === 'undefined') {
+		console.error('Company ID not found or invalid!');
+		return;
+	}
+
 	const form = $('#wpmzf-add-activity-form');
 	const timelineContainer = $('#wpmzf-activity-timeline');
-	const submitButton = $('#wpmzf-submit-activity-btn');
+	const submitButton = $('#wpmzf-add-activity-btn');
 	const dateField = $('#wpmzf-activity-date');
 	const attachFileBtn = $('#wpmzf-attach-file-btn');
 	const attachmentInput = $('#wpmzf-activity-files-input');
@@ -107,6 +118,13 @@ jQuery(document).ready(function ($) {
 	// Dodanie zmiennych dla drag & drop i clipboard
 	let dragDropEnabled = false;
 	let pendingUploads = new Set(); // Tracking pending uploads for cleanup
+
+	// Debug - sprawdź wartości na początku
+	console.log('Company view debug:');
+	console.log('- companyId:', companyId);
+	console.log('- securityNonce:', securityNonce);
+	console.log('- taskSecurityNonce:', taskSecurityNonce);
+	console.log('- ajaxurl:', typeof ajaxurl !== 'undefined' ? ajaxurl : 'UNDEFINED');
 
 	// === INICJALIZACJA FUNKCJONALNOŚCI AKTYWNOŚCI ===
 
@@ -185,6 +203,16 @@ jQuery(document).ready(function ($) {
 
 					// Jeśli edytor nie istnieje lub był usunięty, zainicjalizuj go ponownie
 					if (!editor) {
+						// Sprawdź czy wp_editor już utworzył edytor TinyMCE
+						editor = window.tinyMCE.get('wpmzf-activity-content');
+						if (editor) {
+							// WordPress już utworzył edytor - tylko go pokaż
+							$(editor.getContainer()).show();
+							editor.show();
+							setTimeout(() => editor.focus(), 100);
+							return;
+						}
+						
 						// Usuń wszystkie poprzednie instancje
 						window.tinyMCE.remove('#wpmzf-activity-content');
 
@@ -415,32 +443,34 @@ jQuery(document).ready(function ($) {
 	}
 
 	// --- Obsługa załączników ---
-	attachFileBtn.on('click', function() {
+	attachFileBtn.on('click', function () {
 		attachmentInput.trigger('click');
 	});
 
-	attachmentInput.on('change', function() {
-		const files = Array.from(this.files);
-		
-		files.forEach(file => {
+	attachmentInput.on('change', function (e) {
+		for (const file of e.target.files) {
+			// Sprawdź walidację pliku
+			if (!isAllowedFileType(file)) {
+				continue; // Pomiń nieodpowiednie pliki
+			}
+
 			// Sprawdź czy plik już nie został dodany
-			const alreadyExists = filesToUpload.some(existingFile => 
+			const alreadyExists = filesToUpload.some(existingFile =>
 				existingFile.name === file.name && existingFile.size === file.size
 			);
-			
+
 			if (!alreadyExists) {
 				filesToUpload.push(file);
 			}
-		});
+		}
 
-		// Wyczyść input, żeby można było dodać ten sam plik ponownie
-		this.value = '';
-		
 		renderAttachmentsPreview();
+		// Resetowanie wartości inputu, aby umożliwić ponowne dodanie tego samego pliku
+		$(this).val('');
 	});
 
 	// Obsługa usuwania załączników z podglądu
-	attachmentsPreviewContainer.on('click', '.remove-attachment', function() {
+	attachmentsPreviewContainer.on('click', '.remove-attachment', function () {
 		const fileIndex = parseInt($(this).closest('.attachment-item').data('file-index'));
 		filesToUpload.splice(fileIndex, 1);
 		renderAttachmentsPreview();
@@ -455,9 +485,9 @@ jQuery(document).ready(function ($) {
 			timelineContainer.html('<p><em>Błąd: Nieprawidłowe ID firmy.</em></p>');
 			return;
 		}
-		
+
 		console.log('Loading activities for company ID:', companyId);
-		
+
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
@@ -466,7 +496,7 @@ jQuery(document).ready(function ($) {
 				company_id: companyId,
 				security: securityNonce
 			},
-			success: function(response) {
+			success: function (response) {
 				console.log('Activities response:', response);
 				if (response.success) {
 					if (response.data && response.data.length > 0) {
@@ -480,7 +510,7 @@ jQuery(document).ready(function ($) {
 					timelineContainer.html('<p><em>Błąd: ' + errorMsg + '</em></p>');
 				}
 			},
-			error: function(xhr, status, error) {
+			error: function (xhr, status, error) {
 				console.error('AJAX error:', status, error, xhr);
 				timelineContainer.html('<p><em>Błąd podczas ładowania aktywności.</em></p>');
 			}
@@ -490,14 +520,14 @@ jQuery(document).ready(function ($) {
 	// Renderowanie timeline aktywności
 	async function renderTimeline(activities) {
 		console.log('Rendering timeline with activities:', activities);
-		
+
 		if (!activities || activities.length === 0) {
 			timelineContainer.html('<p><em>Brak zarejestrowanych aktywności. Dodaj pierwszą!</em></p>');
 			return;
 		}
 
 		// Sortowanie aktywności - najnowsze na górze
-		activities.sort(function(a, b) {
+		activities.sort(function (a, b) {
 			const dateA = new Date(a.date);
 			const dateB = new Date(b.date);
 			return dateB - dateA; // DESC - najnowsze na górze
@@ -506,11 +536,11 @@ jQuery(document).ready(function ($) {
 		let html = '';
 
 		for (const activity of activities) {
-			const iconMap = { 
-				'Notatka': 'dashicons-admin-comments', 
-				'E-mail': 'dashicons-email-alt', 
-				'Telefon': 'dashicons-phone', 
-				'Spotkanie': 'dashicons-groups', 
+			const iconMap = {
+				'Notatka': 'dashicons-admin-comments',
+				'E-mail': 'dashicons-email-alt',
+				'Telefon': 'dashicons-phone',
+				'Spotkanie': 'dashicons-groups',
 				'Spotkanie online': 'dashicons-video-alt3',
 				'notatka': 'dashicons-admin-comments',
 				'rozmowa': 'dashicons-phone',
@@ -527,7 +557,7 @@ jQuery(document).ready(function ($) {
 			let attachmentsHtml = '';
 			if (activity.attachments && activity.attachments.length > 0) {
 				attachmentsHtml += '<div class="timeline-attachments"><ul>';
-				activity.attachments.forEach(function(att) {
+				activity.attachments.forEach(function (att) {
 					const attachmentIcon = getIconForMimeType(att.mime_type);
 					let previewHtml = '';
 
@@ -651,9 +681,9 @@ jQuery(document).ready(function ($) {
 					data: formData,
 					processData: false,
 					contentType: false,
-					xhr: function() {
+					xhr: function () {
 						const xhr = new window.XMLHttpRequest();
-						xhr.upload.addEventListener('progress', function(e) {
+						xhr.upload.addEventListener('progress', function (e) {
 							if (e.lengthComputable) {
 								const percentComplete = Math.round((e.loaded / e.total) * 100);
 								progressBar.find('.attachment-progress-fill').css('width', percentComplete + '%');
@@ -703,31 +733,43 @@ jQuery(document).ready(function ($) {
 			editorContent = $('#wpmzf-activity-content').val();
 		}
 
-		const formData = new FormData(this);
-		formData.set('content', editorContent);
-		formData.set('action', 'add_wpmzf_activity');
-		formData.set('company_id', companyId);
-		formData.delete('person_id'); // Usuń person_id jeśli istnieje
-
-		// Dodaj IDs załączników
-		if (uploadedAttachmentIds.length > 0) {
-			uploadedAttachmentIds.forEach(id => {
-				formData.append('attachment_ids[]', id);
-			});
+		if (!editorContent || editorContent.trim() === '') {
+			showNotification('Proszę wprowadzić treść aktywności.', 'error');
+			submitButton.text(originalButtonText).prop('disabled', false);
+			attachFileBtn.prop('disabled', false);
+			isSubmitting = false;
+			return;
 		}
+
+		submitButton.text('Dodawanie aktywności...');
+		const activityData = {
+			action: 'add_wpmzf_activity',
+			security: securityNonce,
+			company_id: companyId,
+			content: editorContent,
+			activity_type: $('#wpmzf-activity-type').val(),
+			activity_date: dateField.val(),
+			attachment_ids: uploadedAttachmentIds
+		};
+
+		console.log('Company activity data to submit:', activityData);
 
 		// AJAX request
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
-			data: formData,
-			processData: false,
-			contentType: false,
-			success: function(response) {
+			data: activityData,
+			success: function (response) {
+				console.log('Company activity response:', response);
 				if (response.success) {
+					// Usuń przesłane pliki z pending uploads (zostały przypisane)
+					uploadedAttachmentIds.forEach(id => {
+						pendingUploads.delete(id);
+					});
+
 					// Reset edytora przy użyciu dedykowanej funkcji
 					resetEditor();
-					
+
 					form[0].reset();
 					filesToUpload = [];
 					renderAttachmentsPreview();
@@ -735,10 +777,11 @@ jQuery(document).ready(function ($) {
 					loadActivities();
 					showNotification('Aktywność została dodana pomyślnie!', 'success');
 				} else {
-					showNotification('Błąd: ' + response.data.message, 'error');
+					showNotification('Błąd: ' + (response.data ? response.data.message : 'Nieznany błąd'), 'error');
 				}
 			},
-			error: function () {
+			error: function (xhr, status, error) {
+				console.error('Company activity AJAX error:', status, error, xhr);
 				showNotification('Wystąpił krytyczny błąd serwera przy dodawaniu aktywności.', 'error');
 			},
 			complete: function () {
@@ -749,8 +792,190 @@ jQuery(document).ready(function ($) {
 		});
 	});
 
+	// === INICJALIZACJA DRAG & DROP I CLIPBOARD ===
+
+	// Funkcja sprawdzająca czy typ pliku jest dozwolony
+	function isAllowedFileType(file) {
+		const allowedTypes = [
+			'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+			'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+			'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+			'text/plain', 'text/csv', 'application/zip', 'application/x-rar-compressed'
+		];
+
+		const maxSize = 50 * 1024 * 1024; // 50MB
+
+		if (!allowedTypes.includes(file.type)) {
+			showNotification('Niedozwolony typ pliku: ' + file.type, 'error');
+			return false;
+		}
+
+		if (file.size > maxSize) {
+			showNotification('Plik jest za duży. Maksymalny rozmiar to 50MB.', 'error');
+			return false;
+		}
+
+		return true;
+	}
+
+	// Funkcja inicjalizacji drag & drop
+	function initializeDragAndDrop() {
+		const $body = $('body');
+		const $addActivityForm = $('#wpmzf-add-activity-form');
+
+		// Dodaj overlay dla drag & drop
+		if (!$('#wpmzf-drag-overlay').length) {
+			$body.append(`
+				<div id="wpmzf-drag-overlay" class="wpmzf-drag-overlay">
+					<div class="wpmzf-drag-message">
+						<div class="wpmzf-drag-icon">📁</div>
+						<div class="wpmzf-drag-text">Upuść pliki tutaj, aby dodać do aktywności</div>
+					</div>
+				</div>
+			`);
+		}
+
+		let dragCounter = 0;
+
+		// Obsługa dragenter
+		$body.on('dragenter', function (e) {
+			e.preventDefault();
+			dragCounter++;
+
+			if (dragCounter === 1) {
+				$('#wpmzf-drag-overlay').addClass('active');
+				$addActivityForm.addClass('drag-target');
+			}
+		});
+
+		// Obsługa dragleave
+		$body.on('dragleave', function (e) {
+			e.preventDefault();
+			dragCounter--;
+
+			if (dragCounter === 0) {
+				$('#wpmzf-drag-overlay').removeClass('active');
+				$addActivityForm.removeClass('drag-target');
+			}
+		});
+
+		// Obsługa dragover
+		$body.on('dragover', function (e) {
+			e.preventDefault();
+		});
+
+		// Obsługa drop
+		$body.on('drop', function (e) {
+			e.preventDefault();
+			dragCounter = 0;
+
+			$('#wpmzf-drag-overlay').removeClass('active');
+			$addActivityForm.removeClass('drag-target');
+
+			const files = e.originalEvent.dataTransfer.files;
+			if (files.length > 0) {
+				// Dodaj pliki do listy i pokaż podgląd
+				for (const file of files) {
+					// Sprawdź czy to plik graficzny lub inny dozwolony typ
+					if (isAllowedFileType(file)) {
+						filesToUpload.push(file);
+					}
+				}
+				renderAttachmentsPreview();
+
+				// Przewiń do formularza aktywności
+				$addActivityForm[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+			}
+		});
+	}
+
+	// Funkcja inicjalizacji wklejania ze schowka
+	function initializeClipboardPaste() {
+		console.log('Company: Inicjalizacja clipboard paste...');
+
+		// Test - sprawdź czy funkcja w ogóle się wywołuje
+		$(document).on('keydown', function (e) {
+			if (e.ctrlKey && e.key === 'v') {
+				console.log('Company: CTRL+V wykryte!');
+			}
+		});
+
+		$(document).on('paste', function (e) {
+			console.log('Company: Wykryto zdarzenie paste');
+
+			// Sprawdź czy jesteśmy na stronie z formularzem aktywności
+			if (!$('#wpmzf-add-activity-form').length) {
+				console.log('Company: Brak formularza aktywności na stronie');
+				return;
+			}
+
+			console.log('Company: Formularz aktywności znaleziony');
+
+			const clipboardData = e.originalEvent.clipboardData;
+			if (!clipboardData || !clipboardData.items) {
+				console.log('Company: Brak danych w schowku');
+				return;
+			}
+
+			console.log('Company: Dane schowka dostępne, items:', clipboardData.items.length);
+
+			// Sprawdź czy w schowku są pliki
+			for (let i = 0; i < clipboardData.items.length; i++) {
+				const item = clipboardData.items[i];
+				console.log('Company: Item', i, 'type:', item.type);
+
+				if (item.type.indexOf('image/') === 0) {
+					console.log('Company: Znaleziono obraz w schowku');
+					e.preventDefault();
+
+					const file = item.getAsFile();
+					if (file) {
+						console.log('Company: Plik pobrany ze schowka:', file.name, file.size);
+
+						// Utwórz lepszą nazwę dla screenshot'u
+						const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+						const newFile = new File([file], `screenshot-${timestamp}.png`, {
+							type: file.type,
+							lastModified: Date.now()
+						});
+
+						console.log('Company: Nowy plik utworzony:', newFile.name);
+
+						// Sprawdź walidację pliku
+						if (isAllowedFileType(newFile)) {
+							console.log('Company: Plik przeszedł walidację, dodawanie do listy');
+							filesToUpload.push(newFile);
+							renderAttachmentsPreview();
+
+							// Przewiń do formularza aktywności
+							$('#wpmzf-add-activity-form')[0].scrollIntoView({
+								behavior: 'smooth',
+								block: 'center'
+							});
+
+							// Pokaż powiadomienie
+							showNotification('Zdjęcie zostało dodane ze schowka', 'success');
+							console.log('Company: Screenshot dodany pomyślnie');
+						} else {
+							console.log('Company: Plik nie przeszedł walidacji');
+						}
+					} else {
+						console.log('Company: Nie udało się pobrać pliku ze schowka');
+					}
+				}
+			}
+		});
+	}
+
+	// Inicjalizacja funkcji
+	console.log('Company: Inicjalizacja drag & drop i clipboard paste');
+	initializeDragAndDrop();
+	initializeClipboardPaste();
+	console.log('Company: Drag & drop i clipboard paste zainicjalizowane');
+
 	// === OBSŁUGA EDYCJI I USUWANIA AKTYWNOŚCI ===
-	
+
 	// Usuwanie aktywności
 	timelineContainer.on('click', '.delete-activity', function () {
 		if (!confirm('Czy na pewno chcesz usunąć tę aktywność i wszystkie jej załączniki?')) {
@@ -917,21 +1142,22 @@ jQuery(document).ready(function ($) {
 
 	// === DODAWANIE ZADANIA ===
 	if (taskForm.length > 0) {
-		taskForm.on('submit', function(e) {
+		taskForm.on('submit', function (e) {
 			e.preventDefault();
-			
+
 			const taskTitle = taskTitleInput.val().trim();
 			const taskDueDate = taskDueDateInput.val();
-			
+			const assignedUser = $('#wpmzf-task-assigned-user').val();
+
 			if (!taskTitle) {
 				showTaskMessage('Podaj tytuł zadania.', 'error');
 				return;
 			}
-			
+
 			const submitBtn = $(this).find('button[type="submit"]');
 			const originalText = submitBtn.text();
 			submitBtn.text('Dodawanie...').prop('disabled', true);
-			
+
 			$.ajax({
 				url: ajaxurl,
 				type: 'POST',
@@ -940,22 +1166,24 @@ jQuery(document).ready(function ($) {
 					company_id: companyId,
 					task_title: taskTitle,
 					task_due_date: taskDueDate,
+					assigned_user: assignedUser,
 					wpmzf_task_security: taskSecurityNonce
 				},
-				success: function(response) {
+				success: function (response) {
 					if (response.success) {
 						taskTitleInput.val('');
 						taskDueDateInput.val('');
+						$('#wpmzf-task-assigned-user').val('');
 						loadTasks();
 						showTaskMessage('Zadanie zostało dodane.', 'success');
 					} else {
 						showTaskMessage('Błąd: ' + (response.data ? response.data.message : 'Nieznany błąd'), 'error');
 					}
 				},
-				error: function() {
+				error: function () {
 					showTaskMessage('Błąd podczas dodawania zadania.', 'error');
 				},
-				complete: function() {
+				complete: function () {
 					submitBtn.text(originalText).prop('disabled', false);
 				}
 			});
@@ -969,7 +1197,7 @@ jQuery(document).ready(function ($) {
 			openTasksList.html('<p><em>Błąd: Nieprawidłowe ID firmy.</em></p>');
 			return;
 		}
-		
+
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
@@ -978,7 +1206,7 @@ jQuery(document).ready(function ($) {
 				company_id: companyId,
 				wpmzf_task_security: taskSecurityNonce
 			},
-			success: function(response) {
+			success: function (response) {
 				if (response.success) {
 					openTasksList.html(response.data.open_tasks || '<p><em>Brak otwartych zadań.</em></p>');
 					closedTasksList.html(response.data.closed_tasks || '<p><em>Brak zakończonych zadań.</em></p>');
@@ -987,7 +1215,7 @@ jQuery(document).ready(function ($) {
 					closedTasksList.html('<p><em>Brak zakończonych zadań.</em></p>');
 				}
 			},
-			error: function(xhr, status, error) {
+			error: function (xhr, status, error) {
 				console.error('Tasks AJAX error:', status, error, xhr);
 				openTasksList.html('<p><em>Błąd podczas ładowania zadań.</em></p>');
 			}
@@ -997,26 +1225,26 @@ jQuery(document).ready(function ($) {
 	function showTaskMessage(message, type) {
 		const messageClass = type === 'success' ? 'notice-success' : 'notice-error';
 		const messageHtml = '<div class="task-message ' + messageClass + '">' + message + '</div>';
-		
+
 		// Usuń poprzednie komunikaty
 		$('.task-message').remove();
-		
+
 		// Dodaj nowy komunikat
 		taskForm.after(messageHtml);
-		
+
 		// Usuń komunikat po 3 sekundach
-		setTimeout(function() {
-			$('.task-message').fadeOut(500, function() {
+		setTimeout(function () {
+			$('.task-message').fadeOut(500, function () {
 				$(this).remove();
 			});
 		}, 3000);
 	}
 
 	// Obsługa przełączania zakończonych zadań
-	toggleClosedTasks.on('click', function() {
+	toggleClosedTasks.on('click', function () {
 		const $this = $(this);
 		const $list = closedTasksList;
-		
+
 		if ($list.is(':visible')) {
 			$list.slideUp(200);
 			$this.removeClass('expanded');
@@ -1027,14 +1255,14 @@ jQuery(document).ready(function ($) {
 	});
 
 	// === OBSŁUGA AKCJI ZADAŃ ===
-	
+
 	// Obsługa akcji na zadaniach (zmiana statusu, edycja, usuwanie)
-	$(document).on('click', '.task-actions .dashicons', function() {
+	$(document).on('click', '.task-actions .dashicons', function () {
 		const $this = $(this);
 		const action = $this.data('action');
 		const taskId = $this.closest('.task-item').data('task-id');
-		
-		switch(action) {
+
+		switch (action) {
 			case 'toggle-status':
 				toggleTaskStatus(taskId);
 				break;
@@ -1057,7 +1285,7 @@ jQuery(document).ready(function ($) {
 				task_id: taskId,
 				wpmzf_task_security: taskSecurityNonce
 			},
-			success: function(response) {
+			success: function (response) {
 				if (response.success) {
 					loadTasks();
 					showTaskMessage('Status zadania został zmieniony.', 'success');
@@ -1065,7 +1293,7 @@ jQuery(document).ready(function ($) {
 					showTaskMessage('Błąd: ' + (response.data ? response.data.message : 'Nieznany błąd'), 'error');
 				}
 			},
-			error: function() {
+			error: function () {
 				showTaskMessage('Błąd podczas zmiany statusu zadania.', 'error');
 			}
 		});
@@ -1076,7 +1304,7 @@ jQuery(document).ready(function ($) {
 		if (!confirm('Czy na pewno chcesz usunąć to zadanie?')) {
 			return;
 		}
-		
+
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
@@ -1085,7 +1313,7 @@ jQuery(document).ready(function ($) {
 				task_id: taskId,
 				wpmzf_task_security: taskSecurityNonce
 			},
-			success: function(response) {
+			success: function (response) {
 				if (response.success) {
 					loadTasks();
 					showTaskMessage('Zadanie zostało usunięte.', 'success');
@@ -1093,7 +1321,7 @@ jQuery(document).ready(function ($) {
 					showTaskMessage('Błąd: ' + (response.data ? response.data.message : 'Nieznany błąd'), 'error');
 				}
 			},
-			error: function() {
+			error: function () {
 				showTaskMessage('Błąd podczas usuwania zadania.', 'error');
 			}
 		});
@@ -1105,23 +1333,23 @@ jQuery(document).ready(function ($) {
 		const taskItem = $(`.task-item[data-task-id="${taskId}"]`);
 		const taskTitle = taskItem.find('.task-title');
 		const currentTitle = taskTitle.text();
-		
+
 		// Zamień tytuł na pole input
 		const inputField = $('<input type="text" class="task-edit-input" value="' + escapeHtml(currentTitle) + '">');
 		taskTitle.replaceWith(inputField);
 		inputField.focus().select();
-		
+
 		// Obsługa zapisu (Enter) i anulowania (Escape)
-		inputField.on('keydown', function(e) {
+		inputField.on('keydown', function (e) {
 			if (e.which === 13) { // Enter
 				saveTaskTitle(taskId, $(this).val());
 			} else if (e.which === 27) { // Escape
 				$(this).replaceWith('<span class="task-title">' + escapeHtml(currentTitle) + '</span>');
 			}
 		});
-		
+
 		// Obsługa utraty fokusa
-		inputField.on('blur', function() {
+		inputField.on('blur', function () {
 			saveTaskTitle(taskId, $(this).val());
 		});
 	}
@@ -1132,7 +1360,7 @@ jQuery(document).ready(function ($) {
 			loadTasks(); // Przywróć oryginalną listę
 			return;
 		}
-		
+
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
@@ -1142,7 +1370,7 @@ jQuery(document).ready(function ($) {
 				task_title: newTitle.trim(),
 				wpmzf_task_security: taskSecurityNonce
 			},
-			success: function(response) {
+			success: function (response) {
 				if (response.success) {
 					loadTasks();
 					showTaskMessage('Tytuł zadania został zaktualizowany.', 'success');
@@ -1151,12 +1379,272 @@ jQuery(document).ready(function ($) {
 					showTaskMessage('Błąd: ' + (response.data ? response.data.message : 'Nieznany błąd'), 'error');
 				}
 			},
-			error: function() {
+			error: function () {
 				loadTasks();
 				showTaskMessage('Błąd podczas aktualizacji tytułu zadania.', 'error');
 			}
 		});
 	}
 
+	// === OBSŁUGA LINKÓW DO ZLECEŃ ===
+	$(document).on('click', '.project-link', function (e) {
+		e.preventDefault();
+
+		const projectId = $(this).data('project-id');
+		if (projectId) {
+			const projectUrl = wpmzfCompanyView.adminUrl + 'admin.php?page=wpmzf_view_project&project_id=' + projectId;
+			window.location.href = projectUrl;
+		}
+	});
+
 	console.log('Company view JS initialized for company ID:', companyId);
+
+	// === WAŻNE LINKI ===
+
+	// Ładowanie linków przy inicjalizacji
+	loadImportantLinks();
+
+	// Obsługa formularza dodawania/edycji linku
+	const linkForm = $('#wpmzf-important-link-form');
+	const linkFormContainer = $('#important-link-form');
+	const addLinkBtn = $('#add-important-link-btn');
+	const cancelLinkBtn = $('#cancel-link-form');
+	const linkSubmitText = $('#link-submit-text');
+	const editLinkId = $('#edit-link-id');
+
+	// Debug - sprawdź czy elementy istnieją
+	console.log('Link form elements check:');
+	console.log('linkForm:', linkForm.length);
+	console.log('linkFormContainer:', linkFormContainer.length);
+	console.log('addLinkBtn:', addLinkBtn.length);
+	console.log('cancelLinkBtn:', cancelLinkBtn.length);
+
+	// Pokazywanie formularza dodawania linku
+	addLinkBtn.on('click', function() {
+		console.log('Add link button clicked'); // Debug
+		resetLinkForm();
+		linkFormContainer.slideDown();
+		$('#link-url').focus();
+	});
+
+	// Anulowanie formularza
+	cancelLinkBtn.on('click', function() {
+		console.log('Cancel link button clicked'); // Debug
+		linkFormContainer.slideUp();
+		resetLinkForm();
+	});
+
+	// Obsługa wysyłania formularza linku
+	linkForm.on('submit', function(e) {
+		e.preventDefault();
+
+		const linkId = editLinkId.val();
+		const url = $('#link-url').val().trim();
+		const customTitle = $('#link-custom-title').val().trim();
+
+		if (!url) {
+			alert('Proszę podać URL linku');
+			return;
+		}
+
+		// Sprawdzenie czy URL jest prawidłowy
+		try {
+			new URL(url);
+		} catch(e) {
+			alert('Proszę podać prawidłowy URL (np. https://example.com)');
+			return;
+		}
+
+		const isEdit = linkId && linkId !== '';
+		const action = isEdit ? 'wpmzf_update_important_link' : 'wpmzf_add_important_link';
+
+		const formData = {
+			action: action,
+			security: securityNonce,
+			url: url,
+			custom_title: customTitle,
+			object_id: companyId,
+			object_type: 'company'
+		};
+
+		if (isEdit) {
+			formData.link_id = linkId;
+		}
+
+		// Blokowanie formularza
+		const submitBtn = linkForm.find('button[type="submit"]');
+		const originalText = linkSubmitText.text();
+		submitBtn.prop('disabled', true);
+		linkSubmitText.text(isEdit ? 'Aktualizuję...' : 'Dodaję...');
+
+		const ajaxUrl = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.ajaxUrl) ? 
+			wpmzfCompanyView.ajaxUrl : ajaxurl;
+
+		$.ajax({
+			url: ajaxUrl,
+			type: 'POST',
+			data: formData,
+			success: function(response) {
+				if (response.success) {
+					showNotification(response.data.message, 'success');
+					loadImportantLinks();
+					linkFormContainer.slideUp();
+					resetLinkForm();
+				} else {
+					showNotification(response.data.message || 'Wystąpił błąd', 'error');
+				}
+			},
+			error: function() {
+				showNotification('Wystąpił błąd podczas komunikacji z serwerem', 'error');
+			},
+			complete: function() {
+				submitBtn.prop('disabled', false);
+				linkSubmitText.text(originalText);
+			}
+		});
+	});
+
+	// Delegowane obsługa akcji na linkach
+	$(document).on('click', '.edit-important-link', function(e) {
+		e.preventDefault();
+		
+		const linkItem = $(this).closest('.important-link-item');
+		const linkId = linkItem.data('link-id');
+		const url = linkItem.data('url');
+		const customTitle = linkItem.data('custom-title') || '';
+
+		// Wypełnienie formularza danymi do edycji
+		editLinkId.val(linkId);
+		$('#link-url').val(url);
+		$('#link-custom-title').val(customTitle);
+		linkSubmitText.text('Aktualizuj link');
+
+		// Pokazanie formularza
+		linkFormContainer.slideDown();
+		$('#link-url').focus();
+	});
+
+	$(document).on('click', '.delete-important-link', function(e) {
+		e.preventDefault();
+		
+		if (!confirm('Czy na pewno chcesz usunąć ten link?')) {
+			return;
+		}
+
+		const linkItem = $(this).closest('.important-link-item');
+		const linkId = linkItem.data('link-id');
+
+		const ajaxUrl = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.ajaxUrl) ? 
+			wpmzfCompanyView.ajaxUrl : ajaxurl;
+
+		$.ajax({
+			url: ajaxUrl,
+			type: 'POST',
+			data: {
+				action: 'wpmzf_delete_important_link',
+				security: securityNonce,
+				link_id: linkId
+			},
+			success: function(response) {
+				if (response.success) {
+					linkItem.fadeOut(300, function() {
+						$(this).remove();
+						// Sprawdź czy jest to ostatni link
+						if ($('.important-link-item').length === 0) {
+							$('#important-links-container').html('<p class="no-important-links">Brak ważnych linków. Kliknij "Dodaj link" aby dodać pierwszy.</p>');
+						}
+					});
+					showNotification(response.data.message, 'success');
+				} else {
+					showNotification(response.data.message || 'Wystąpił błąd', 'error');
+				}
+			},
+			error: function() {
+				showNotification('Wystąpił błąd podczas komunikacji z serwerem', 'error');
+			}
+		});
+	});
+
+	function loadImportantLinks() {
+		console.log('Loading important links for company:', companyId); // Debug
+		
+		if (!companyId || companyId === '' || companyId === 'undefined') {
+			console.error('Cannot load links - invalid company ID');
+			$('#important-links-container').html('<p class="important-links-loading" style="color: #d63638;">Błąd: Nieprawidłowe ID firmy</p>');
+			return;
+		}
+
+		const ajaxUrl = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.ajaxUrl) ? 
+			wpmzfCompanyView.ajaxUrl : ajaxurl;
+
+		$.ajax({
+			url: ajaxUrl,
+			type: 'POST',
+			data: {
+				action: 'wpmzf_get_important_links',
+				security: securityNonce,
+				object_id: companyId,
+				object_type: 'company'
+			},
+			success: function(response) {
+				console.log('Links AJAX response:', response); // Debug
+				if (response.success) {
+					renderImportantLinks(response.data.links);
+				} else {
+					$('#important-links-container').html('<p class="important-links-loading" style="color: #d63638;">Błąd ładowania linków: ' + (response.data.message || 'Nieznany błąd') + '</p>');
+				}
+			},
+			error: function(xhr, status, error) {
+				console.error('Links AJAX error:', status, error); // Debug
+				$('#important-links-container').html('<p class="important-links-loading" style="color: #d63638;">Błąd podczas ładowania linków: ' + error + '</p>');
+			}
+		});
+	}
+
+	function renderImportantLinks(links) {
+		const container = $('#important-links-container');
+		
+		if (!links || links.length === 0) {
+			container.html('<p class="no-important-links">Brak ważnych linków. Kliknij "Dodaj link" aby dodać pierwszy.</p>');
+			return;
+		}
+
+		let html = '';
+		links.forEach(function(link) {
+			const faviconHtml = link.favicon ? 
+				`<img src="${escapeHtml(link.favicon)}" alt="Ikona" onerror="this.style.display='none'">` :
+				'🔗';
+			
+			html += `
+				<div class="important-link-item" data-link-id="${link.id}" data-url="${escapeHtml(link.url)}" data-custom-title="${escapeHtml(link.custom_title || '')}">
+					<div class="important-link-favicon">
+						${faviconHtml}
+					</div>
+					<div class="important-link-content">
+						<a href="${escapeHtml(link.url)}" target="_blank" class="important-link-title" rel="noopener noreferrer">
+							${escapeHtml(link.title)}
+						</a>
+						<p class="important-link-url">${escapeHtml(link.url)}</p>
+					</div>
+					<div class="important-link-actions">
+						<button type="button" class="important-link-action edit-important-link" title="Edytuj link">
+							✏️
+						</button>
+						<button type="button" class="important-link-action delete-important-link delete" title="Usuń link">
+							🗑️
+						</button>
+					</div>
+				</div>
+			`;
+		});
+		
+		container.html(html);
+	}
+
+	function resetLinkForm() {
+		editLinkId.val('');
+		$('#link-url').val('');
+		$('#link-custom-title').val('');
+		linkSubmitText.text('Dodaj link');
+	}
 });
