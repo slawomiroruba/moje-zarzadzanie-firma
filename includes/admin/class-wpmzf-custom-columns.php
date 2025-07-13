@@ -39,6 +39,7 @@ class WPMZF_Custom_Columns_Service {
         $new_columns = array();
         $new_columns['cb'] = $columns['cb'];
         $new_columns['title'] = $columns['title'];
+        $new_columns['company_status'] = 'Status';
         $new_columns['company_nip'] = 'NIP';
         $new_columns['company_email'] = 'Email';
         $new_columns['company_phone'] = 'Telefon';
@@ -51,6 +52,11 @@ class WPMZF_Custom_Columns_Service {
      */
     public function populate_company_columns($column, $post_id) {
         switch ($column) {
+            case 'company_status':
+                $status = get_field('company_status', $post_id) ?: 'Aktywny';
+                $status_class = 'status-' . strtolower(str_replace(' ', '-', $status));
+                echo "<span class='company-status-badge {$status_class}'>{$status}</span>";
+                break;
             case 'company_nip':
                 echo get_field('company_nip', $post_id) ?: '-';
                 break;

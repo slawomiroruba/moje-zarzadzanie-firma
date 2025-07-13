@@ -49,6 +49,11 @@ class WPMZF_Company {
     public $website;
 
     /**
+     * Status firmy
+     */
+    public $status;
+
+    /**
      * Konstruktor
      *
      * @param int $id ID firmy
@@ -74,6 +79,10 @@ class WPMZF_Company {
             $this->phone = get_post_meta($id, 'phone', true);
             $this->email = get_post_meta($id, 'email', true);
             $this->website = get_post_meta($id, 'website', true);
+            $this->status = get_post_meta($id, 'company_status', true);
+            if (empty($this->status)) {
+                $this->status = 'Aktywny';
+            }
         }
     }
 
@@ -114,6 +123,7 @@ class WPMZF_Company {
             update_post_meta($this->id, 'phone', $this->phone);
             update_post_meta($this->id, 'email', $this->email);
             update_post_meta($this->id, 'website', $this->website);
+            update_post_meta($this->id, 'company_status', $this->status);
         }
     }
 

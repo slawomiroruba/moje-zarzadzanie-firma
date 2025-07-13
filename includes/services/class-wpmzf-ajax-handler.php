@@ -21,6 +21,8 @@ class WPMZF_Ajax_Handler
         add_action('wp_ajax_wpmzf_update_person_details', array($this, 'update_person_details'));
         // Hook do archiwizacji osoby
         add_action('wp_ajax_wpmzf_toggle_person_archive', array($this, 'toggle_person_archive'));
+        // Hook do archiwizacji firmy
+        add_action('wp_ajax_wpmzf_toggle_company_archive', array($this, 'toggle_company_archive'));
         // Rejestracja punktu końcowego dla zalogowanych użytkowników
         add_action('wp_ajax_wpmzf_search_companies',  array($this, 'wpmzf_search_companies_ajax_handler'));
         // Rejestracja punktu końcowego dla niezalogowanych użytkowników
@@ -120,20 +122,46 @@ class WPMZF_Ajax_Handler
         // 1. Bezpieczeństwo
         check_ajax_referer('wpmzf_person_view_nonce', 'security');
 
-        // 2. Walidacja i sanitazyacja danych
+        // Debugowanie - sprawdźmy wszystkie dane które przychodzą
+        error_log('WPMZF add_activity: POST data: ' . print_r($_POST, true));
+        error_log('WPMZF add_activity: FILES data: ' . print_r($_FILES, true));
+
+        // 2. Walidacja i sanitazyacja danych - obsługa zarówno osób jak i firm
         $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
+        $company_id = isset($_POST['company_id']) ? intval($_POST['company_id']) : 0;
         $content = isset($_POST['content']) ? wp_kses_post($_POST['content']) : '';
         $activity_type = isset($_POST['activity_type']) ? sanitize_text_field($_POST['activity_type']) : 'note';
         $activity_date = isset($_POST['activity_date']) ? sanitize_text_field($_POST['activity_date']) : current_time('mysql');
 
-        if (!$person_id || empty($content)) {
-            wp_send_json_error(array('message' => 'Brak wymaganych danych (ID osoby, treść).'));
+        // Debugowanie wartości
+        error_log('WPMZF add_activity: person_id=' . $person_id . ', company_id=' . $company_id . ', content_length=' . strlen($content));
+
+        // Sprawdzenie czy mamy ID osoby lub firmy
+        if (!$person_id && !$company_id) {
+            error_log('WPMZF add_activity: ERROR - No person_id or company_id provided');
+            wp_send_json_error(array('message' => 'Brak wymaganych danych (ID osoby lub firmy).'));
             return;
+        }
+
+        if (empty($content)) {
+            wp_send_json_error(array('message' => 'Brak treści aktywności.'));
+            return;
+        }
+
+        // Ustalenie tytułu i powiązania
+        if ($person_id) {
+            $entity_title = get_the_title($person_id);
+            $entity_type = 'person';
+            $entity_id = $person_id;
+        } else {
+            $entity_title = get_the_title($company_id);
+            $entity_type = 'company';
+            $entity_id = $company_id;
         }
 
         // 3. Tworzenie nowego posta typu 'activity'
         $activity_post = array(
-            'post_title'   => 'Aktywność dla ' . get_the_title($person_id) . ' - ' . $activity_date,
+            'post_title'   => 'Aktywność dla ' . $entity_title . ' - ' . $activity_date,
             'post_content' => $content,
             'post_status'  => 'publish',
             'post_author'  => get_current_user_id(),
@@ -144,9 +172,15 @@ class WPMZF_Ajax_Handler
 
         // 4. Zapisywanie pól ACF i obsługa załączników
         if ($activity_id && !is_wp_error($activity_id)) {
-            update_field('field_wpmzf_activity_type', $activity_type, $activity_id);
-            update_field('field_wpmzf_activity_date', $activity_date, $activity_id);
-            update_field('field_wpmzf_activity_related_person', $person_id, $activity_id);
+            update_field('activity_type', $activity_type, $activity_id);
+            update_field('activity_date', $activity_date, $activity_id);
+            
+            // Zapisanie powiązania z odpowiednią encją
+            if ($entity_type === 'person') {
+                update_field('related_person', $person_id, $activity_id);
+            } else {
+                update_field('related_company', $company_id, $activity_id);
+            }
 
             // Pobieramy ID załączników przesłane przez AJAX z `$_POST['attachment_ids']`
             $attachment_ids = isset($_POST['attachment_ids']) && is_array($_POST['attachment_ids']) ? array_map('intval', $_POST['attachment_ids']) : [];
@@ -170,35 +204,78 @@ class WPMZF_Ajax_Handler
     }
 
     /**
-     * Logika pobierania aktywności dla danej osoby.
+     * Logika pobierania aktywności dla danej osoby lub firmy.
      */
     public function get_activities()
     {
         check_ajax_referer('wpmzf_person_view_nonce', 'security');
 
         $person_id = isset($_GET['person_id']) ? intval($_GET['person_id']) : 0;
-        if (!$person_id) {
-            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
+        $company_id = isset($_GET['company_id']) ? intval($_GET['company_id']) : 0;
+        
+        // Debug logging
+        error_log('WPMZF get_activities: person_id=' . $person_id . ', company_id=' . $company_id);
+        
+        if (!$person_id && !$company_id) {
+            error_log('WPMZF get_activities: No person_id or company_id provided');
+            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby lub firmy.']);
             return;
+        }
+
+        // Przygotowanie zapytania w zależności od typu encji
+        $meta_query = [];
+        if ($person_id) {
+            $meta_query[] = [
+                'key' => 'related_person',
+                'value' => $person_id,
+                'compare' => '='
+            ];
+        } else {
+            $meta_query[] = [
+                'key' => 'related_company',
+                'value' => $company_id,
+                'compare' => '='
+            ];
         }
 
         $args = [
             'post_type' => 'activity',
             'posts_per_page' => -1,
-            'meta_key' => 'activity_date', // sortuj po dacie aktywności
+            'meta_key' => 'activity_date',
             'orderby' => 'meta_value',
-            'order' => 'DESC',
-            'meta_query' => [
-                [
-                    'key' => 'related_person',
-                    'value' => $person_id,
-                    'compare' => '='
-                ]
-            ]
+            'order' => 'DESC', // Najnowsze na górze
+            'meta_query' => $meta_query
         ];
 
         $activities_query = new WP_Query($args);
         $activities_data = [];
+        
+        // Debug logging - szczegółowe informacje o zapytaniu
+        error_log('WPMZF get_activities: Query args: ' . print_r($args, true));
+        error_log('WPMZF get_activities: Found posts: ' . $activities_query->found_posts);
+
+        // Jeśli nie znaleziono aktywności dla firmy, sprawdź alternative meta keys
+        if ($company_id && $activities_query->found_posts == 0) {
+            error_log('WPMZF get_activities: Testing alternative meta keys for company');
+            
+            // Test z field_wpmzf_activity_related_company
+            $test_args = [
+                'post_type' => 'activity',
+                'posts_per_page' => -1,
+                'meta_query' => [[
+                    'key' => 'field_wpmzf_activity_related_company',
+                    'value' => $company_id,
+                    'compare' => '='
+                ]]
+            ];
+            $test_query = new WP_Query($test_args);
+            error_log('WPMZF get_activities: Found with field_wpmzf_activity_related_company: ' . $test_query->found_posts);
+            
+            // Jeśli znaleziono z alternatywnym kluczem, użyj tego
+            if ($test_query->found_posts > 0) {
+                $activities_query = $test_query;
+            }
+        }
 
         if ($activities_query->have_posts()) {
             while ($activities_query->have_posts()) {
@@ -655,16 +732,23 @@ class WPMZF_Ajax_Handler
         check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
 
         $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
+        $company_id = isset($_POST['company_id']) ? intval($_POST['company_id']) : 0;
         $task_title = isset($_POST['task_title']) ? sanitize_text_field($_POST['task_title']) : '';
         $task_due_date = isset($_POST['task_due_date']) ? sanitize_text_field($_POST['task_due_date']) : '';
 
-        if (!$person_id || empty($task_title)) {
+        if ((!$person_id && !$company_id) || empty($task_title)) {
             wp_send_json_error(['message' => 'Brak wymaganych danych.']);
             return;
         }
 
-        if (get_post_type($person_id) !== 'person') {
+        // Walidacja typu encji
+        if ($person_id && get_post_type($person_id) !== 'person') {
             wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
+            return;
+        }
+
+        if ($company_id && get_post_type($company_id) !== 'company') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID firmy.']);
             return;
         }
 
@@ -682,7 +766,14 @@ class WPMZF_Ajax_Handler
         if ($task_id && !is_wp_error($task_id)) {
             // Zapisanie pól ACF
             update_field('task_status', 'Do zrobienia', $task_id);
-            update_field('task_assigned_person', $person_id, $task_id);
+            
+            // Przypisanie do odpowiedniej encji
+            if ($person_id) {
+                update_field('task_assigned_person', $person_id, $task_id);
+            } else {
+                update_field('task_assigned_company', $company_id, $task_id);
+            }
+            
             update_field('task_start_date', current_time('Y-m-d H:i:s'), $task_id);
             
             // Zapisanie daty zakończenia jeśli została podana
@@ -699,29 +790,40 @@ class WPMZF_Ajax_Handler
     }
 
     /**
-     * Pobiera zadania dla danej osoby
+     * Pobiera zadania dla danej osoby lub firmy
      */
     public function get_tasks()
     {
         check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
 
         $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
+        $company_id = isset($_POST['company_id']) ? intval($_POST['company_id']) : 0;
         
-        if (!$person_id) {
-            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby.']);
+        if (!$person_id && !$company_id) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby lub firmy.']);
             return;
+        }
+
+        // Przygotowanie zapytania w zależności od typu encji
+        $meta_query = [];
+        if ($person_id) {
+            $meta_query[] = [
+                'key' => 'task_assigned_person',
+                'value' => $person_id,
+                'compare' => '='
+            ];
+        } else {
+            $meta_query[] = [
+                'key' => 'task_assigned_company',
+                'value' => $company_id,
+                'compare' => '='
+            ];
         }
 
         $args = [
             'post_type' => 'task',
             'posts_per_page' => -1,
-            'meta_query' => [
-                [
-                    'key' => 'task_assigned_person',
-                    'value' => $person_id,
-                    'compare' => '='
-                ]
-            ],
+            'meta_query' => $meta_query,
             'orderby' => 'date',
             'order' => 'DESC'
         ];
@@ -1147,5 +1249,55 @@ class WPMZF_Ajax_Handler
             'active_projects' => $active_projects_data,
             'completed_projects' => $completed_projects_data
         ]);
+    }
+
+    /**
+     * Przełącza status archiwizacji firmy
+     */
+    public function toggle_company_archive()
+    {
+        // Sprawdzenie nonce dla bezpieczeństwa
+        if (!wp_verify_nonce($_POST['security'] ?? '', 'wpmzf_company_view_nonce')) {
+            wp_send_json_error(['message' => 'Błąd bezpieczeństwa.']);
+            return;
+        }
+
+        $company_id = intval($_POST['company_id'] ?? 0);
+        
+        if (!$company_id) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID firmy.']);
+            return;
+        }
+
+        // Sprawdzenie czy wpis istnieje i jest typu 'company'
+        if (get_post_type($company_id) !== 'company') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID firmy.']);
+            return;
+        }
+
+        // Sprawdzenie uprawnień
+        if (!current_user_can('edit_post', $company_id)) {
+            wp_send_json_error(['message' => 'Brak uprawnień do edycji tej firmy.']);
+            return;
+        }
+
+        // Pobranie obecnego statusu
+        $current_status = get_field('company_status', $company_id) ?: 'Aktywny';
+        
+        // Przełączenie statusu
+        $new_status = ($current_status === 'Zarchiwizowany') ? 'Aktywny' : 'Zarchiwizowany';
+        
+        // Aktualizacja statusu
+        $updated = update_field('company_status', $new_status, $company_id);
+        
+        if ($updated !== false) {
+            wp_send_json_success([
+                'message' => $new_status === 'Zarchiwizowany' ? 'Firma została zarchiwizowana.' : 'Firma została przywrócona z archiwum.',
+                'new_status' => $new_status,
+                'status_label' => $new_status
+            ]);
+        } else {
+            wp_send_json_error(['message' => 'Nie udało się zaktualizować statusu firmy.']);
+        }
     }
 }
