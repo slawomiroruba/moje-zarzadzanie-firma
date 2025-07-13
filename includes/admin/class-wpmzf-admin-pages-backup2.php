@@ -1381,6 +1381,10 @@ class WPMZF_Admin_Pages
         $polish_months_mianownik = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
     ?>
         <style>
+            .wrap {
+                padding: 0 20px !important;
+            }
+
             /* General page styles */
             .wrap #wpmzf-stats-panel+form {
                 margin-top: 20px;
@@ -3673,22 +3677,24 @@ class WPMZF_Admin_Pages
                                 <div class="task-input-wrapper">
                                     <input type="text" id="wpmzf-task-title" name="task_title" placeholder="Wpisz treść zadania..." required>
                                 </div>
-                                <div class="task-assigned-user-wrapper" style="margin-top: 10px;">
-                                    <label for="wpmzf-task-assigned-user" style="display: block; margin-bottom: 5px; font-weight: 600;">Odpowiedzialny pracownik:</label>
-                                    <?php
-                                    echo WPMZF_Employee_Helper::render_employee_select(
-                                        'assigned_user',
-                                        0,
-                                        [
-                                            'id' => 'wpmzf-task-assigned-user',
-                                            'style' => 'width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;'
-                                        ]
-                                    );
-                                    ?>
-                                </div>
-                                <div class="task-due-date-wrapper" style="margin-top: 10px;">
-                                    <label for="wpmzf-task-due-date" style="display: block; margin-bottom: 5px; font-weight: 600;">Termin wykonania:</label>
-                                    <input type="datetime-local" id="wpmzf-task-due-date" name="task_due_date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <div class="task-form-row" style="margin-top: 10px; display: flex; gap: 15px;">
+                                    <div class="task-assigned-user-wrapper" style="flex: 1;">
+                                        <label for="wpmzf-task-assigned-user" style="display: block; margin-bottom: 5px; font-weight: 600;">Odpowiedzialny:</label>
+                                        <?php
+                                        echo WPMZF_Employee_Helper::render_employee_select(
+                                            'assigned_user',
+                                            0,
+                                            [
+                                                'id' => 'wpmzf-task-assigned-user',
+                                                'style' => 'width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;'
+                                            ]
+                                        );
+                                        ?>
+                                    </div>
+                                    <div class="task-due-date-wrapper" style="flex: 1;">
+                                        <label for="wpmzf-task-due-date" style="display: block; margin-bottom: 5px; font-weight: 600;">Termin wykonania:</label>
+                                        <input type="datetime-local" id="wpmzf-task-due-date" name="task_due_date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    </div>
                                 </div>
                                 <div class="task-submit-wrapper" style="margin-top: 15px;">
                                     <button type="submit" class="button button-primary">Dodaj zadanie</button>

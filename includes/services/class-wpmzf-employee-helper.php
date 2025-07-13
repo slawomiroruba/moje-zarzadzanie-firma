@@ -238,7 +238,7 @@ class WPMZF_Employee_Helper {
         }
 
         $html = sprintf('<select name="%s"%s>', esc_attr($name), $attr_string);
-        $html .= '<option value="">-- Wybierz pracownika --</option>';
+        $html .= '<option value="">Pracownik</option>';
 
         foreach ($employees as $employee) {
             $selected = selected($selected_user_id, $employee['user_id'], false);

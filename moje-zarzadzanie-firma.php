@@ -114,6 +114,7 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-contact-helper.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-ajax-handler.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-employee-helper.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-branding-service.php';
 
         // Controllers
         require_once WPMZF_PLUGIN_PATH . 'includes/controllers/class-wpmzf-user-controller.php';
@@ -159,6 +160,7 @@ final class WPMZF_Plugin
         // Services
         new WPMZF_Time_Tracking();
         new WPMZF_Reports();
+        WPMZF_Branding_Service::init();
 
         // Admin
         // new WPMZF_Admin(); // WYŁĄCZONE - duplikuje funkcjonalność WPMZF_Admin_Pages
@@ -194,6 +196,11 @@ final class WPMZF_Plugin
         
         // Hook for automatic backup
         add_action('wpmzf_daily_backup', array($this, 'create_daily_backup'));
+        
+        // Sprawdź czy potrzeba utworzyć tabele
+        if (get_option('wpmzf_need_create_tables')) {
+            WPMZF_Activator::create_tables();
+        }
     }
 
     /**

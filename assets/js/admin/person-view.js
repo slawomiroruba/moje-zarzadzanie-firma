@@ -38,6 +38,61 @@ window.escapeHtml = escapeHtml;
 window.formatFileSize = formatFileSize;
 window.getIconForMimeType = getIconForMimeType;
 
+// Funkcja inicjalizacji TinyMCE dla edycji aktywności
+function initActivityEditTinyMCE(editorId) {
+	if (typeof tinymce !== 'undefined') {
+		// Usuń poprzedni edytor jeśli istnieje
+		tinymce.remove('#' + editorId);
+		
+		// Inicjalizuj nowy edytor
+		tinymce.init({
+			selector: '#' + editorId,
+			menubar: false,
+			toolbar: 'bold italic underline forecolor | bullist numlist | link unlink | removeformat undo redo',
+			plugins: 'lists link paste textcolor',
+			height: 120,
+			branding: false,
+			statusbar: false,
+			resize: false,
+			content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; margin: 8px; }',
+			init_instance_callback: function(editor) {
+				// Edytor jest gotowy do użycia
+				editor.focus();
+			},
+			setup: function(editor) {
+				// Obsługa błędów inicjalizacji
+				editor.on('LoadContent', function() {
+					console.log('TinyMCE załadowany dla', editorId);
+				});
+			}
+		});
+	} else {
+		// Fallback - TinyMCE nie jest dostępny
+		console.warn('TinyMCE nie jest dostępny, używam textarea dla', editorId);
+		const textarea = jQuery('#' + editorId);
+		if (textarea.length) {
+			textarea.show().focus();
+		}
+	}
+}
+
+// Funkcja pobierania treści z TinyMCE lub textarea
+function getActivityEditContent(editorId) {
+	if (typeof tinymce !== 'undefined') {
+		const editor = tinymce.get(editorId);
+		if (editor && editor.initialized) {
+			return editor.getContent();
+		}
+	}
+	// Fallback do textarea
+	const textareaContent = jQuery('#' + editorId).val();
+	return textareaContent || '';
+}
+
+// Dodaj funkcje do obiektu window
+window.initActivityEditTinyMCE = initActivityEditTinyMCE;
+window.getActivityEditContent = getActivityEditContent;
+
 // Funkcja wyświetlania powiadomień
 function showNotification(message, type = 'info') {
 	// Usuń poprzednie powiadomienia
@@ -1187,7 +1242,9 @@ jQuery(document).ready(function ($) {
 							</div>
 							${expandButton}
 							<div class="activity-content-edit" style="display: none;">
-								<textarea class="activity-edit-textarea">${activity.content}</textarea>
+								<div id="activity-edit-${activity.id}-container">
+									<textarea id="activity-edit-${activity.id}" class="activity-edit-textarea">${activity.content}</textarea>
+								</div>
 								<div class="timeline-edit-actions">
 									<button class="button button-primary save-activity-edit">Zapisz</button>
 									<button class="button cancel-activity-edit">Anuluj</button>
@@ -1420,75 +1477,54 @@ jQuery(document).ready(function ($) {
 
 	timelineContainer.on('click', '.edit-activity', function () {
 		const contentDiv = $(this).closest('.timeline-content');
-		const textareaElement = contentDiv.find('.activity-edit-textarea');
-
+		const activityId = $(this).closest('.timeline-item').data('activity-id');
+		const editorId = 'activity-edit-' + activityId;
+		
 		contentDiv.find('.activity-content-display').hide();
 		contentDiv.find('.activity-content-edit').show();
-		textareaElement.trigger('focus');
+		
+		// Inicjalizuj TinyMCE dla edycji
+		setTimeout(function() {
+			initActivityEditTinyMCE(editorId);
+		}, 200);
 
-		// Dodaj podgląd dla edycji jeśli nie istnieje
-		let editPreviewContainer = contentDiv.find('.edit-preview-container');
-		if (editPreviewContainer.length === 0) {
-			editPreviewContainer = $('<div class="edit-preview-container" style="margin-top: 10px; padding: 8px; border: 1px solid #dcdcde; border-radius: 4px; background: #f9f9f9; display: none;"><div class="preview-label" style="font-size: 12px; color: #646970; margin-bottom: 8px;">Podgląd:</div><div class="preview-content"></div></div>');
-			textareaElement.after(editPreviewContainer);
-		}
-
-		// Obsługa wpisywania w textarea edycji
-		let editPreviewTimeout;
-		textareaElement.off('input.richPreview').on('input.richPreview', function () {
-			const content = $(this).val().trim();
-
-			clearTimeout(editPreviewTimeout);
-
-			if (content === '') {
-				editPreviewContainer.hide();
-				return;
-			}
-
-			// Sprawdź czy tekst zawiera linki
-			const urlRegex = /(https?:\/\/[^\s<>"]+)/gi;
-			const hasLinks = urlRegex.test(content);
-
-			if (!hasLinks) {
-				editPreviewContainer.hide();
-				return;
-			}
-
-			editPreviewContainer.show();
-			editPreviewContainer.find('.preview-content').html('<p style="color: #646970; font-style: italic;">Generowanie podglądu...</p>');
-
-			// Debounce - czekaj 1 sekundę po zakończeniu pisania
-			editPreviewTimeout = setTimeout(async function () {
-				try {
-					const processedContent = await processRichLinks(content);
-					editPreviewContainer.find('.preview-content').html(processedContent);
-				} catch (error) {
-					console.error('Błąd podczas generowania podglądu:', error);
-					editPreviewContainer.find('.preview-content').html('<p style="color: #d63638;">Błąd podczas generowania podglądu linków.</p>');
-				}
-			}, 1000);
-		});
 	});
 
 	timelineContainer.on('click', '.cancel-activity-edit', function () {
 		const contentDiv = $(this).closest('.timeline-content');
+		const activityId = $(this).closest('.timeline-item').data('activity-id');
+		const editorId = 'activity-edit-' + activityId;
+		
+		// Usuń TinyMCE
+		if (typeof tinymce !== 'undefined') {
+			tinymce.remove('#' + editorId);
+		}
 		contentDiv.find('.activity-content-edit').hide();
 		contentDiv.find('.activity-content-display').show();
-
-		// Ukryj podgląd edycji
-		contentDiv.find('.edit-preview-container').hide();
-
-		// Pobierz oryginalną zawartość z textarea (bez konwersji HTML)
-		const textareaElement = contentDiv.find('.activity-edit-textarea');
-		// Nie robimy konwersji z HTML z powrotem na tekst, bo textarea zawiera oryginalny tekst
-		// Resetujemy tylko jeśli to konieczne
 	});
 
 	timelineContainer.on('click', '.save-activity-edit', async function () {
 		const button = $(this);
 		const contentDiv = button.closest('.timeline-content');
 		const activityId = button.closest('.timeline-item').data('activity-id');
-		const newContent = contentDiv.find('.activity-edit-textarea').val();
+		const editorId = 'activity-edit-' + activityId;
+		
+		// Sprawdź czy TinyMCE jest aktywny i zainicjalizowany
+		let newContent = '';
+		if (typeof tinymce !== 'undefined') {
+			const editor = tinymce.get(editorId);
+			if (editor && editor.initialized) {
+				// Upewnij się, że zawartość została zsynchronizowana
+				editor.save();
+				newContent = editor.getContent();
+			} else {
+				// Fallback do textarea
+				newContent = jQuery('#' + editorId).val() || '';
+			}
+		} else {
+			// TinyMCE nie jest dostępny
+			newContent = jQuery('#' + editorId).val() || '';
+		}
 
 		button.text('Zapisywanie...').prop('disabled', true);
 
@@ -1534,6 +1570,11 @@ jQuery(document).ready(function ($) {
 
 				contentDiv.find('.activity-content-edit').hide();
 				contentDiv.find('.activity-content-display').show();
+				
+				// Usuń TinyMCE po pomyślnym zapisie
+				if (typeof tinymce !== 'undefined') {
+					tinymce.remove('#' + editorId);
+				}
 			} else {
 				alert('Błąd zapisu: ' + response.data.message);
 			}
@@ -1839,6 +1880,7 @@ jQuery(document).ready(function ($) {
 				`<span class="dashicons dashicons-undo" title="Oznacz jako do zrobienia" data-action="reopen"></span>`
 			}
 								<span class="dashicons dashicons-calendar-alt" title="Edytuj termin" data-action="edit-date"></span>
+								<span class="dashicons dashicons-admin-users" title="Zmień osobę odpowiedzialną" data-action="edit-assignee"></span>
 								<span class="dashicons dashicons-trash" title="Usuń zadanie" data-action="delete"></span>
 								<span class="dashicons dashicons-edit" title="Edytuj zadanie" data-action="edit"></span>
 							</div>
@@ -1966,6 +2008,9 @@ jQuery(document).ready(function ($) {
 				break;
 			case 'edit-date':
 				editTaskDate(taskId);
+				break;
+			case 'edit-assignee':
+				editTaskAssignee(taskId);
 				break;
 		}
 	});
@@ -2763,5 +2808,103 @@ jQuery(document).ready(function ($) {
 		$('#link-url').val('');
 		$('#link-custom-title').val('');
 		linkSubmitText.text('Dodaj link');
+	}
+
+	// === EDYCJA OSOBY ODPOWIEDZIALNEJ ZA ZADANIE ===
+	function editTaskAssignee(taskId) {
+		// Znajdź zadanie w DOM
+		const taskItem = $(`.task-item[data-task-id="${taskId}"]`);
+		const assignedUserSpan = taskItem.find('.task-assigned-user');
+		const currentAssignee = assignedUserSpan.text().replace('👤 ', ''); // Usuń ikonę
+
+		// Stwórz select z użytkownikami
+		const selectHtml = `
+			<select class="task-assignee-select" style="width: 200px; padding: 3px; border: 1px solid #ddd; border-radius: 3px;">
+				<option value="">Brak przypisania</option>
+			</select>
+		`;
+
+		// Zamień span na select
+		assignedUserSpan.html(selectHtml);
+		const select = assignedUserSpan.find('.task-assignee-select');
+
+		// Załaduj użytkowników przez AJAX
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'wpmzf_get_users_for_task',
+				wpmzf_task_security: taskSecurityNonce
+			},
+			dataType: 'json'
+		})
+		.done(function (response) {
+			if (response.success && response.data) {
+				// Dodaj opcje użytkowników
+				response.data.forEach(function(user) {
+					const selected = user.display_name === currentAssignee ? 'selected' : '';
+					select.append(`<option value="${user.ID}" ${selected}>${user.display_name}</option>`);
+				});
+			}
+		})
+		.fail(function() {
+			showTaskMessage('Błąd podczas ładowania listy użytkowników.', 'error');
+			// Przywróć oryginalny tekst
+			assignedUserSpan.html(currentAssignee ? `👤 ${currentAssignee}` : '');
+		});
+
+		// Obsługa zmiany wartości
+		select.on('change', function() {
+			const newAssigneeId = $(this).val();
+			const newAssigneeName = $(this).find('option:selected').text();
+			saveTaskAssignee(taskId, newAssigneeId, newAssigneeName, assignedUserSpan, currentAssignee);
+		});
+
+		// Obsługa utraty fokusa
+		select.on('blur', function() {
+			// Jeśli użytkownik nie wybrał nic, przywróć oryginalny tekst
+			setTimeout(function() {
+				if (assignedUserSpan.find('.task-assignee-select').length > 0) {
+					assignedUserSpan.html(currentAssignee ? `👤 ${currentAssignee}` : '');
+				}
+			}, 100);
+		});
+	}
+
+	// === ZAPISYWANIE OSOBY ODPOWIEDZIALNEJ ===
+	function saveTaskAssignee(taskId, newAssigneeId, newAssigneeName, assignedUserSpan, originalAssignee) {
+		// Pokazuj stan ładowania
+		assignedUserSpan.text('Zapisywanie...');
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'update_wpmzf_task_assignee',
+				wpmzf_task_security: taskSecurityNonce,
+				task_id: taskId,
+				assigned_user_id: newAssigneeId
+			},
+			dataType: 'json'
+		})
+		.done(function (response) {
+			if (response.success) {
+				// Aktualizuj wyświetlany tekst
+				if (newAssigneeId && newAssigneeName !== 'Brak przypisania') {
+					assignedUserSpan.html(`👤 ${newAssigneeName}`);
+					showTaskMessage('Osoba odpowiedzialna została zaktualizowana.', 'success');
+				} else {
+					assignedUserSpan.html('');
+					showTaskMessage('Usunięto przypisanie osoby odpowiedzialnej.', 'success');
+				}
+			} else {
+				assignedUserSpan.html(originalAssignee ? `👤 ${originalAssignee}` : '');
+				showTaskMessage(response.data || 'Wystąpił błąd podczas aktualizacji osoby odpowiedzialnej.', 'error');
+			}
+		})
+		.fail(function () {
+			assignedUserSpan.html(originalAssignee ? `👤 ${originalAssignee}` : '');
+			showTaskMessage('Wystąpił błąd serwera.', 'error');
+		});
 	}
 });

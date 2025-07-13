@@ -17,23 +17,26 @@ class WPMZF_Activator {
      * Aktywuje wtyczkę
      */
     public static function activate() {
-        // Utwórz tabele w bazie danych
-        self::create_tables();
-        
         // Dodaj domyślne opcje
         self::add_default_options();
         
         // Odśwież reguły rewrite
         flush_rewrite_rules();
+        
+        // Zaznacz, że tabele mają być utworzone przy pierwszym załadowaniu
+        add_option('wpmzf_need_create_tables', true);
     }
     
     /**
-     * Tworzy tabele w bazie danych
+     * Tworzy tabele w bazie danych (wywoływane po pełnym załadowaniu wtyczki)
      */
-    private static function create_tables() {
+    public static function create_tables() {
         // Utwórz tabelę użytkowników
         $user_repository = new WPMZF_User_Repository();
         $user_repository->create_table();
+        
+        // Usuń flagę potrzeby tworzenia tabel
+        delete_option('wpmzf_need_create_tables');
         
         // Tutaj można dodać inne tabele w przyszłości
         // $other_repository = new WPMZF_Other_Repository();

@@ -5,7 +5,6 @@
     border-bottom: 1px solid #e1e5e9;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     width: calc(100% + 20px);
-    margin: 0 -20px 0 -20px;
     padding: 0;
     z-index: 9999;
     height: 60px;

@@ -38,6 +38,61 @@ window.escapeHtml = escapeHtml;
 window.formatFileSize = formatFileSize;
 window.getIconForMimeType = getIconForMimeType;
 
+// Funkcja inicjalizacji TinyMCE dla edycji aktywności
+function initActivityEditTinyMCE(editorId) {
+	if (typeof tinymce !== 'undefined') {
+		// Usuń poprzedni edytor jeśli istnieje
+		tinymce.remove('#' + editorId);
+		
+		// Inicjalizuj nowy edytor
+		tinymce.init({
+			selector: '#' + editorId,
+			menubar: false,
+			toolbar: 'bold italic underline forecolor | bullist numlist | link unlink | removeformat undo redo',
+			plugins: 'lists link paste textcolor',
+			height: 120,
+			branding: false,
+			statusbar: false,
+			resize: false,
+			content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; margin: 8px; }',
+			init_instance_callback: function(editor) {
+				// Edytor jest gotowy do użycia
+				editor.focus();
+			},
+			setup: function(editor) {
+				// Obsługa błędów inicjalizacji
+				editor.on('LoadContent', function() {
+					console.log('TinyMCE załadowany dla', editorId);
+				});
+			}
+		});
+	} else {
+		// Fallback - TinyMCE nie jest dostępny
+		console.warn('TinyMCE nie jest dostępny, używam textarea dla', editorId);
+		const textarea = jQuery('#' + editorId);
+		if (textarea.length) {
+			textarea.show().focus();
+		}
+	}
+}
+
+// Funkcja pobierania treści z TinyMCE lub textarea
+function getActivityEditContent(editorId) {
+	if (typeof tinymce !== 'undefined') {
+		const editor = tinymce.get(editorId);
+		if (editor && editor.initialized) {
+			return editor.getContent();
+		}
+	}
+	// Fallback do textarea
+	const textareaContent = jQuery('#' + editorId).val();
+	return textareaContent || '';
+}
+
+// Dodaj funkcje do obiektu window
+window.initActivityEditTinyMCE = initActivityEditTinyMCE;
+window.getActivityEditContent = getActivityEditContent;
+
 // Funkcja wyświetlania powiadomień
 function showNotification(message, type = 'info') {
 	// Usuń poprzednie powiadomienia
@@ -637,7 +692,9 @@ jQuery(document).ready(function ($) {
 							</div>
 							${expandButton}
 							<div class="activity-content-edit" style="display: none;">
-								<textarea class="activity-edit-textarea">${activity.content}</textarea>
+								<div id="activity-edit-${activity.id}-container">
+									<textarea id="activity-edit-${activity.id}" class="activity-edit-textarea">${activity.content}</textarea>
+								</div>
 								<div class="timeline-edit-actions">
 									<button class="button button-primary save-activity-edit">Zapisz</button>
 									<button class="button cancel-activity-edit">Anuluj</button>
@@ -1052,16 +1109,29 @@ jQuery(document).ready(function ($) {
 	// Edycja aktywności - przełączanie na tryb edycji
 	timelineContainer.on('click', '.edit-activity', function () {
 		const contentDiv = $(this).closest('.timeline-content');
-		const textareaElement = contentDiv.find('.activity-edit-textarea');
-
+		const activityId = $(this).closest('.timeline-item').data('activity-id');
+		const editorId = 'activity-edit-' + activityId;
+		
 		contentDiv.find('.activity-content-display').hide();
 		contentDiv.find('.activity-content-edit').show();
-		textareaElement.trigger('focus');
+		
+		// Inicjalizuj TinyMCE dla edycji
+		setTimeout(function() {
+			initActivityEditTinyMCE(editorId);
+		}, 200);
 	});
 
 	// Anulowanie edycji aktywności
 	timelineContainer.on('click', '.cancel-activity-edit', function () {
 		const contentDiv = $(this).closest('.timeline-content');
+		const activityId = $(this).closest('.timeline-item').data('activity-id');
+		const editorId = 'activity-edit-' + activityId;
+		
+		// Usuń TinyMCE
+		if (typeof tinymce !== 'undefined') {
+			tinymce.remove('#' + editorId);
+		}
+		
 		contentDiv.find('.activity-content-edit').hide();
 		contentDiv.find('.activity-content-display').show();
 	});
@@ -1071,7 +1141,24 @@ jQuery(document).ready(function ($) {
 		const button = $(this);
 		const contentDiv = button.closest('.timeline-content');
 		const activityId = button.closest('.timeline-item').data('activity-id');
-		const newContent = contentDiv.find('.activity-edit-textarea').val();
+		const editorId = 'activity-edit-' + activityId;
+		
+		// Sprawdź czy TinyMCE jest aktywny i zainicjalizowany
+		let newContent = '';
+		if (typeof tinymce !== 'undefined') {
+			const editor = tinymce.get(editorId);
+			if (editor && editor.initialized) {
+				// Upewnij się, że zawartość została zsynchronizowana
+				editor.save();
+				newContent = editor.getContent();
+			} else {
+				// Fallback do textarea
+				newContent = jQuery('#' + editorId).val() || '';
+			}
+		} else {
+			// TinyMCE nie jest dostępny
+			newContent = jQuery('#' + editorId).val() || '';
+		}
 
 		button.text('Zapisywanie...').prop('disabled', true);
 
@@ -1120,6 +1207,11 @@ jQuery(document).ready(function ($) {
 
 				contentDiv.find('.activity-content-edit').hide();
 				contentDiv.find('.activity-content-display').show();
+				
+				// Usuń TinyMCE po pomyślnym zapisie
+				if (typeof tinymce !== 'undefined') {
+					tinymce.remove('#' + editorId);
+				}
 			} else {
 				alert('Błąd zapisu: ' + response.data.message);
 			}

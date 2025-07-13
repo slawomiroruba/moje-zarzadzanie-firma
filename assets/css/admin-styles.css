@@ -1,5 +1,9 @@
 /* --- Nowe, ulepszone style dla widoku osoby --- */
 
+.wrap {
+    padding: 0 20px !important;
+}
+
 /* === DRAG & DROP OVERLAY === */
 .wpmzf-drag-overlay {
     position: fixed;
@@ -2252,4 +2256,309 @@
     text-align: center;
     padding: 20px;
     font-style: italic;
+}
+
+/* === STYLE DLA ZADAŃ === */
+
+/* Kontener zadań */
+.task-item {
+    border: 1px solid #e1e5e9;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    background: #fff;
+    transition: box-shadow 0.2s ease;
+}
+
+.task-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.task-item.completed {
+    background: #f8f9fa;
+    opacity: 0.85;
+}
+
+.task-item.overdue {
+    border-left: 4px solid #dc3545;
+}
+
+.task-item.today {
+    border-left: 4px solid #ffc107;
+}
+
+.task-item.upcoming {
+    border-left: 4px solid #28a745;
+}
+
+/* Zawartość zadania */
+.task-content {
+    padding: 15px;
+}
+
+.task-main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.task-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.task-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #2c3e50;
+    line-height: 1.4;
+    flex: 1;
+    word-break: break-word;
+}
+
+.task-item.completed .task-title {
+    text-decoration: line-through;
+    color: #6c757d;
+}
+
+/* Akcje zadania */
+.task-actions {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.task-actions .dashicons {
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    color: #6c757d;
+    font-size: 16px;
+    width: 20px;
+    height: 20px;
+}
+
+.task-actions .dashicons:hover {
+    background: #f1f3f4;
+    color: #495057;
+}
+
+.task-actions .dashicons-yes-alt:hover {
+    background: #d4edda;
+    color: #28a745;
+}
+
+.task-actions .dashicons-undo:hover {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.task-actions .dashicons-calendar-alt:hover {
+    background: #cce5ff;
+    color: #0066cc;
+}
+
+.task-actions .dashicons-admin-users:hover {
+    background: #e7f3ff;
+    color: #0073aa;
+}
+
+.task-actions .dashicons-edit:hover {
+    background: #e6f3ff;
+    color: #0073aa;
+}
+
+.task-actions .dashicons-trash:hover {
+    background: #f8d7da;
+    color: #dc3545;
+}
+
+/* Metadane zadania */
+.task-meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+}
+
+.task-meta-left {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.task-status {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #e9ecef;
+    color: #6c757d;
+}
+
+.task-status.zrobione {
+    background: #d4edda;
+    color: #155724;
+}
+
+.task-status.w-toku {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.task-priority-indicator {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.task-priority-indicator.overdue {
+    background: #dc3545;
+    color: white;
+}
+
+.task-priority-indicator.today {
+    background: #ffc107;
+    color: #212529;
+}
+
+.task-priority-indicator.upcoming {
+    background: #28a745;
+    color: white;
+}
+
+.task-date {
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.task-date.overdue {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.task-date.today {
+    color: #856404;
+    font-weight: 600;
+}
+
+.task-assigned-user {
+    font-size: 12px;
+    color: #495057;
+    background: #f8f9fa;
+    padding: 2px 8px;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+}
+
+/* Select dla edycji osoby odpowiedzialnej */
+.task-assignee-select {
+    font-size: 12px !important;
+    padding: 2px 6px !important;
+    height: auto !important;
+    min-height: 24px !important;
+    border-radius: 4px !important;
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+    .task-title-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .task-actions {
+        align-self: flex-start;
+    }
+    
+    .task-meta-left {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+}
+
+/* === EDYTORY TINYMCE DLA AKTYWNOŚCI === */
+/* Style dla kontenerów edytorów aktywności */
+.activity-content-edit {
+    margin-top: 10px;
+    padding: 0;
+}
+
+/* Style dla kontenerów TinyMCE w trybie edycji */
+.activity-content-edit .mce-tinymce {
+    border: 1px solid #dcdcde !important;
+    border-radius: 4px !important;
+    box-shadow: none !important;
+}
+
+.activity-content-edit .mce-toolbar-grp {
+    border-bottom: 1px solid #dcdcde !important;
+    background: #f6f7f7 !important;
+}
+
+.activity-content-edit .mce-edit-area {
+    border: none !important;
+}
+
+.activity-content-edit .mce-edit-area iframe {
+    border: none !important;
+}
+
+/* Fallback dla textarea gdy TinyMCE nie jest dostępny */
+.activity-edit-textarea {
+    width: 100% !important;
+    min-height: 120px !important;
+    padding: 8px !important;
+    border: 1px solid #dcdcde !important;
+    border-radius: 4px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+    resize: vertical !important;
+    box-sizing: border-box !important;
+}
+
+.activity-edit-textarea:focus {
+    border-color: #007cba !important;
+    box-shadow: 0 0 0 1px #007cba !important;
+    outline: none !important;
+}
+
+/* Style dla przycisków akcji edycji */
+.timeline-edit-actions {
+    margin-top: 10px !important;
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+}
+
+.timeline-edit-actions .button {
+    height: 32px !important;
+    line-height: 30px !important;
+    padding: 0 12px !important;
+    font-size: 13px !important;
+}
+
+/* Responsive dla małych ekranów */
+@media (max-width: 768px) {
+    .timeline-edit-actions {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    .timeline-edit-actions .button {
+        width: 100% !important;
+        text-align: center !important;
+    }
 }

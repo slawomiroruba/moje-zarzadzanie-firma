@@ -48,6 +48,8 @@ class WPMZF_Ajax_Handler
         add_action('wp_ajax_get_wpmzf_tasks', array($this, 'get_tasks'));
         add_action('wp_ajax_get_wpmzf_task_date', array($this, 'get_task_date'));
         add_action('wp_ajax_update_wpmzf_task_status', array($this, 'update_task_status'));
+        add_action('wp_ajax_update_wpmzf_task_assignee', array($this, 'update_task_assignee'));
+        add_action('wp_ajax_wpmzf_get_users_for_task', array($this, 'get_users_for_task'));
         add_action('wp_ajax_delete_wpmzf_task', array($this, 'delete_task'));
         // Hooks dla projektów/zleceń
         add_action('wp_ajax_add_wpmzf_project', array($this, 'add_project'));
@@ -1377,6 +1379,69 @@ class WPMZF_Ajax_Handler
         } else {
             wp_send_json_error(['message' => 'Nie udało się usunąć zadania.']);
         }
+    }
+
+    /**
+     * Aktualizuje osobę odpowiedzialną za zadanie
+     */
+    public function update_task_assignee()
+    {
+        check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
+
+        $task_id = isset($_POST['task_id']) ? intval($_POST['task_id']) : 0;
+        $assigned_user_id = isset($_POST['assigned_user_id']) ? intval($_POST['assigned_user_id']) : null;
+
+        if (!$task_id) {
+            wp_send_json_error(['message' => 'Brak ID zadania.']);
+            return;
+        }
+
+        if (get_post_type($task_id) !== 'task') {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID zadania.']);
+            return;
+        }
+
+        // Sprawdź czy użytkownik istnieje (jeśli ID zostało podane)
+        if ($assigned_user_id && !get_user_by('ID', $assigned_user_id)) {
+            wp_send_json_error(['message' => 'Nieprawidłowy użytkownik.']);
+            return;
+        }
+
+        // Aktualizuj pole assigned_user - jeśli ID jest puste, ustaw null
+        $field_value = $assigned_user_id ? $assigned_user_id : '';
+        update_field('task_assigned_user', $field_value, $task_id);
+
+        $message = $assigned_user_id ? 
+            'Osoba odpowiedzialna została zaktualizowana.' : 
+            'Usunięto przypisanie osoby odpowiedzialnej.';
+
+        wp_send_json_success(['message' => $message]);
+    }
+
+    /**
+     * Pobiera listę użytkowników do przypisania zadań
+     */
+    public function get_users_for_task()
+    {
+        check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
+
+        // Pobierz wszystkich użytkowników którzy mogą edytować posty
+        $users = get_users([
+            'capability' => 'edit_posts',
+            'orderby' => 'display_name',
+            'order' => 'ASC'
+        ]);
+
+        $user_data = [];
+        foreach ($users as $user) {
+            $user_data[] = [
+                'ID' => $user->ID,
+                'display_name' => $user->display_name,
+                'user_login' => $user->user_login
+            ];
+        }
+
+        wp_send_json_success($user_data);
     }
 
     /**

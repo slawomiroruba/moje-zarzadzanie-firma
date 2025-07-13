@@ -136,6 +136,7 @@ class WPMZF_Admin {
         </div>
         
         <style>
+
             #wpmzf-stats-panel {
                 margin: 20px 0;
                 display: grid;
