@@ -415,11 +415,47 @@ class WPMZF_User_Email_Settings {
     }
 
     /**
-     * Szyfruje hasło przed zapisem
+     * Szyfruje hasło przed zapisem do bazy danych.
+     * Używa bezpiecznych funkcji WordPress z kluczami z wp-config.php
      */
     private function encrypt_password($password) {
-        // Używamy prostego base64 - w produkcji należy użyć bardziej zaawansowanego szyfrowania
-        return base64_encode($password);
+        if (empty($password)) {
+            return '';
+        }
+        
+        // Sprawdzamy czy istnieją klucze WordPress
+        if (!defined('AUTH_KEY') || !defined('SECURE_AUTH_KEY')) {
+            // Fallback - zwykłe base64 (niebezpieczne!)
+            error_log('WPMZF Warning: Brak kluczy WordPress - używam niebezpiecznego szyfrowania!');
+            return base64_encode($password);
+        }
+        
+        // Bezpieczne szyfrowanie AES-256-CBC z kluczami WordPress
+        $key = substr(hash('sha256', AUTH_KEY), 0, 32);
+        $iv = substr(hash('sha256', SECURE_AUTH_KEY), 0, 16);
+        
+        return base64_encode(openssl_encrypt($password, 'aes-256-cbc', $key, 0, $iv));
+    }
+
+    /**
+     * Odszyfrowuje hasło pobrane z bazy danych.
+     */
+    private function decrypt_password($encrypted_password) {
+        if (empty($encrypted_password)) {
+            return '';
+        }
+        
+        // Sprawdzamy czy istnieją klucze WordPress
+        if (!defined('AUTH_KEY') || !defined('SECURE_AUTH_KEY')) {
+            // Fallback - zwykłe base64 (niebezpieczne!)
+            return base64_decode($encrypted_password);
+        }
+        
+        // Bezpieczne odszyfrowanie AES-256-CBC z kluczami WordPress
+        $key = substr(hash('sha256', AUTH_KEY), 0, 32);
+        $iv = substr(hash('sha256', SECURE_AUTH_KEY), 0, 16);
+        
+        return openssl_decrypt(base64_decode($encrypted_password), 'aes-256-cbc', $key, 0, $iv);
     }
 
     /**

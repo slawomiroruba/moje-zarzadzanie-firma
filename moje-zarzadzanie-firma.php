@@ -85,6 +85,7 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-error-handler.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-database-optimizer.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-cron-manager.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-email-database.php';
 
         // Abstracts
         // require_once WPMZF_PLUGIN_PATH . 'includes/abstracts/class-wpmzf-abstract-cpt.php'; // Przestarzała klasa
@@ -119,6 +120,7 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-transcription-service.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-audio-transcription.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-opportunity-service.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-email-service.php';
 
         // Controllers
         require_once WPMZF_PLUGIN_PATH . 'includes/controllers/class-wpmzf-user-controller.php';
@@ -137,6 +139,7 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-documents-list-table.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-persons-list-table.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-companies-list-table.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-user-email-settings.php';
 
         // Data
         require_once WPMZF_PLUGIN_PATH . 'includes/data/class-wpmzf-acf-fields.php';
@@ -168,6 +171,11 @@ final class WPMZF_Plugin
         WPMZF_Branding_Service::init();
         new WPMZF_Transcription_Service();
         new WPMZF_Opportunity_Service();
+
+        // Email System
+        new WPMZF_User_Email_Settings();
+        new WPMZF_Email_Service();
+        WPMZF_Email_Database::create_tables(); // Tworzymy tabele przy inicjalizacji
 
         // Admin
         // new WPMZF_Admin(); // WYŁĄCZONE - duplikuje funkcjonalność WPMZF_Admin_Pages

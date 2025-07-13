@@ -45,6 +45,9 @@ class WPMZF_Cron_Manager {
         // Rejestruj zadania cron
         add_action('init', array($this, 'register_cron_jobs'));
         
+        // Dodaj nowy interwał czasowy
+        add_filter('cron_schedules', array($this, 'add_custom_cron_intervals'));
+        
         // Rejestruj hooks dla zadań
         add_action('wpmzf_daily_maintenance', array($this, 'daily_maintenance'));
         add_action('wpmzf_weekly_cleanup', array($this, 'weekly_cleanup'));
@@ -52,6 +55,19 @@ class WPMZF_Cron_Manager {
         add_action('wpmzf_backup_database', array($this, 'backup_database'));
         add_action('wpmzf_optimize_database', array($this, 'optimize_database'));
         add_action('wpmzf_performance_check', array($this, 'performance_check'));
+        
+        // Email system - hook jest obsługiwany bezpośrednio przez WPMZF_Email_Service
+    }
+
+    /**
+     * Dodaje niestandardowe interwały czasowe dla cron
+     */
+    public function add_custom_cron_intervals($schedules) {
+        $schedules['every_five_minutes'] = array(
+            'interval' => 300, // 5 minut w sekundach
+            'display'  => esc_html__('Co pięć minut'),
+        );
+        return $schedules;
     }
 
     /**
@@ -86,6 +102,11 @@ class WPMZF_Cron_Manager {
         // Sprawdzenie wydajności (co godzinę)
         if (!wp_next_scheduled('wpmzf_performance_check')) {
             wp_schedule_event(time(), 'hourly', 'wpmzf_performance_check');
+        }
+        
+        // Przetwarzanie kolejki e-maili (co 5 minut)
+        if (!wp_next_scheduled('wpmzf_process_email_queue_hook')) {
+            wp_schedule_event(time(), 'every_five_minutes', 'wpmzf_process_email_queue_hook');
         }
     }
 
@@ -543,7 +564,8 @@ class WPMZF_Cron_Manager {
             'wpmzf_hourly_cache_cleanup',
             'wpmzf_backup_database',
             'wpmzf_optimize_database',
-            'wpmzf_performance_check'
+            'wpmzf_performance_check',
+            'wpmzf_process_email_queue_hook'
         ];
         
         foreach ($cron_jobs as $job) {

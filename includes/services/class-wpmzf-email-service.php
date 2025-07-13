@@ -17,8 +17,8 @@ class WPMZF_Email_Service {
      * Konstruktor
      */
     public function __construct() {
-        // Dodaj hooki dla cron jobs
-        add_action('wpmzf_process_email_queue', [$this, 'process_email_queue']);
+        // Dodaj hooki dla cron jobs - używamy zgodnego hooka z cron manager
+        add_action('wpmzf_process_email_queue_hook', [$this, 'process_email_queue']);
         add_action('wpmzf_fetch_incoming_emails', [$this, 'fetch_incoming_emails']);
     }
 
@@ -83,10 +83,8 @@ class WPMZF_Email_Service {
 
         $email_id = $wpdb->insert_id;
 
-        // Zaplanuj wysyłkę jeśli nie ma delay
-        if (empty($options['scheduled_at'])) {
-            wp_schedule_single_event(time() + 60, 'wpmzf_process_email_queue', [$email_id]);
-        }
+        // Zadanie cron automatycznie przetworzy kolejkę co 5 minut
+        // Nie potrzebujemy już wp_schedule_single_event
 
         return $email_id;
     }
@@ -208,24 +206,26 @@ class WPMZF_Email_Service {
             $result = $mail->send();
 
             if ($result) {
-                // Oznacz jako wysłane
-                $wpdb->update(
-                    $table,
-                    [
-                        'status' => 'sent',
-                        'sent_at' => current_time('mysql'),
-                        'updated_at' => current_time('mysql')
-                    ],
-                    ['id' => $email_data->id]
-                );
+                // Oznacz jako wysłane (tylko jeśli to nie test)
+                if ($email_data->id !== 'test') {
+                    $wpdb->update(
+                        $table,
+                        [
+                            'status' => 'sent',
+                            'sent_at' => current_time('mysql'),
+                            'updated_at' => current_time('mysql')
+                        ],
+                        ['id' => $email_data->id]
+                    );
 
-                // Zaktualizuj aktywność jeśli jest powiązana
-                if ($email_data->related_activity_id) {
-                    $this->update_activity_email_status($email_data->related_activity_id, 'sent', $email_data->message_id);
+                    // Zaktualizuj aktywność jeśli jest powiązana
+                    if ($email_data->related_activity_id) {
+                        $this->update_activity_email_status($email_data->related_activity_id, 'sent', $email_data->message_id);
+                    }
+
+                    // Zaktualizuj wątek
+                    $this->update_email_thread($email_data->thread_id, $email_data->message_id, $email_data->recipient_to);
                 }
-
-                // Zaktualizuj wątek
-                $this->update_email_thread($email_data->thread_id, $email_data->message_id, $email_data->recipient_to);
 
                 WPMZF_Logger::info('Email sent successfully', [
                     'email_id' => $email_data->id,
@@ -237,12 +237,17 @@ class WPMZF_Email_Service {
             }
 
         } catch (Exception $e) {
-            $this->mark_email_failed($email_data->id, $e->getMessage());
+            // Oznacz jako nieudane (tylko jeśli to nie test)
+            if ($email_data->id !== 'test') {
+                $this->mark_email_failed($email_data->id, $e->getMessage());
+            }
+            
             WPMZF_Logger::error('Email sending failed', [
                 'email_id' => $email_data->id,
                 'error' => $e->getMessage()
             ]);
-            return false;
+            
+            return new WP_Error('email_send_failed', $e->getMessage());
         }
     }
 
@@ -391,7 +396,21 @@ class WPMZF_Email_Service {
      * Odszyfruje hasło
      */
     private function decrypt_password($encrypted) {
-        return base64_decode($encrypted);
+        if (empty($encrypted)) {
+            return '';
+        }
+        
+        // Sprawdzamy czy istnieją klucze WordPress
+        if (!defined('AUTH_KEY') || !defined('SECURE_AUTH_KEY')) {
+            // Fallback - zwykłe base64 (niebezpieczne!)
+            return base64_decode($encrypted);
+        }
+        
+        // Bezpieczne odszyfrowanie AES-256-CBC z kluczami WordPress
+        $key = substr(hash('sha256', AUTH_KEY), 0, 32);
+        $iv = substr(hash('sha256', SECURE_AUTH_KEY), 0, 16);
+        
+        return openssl_decrypt(base64_decode($encrypted), 'aes-256-cbc', $key, 0, $iv);
     }
 
     /**
@@ -417,5 +436,34 @@ class WPMZF_Email_Service {
             'sent' => intval($stats->sent),
             'failed' => intval($stats->failed)
         ];
+    }
+
+    /**
+     * Metoda testowa do bezpośredniego wysłania e-maila (omija kolejkę)
+     */
+    public function send_test_email($user_id, $to, $subject, $body) {
+        // Pobierz ustawienia SMTP użytkownika
+        $smtp_settings = get_user_meta($user_id, 'wpmzf_smtp_settings', true);
+        
+        if (empty($smtp_settings)) {
+            return new WP_Error('no_smtp_config', 'Brak ustawień SMTP');
+        }
+
+        // Utwórz obiekt e-maila do testowania
+        $test_email = (object) [
+            'id' => 'test',
+            'user_id' => $user_id,
+            'recipient_to' => $to,
+            'recipient_cc' => '',
+            'recipient_bcc' => '',
+            'subject' => $subject,
+            'body' => $body,
+            'message_id' => $this->generate_message_id($smtp_settings['user']),
+            'in_reply_to' => null,
+            'thread_id' => 'test-thread',
+            'related_activity_id' => null
+        ];
+
+        return $this->send_single_email($test_email);
     }
 }

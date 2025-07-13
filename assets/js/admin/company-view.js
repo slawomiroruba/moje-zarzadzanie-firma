@@ -193,6 +193,33 @@ jQuery(document).ready(function ($) {
 	setDefaultActivityDateTime();
 	loadActivities();
 
+	// --- Dynamiczne pola dla typu aktywności "E-mail" ---
+	const activityTypeSelect = $('#wpmzf-activity-type');
+	const activityEditorContainer = $('#wpmzf-activity-main-editor');
+
+	// Stwórz kontener na pola e-mail (początkowo ukryty)
+	const emailFieldsContainer = $(`
+		<div id="wpmzf-email-fields" style="display: none; margin-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+			<input type="text" name="email_to" placeholder="Do:" class="large-text" required>
+			<input type="text" name="email_cc" placeholder="DW:" class="large-text">
+			<input type="text" name="email_bcc" placeholder="UDW:" class="large-text">
+			<input type="text" name="email_subject" placeholder="Temat wiadomości" class="large-text" required>
+		</div>
+	`).insertAfter(activityEditorContainer);
+
+	activityTypeSelect.on('change', function() {
+		if ($(this).val() === 'email') {
+			emailFieldsContainer.slideDown(200);
+			// Spróbuj automatycznie wypełnić pole "Do" adresem e-mail firmy
+			const primaryEmail = $('[data-field="company_emails"] .contact-item.is-primary a').attr('href')?.replace('mailto:', '') || '';
+			if(primaryEmail) {
+				emailFieldsContainer.find('input[name="email_to"]').val(primaryEmail);
+			}
+		} else {
+			emailFieldsContainer.slideUp(200);
+		}
+	});
+
 	// --- Obsługa edytora z placeholderem ---
 	const editorPlaceholder = $('#wpmzf-editor-placeholder');
 	const editorContainer = $('#wpmzf-editor-container');
@@ -849,6 +876,14 @@ jQuery(document).ready(function ($) {
 			attachment_ids: uploadedAttachmentIds.map(item => item.id),
 			transcription_ids: uploadedAttachmentIds.filter(item => item.transcribe).map(item => item.id)
 		};
+
+		// Dodaj pola email jeśli typ aktywności to email
+		if ($('#wpmzf-activity-type').val() === 'email') {
+			activityData.email_to = $('input[name="email_to"]').val();
+			activityData.email_cc = $('input[name="email_cc"]').val();
+			activityData.email_bcc = $('input[name="email_bcc"]').val();
+			activityData.email_subject = $('input[name="email_subject"]').val();
+		}
 
 		console.log('Company activity data to submit:', activityData);
 

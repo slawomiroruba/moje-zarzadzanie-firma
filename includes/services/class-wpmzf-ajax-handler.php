@@ -255,6 +255,78 @@ class WPMZF_Ajax_Handler
             return;
         }
 
+        // *** NOWA LOGIKA DLA E-MAILI ***
+        if ($activity_type === 'email') {
+            $email_to = sanitize_text_field($_POST['email_to'] ?? '');
+            $email_subject = sanitize_text_field($_POST['email_subject'] ?? '');
+            $email_content = wp_kses_post($_POST['content'] ?? '');
+            $email_cc = sanitize_text_field($_POST['email_cc'] ?? '');
+            $email_bcc = sanitize_text_field($_POST['email_bcc'] ?? '');
+            
+            if (empty($email_to) || empty($email_subject)) {
+                wp_send_json_error(['message' => 'Pola "Do" i "Temat" są wymagane dla e-maila.']);
+                return;
+            }
+
+            // Ustalenie tytułu i powiązania
+            if ($person_id) {
+                $entity_title = get_the_title($person_id);
+                $entity_type = 'person';
+                $entity_id = $person_id;
+            } else {
+                $entity_title = get_the_title($company_id);
+                $entity_type = 'company';
+                $entity_id = $company_id;
+            }
+
+            // 1. Zapisz aktywność z informacją "W kolejce"
+            $activity_post = [
+                'post_title'   => 'Email w kolejce: ' . $email_subject,
+                'post_content' => $email_content,
+                'post_status'  => 'publish',
+                'post_author'  => get_current_user_id(),
+                'post_type'    => 'activity',
+            ];
+            $activity_id = wp_insert_post($activity_post);
+            
+            if ($activity_id && !is_wp_error($activity_id)) {
+                // Zapisz metadane aktywności
+                update_field('activity_type', 'email', $activity_id);
+                update_field('activity_date', $activity_date, $activity_id);
+                
+                // Zapisanie powiązania z odpowiednią encją
+                if ($entity_type === 'person') {
+                    update_field('related_person', $person_id, $activity_id);
+                } else {
+                    update_field('related_company', $company_id, $activity_id);
+                }
+
+                // 2. Dodaj e-mail do kolejki
+                $email_service = new WPMZF_Email_Service();
+                $result = $email_service->queue_email(
+                    get_current_user_id(),
+                    $email_to,
+                    $email_subject,
+                    $email_content,
+                    $email_cc,
+                    $email_bcc,
+                    ['activity_id' => $activity_id] // Powiąż z aktywnością
+                );
+
+                if (is_wp_error($result)) {
+                    // Coś poszło nie tak - poinformuj użytkownika
+                    wp_update_post(['ID' => $activity_id, 'post_title' => 'Błąd kolejkowania: ' . $email_subject]);
+                    wp_send_json_error(['message' => $result->get_error_message()]);
+                } else {
+                    wp_send_json_success(['message' => 'E-mail został dodany do kolejki wysyłkowej.']);
+                }
+            } else {
+                wp_send_json_error(['message' => 'Błąd podczas tworzenia wpisu aktywności.']);
+            }
+            return; // Zakończ, bo obsłużyliśmy e-mail
+        }
+
+        // *** TWOJA ISTNIEJĄCA LOGIKA DLA INNYCH TYPÓW AKTYWNOŚCI ***
         if (empty($content)) {
             wp_send_json_error(array('message' => 'Brak treści aktywności.'));
             return;
