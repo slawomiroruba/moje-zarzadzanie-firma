@@ -115,6 +115,7 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/card/simple-card.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-documents-list-table.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-persons-list-table.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-companies-list-table.php';
 
         // Data
         require_once WPMZF_PLUGIN_PATH . 'includes/data/class-wpmzf-acf-fields.php';

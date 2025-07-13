@@ -27,10 +27,23 @@ $companies = WPMZF_Company::get_companies();
         <div class="luna-crm-companies-grid">
             <?php if (!empty($companies)): ?>
                 <?php foreach ($companies as $company): ?>
+                    <?php 
+                    $company_status = get_field('company_status', $company->id) ?: 'Aktywny';
+                    ?>
                     <div class="luna-crm-company-card" data-company-id="<?php echo $company->id; ?>">
                         <div class="company-header">
-                            <h3><?php echo esc_html($company->name); ?></h3>
+                            <h3>
+                                <a href="<?php echo admin_url('admin.php?page=wpmzf-companies&action=view&company_id=' . $company->id); ?>" class="company-title-link">
+                                    <?php echo esc_html($company->name); ?>
+                                </a>
+                            </h3>
+                            <div class="company-status status-<?php echo esc_attr(strtolower(str_replace(' ', '-', $company_status))); ?>">
+                                <?php echo esc_html($company_status); ?>
+                            </div>
                             <div class="company-actions">
+                                <a href="<?php echo admin_url('admin.php?page=wpmzf-companies&action=view&company_id=' . $company->id); ?>" class="button button-small view-company" title="Zobacz szczegóły">
+                                    <span class="dashicons dashicons-visibility"></span>
+                                </a>
                                 <button class="button button-small edit-company" data-company-id="<?php echo $company->id; ?>">
                                     <span class="dashicons dashicons-edit"></span>
                                 </button>
@@ -277,3 +290,62 @@ jQuery(document).ready(function($) {
     }
 });
 </script>
+
+<style>
+.company-title-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.company-title-link:hover {
+    color: #0073aa;
+}
+
+.company-status {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: bold;
+    margin: 5px 0;
+}
+
+.status-aktywny {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-nieaktywny {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.status-zarchiwizowany {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.company-header {
+    position: relative;
+}
+
+.view-company {
+    margin-right: 3px;
+}
+
+.luna-crm-company-card {
+    position: relative;
+    padding: 15px;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.luna-crm-company-card:hover {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+</style>

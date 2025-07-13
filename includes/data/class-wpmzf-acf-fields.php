@@ -84,6 +84,18 @@ class WPMZF_ACF_Fields
             'title' => 'Dane Firmy',
             'fields' => array(
                 array(
+                    'key'           => 'field_wpmzf_company_status',
+                    'label'         => 'Status',
+                    'name'          => 'company_status',
+                    'type'          => 'select',
+                    'choices'       => array(
+                        'Aktywny'   => 'Aktywny',
+                        'Nieaktywny' => 'Nieaktywny',
+                        'Zarchiwizowany' => 'Zarchiwizowany',
+                    ),
+                    'default_value' => 'Aktywny',
+                ),
+                array(
                     'key'   => 'field_wpmzf_company_nip',
                     'label' => 'NIP',
                     'name'  => 'company_nip',
@@ -400,7 +412,16 @@ class WPMZF_ACF_Fields
                     'name' => 'task_assigned_person',
                     'type' => 'relationship',
                     'post_type' => array('person'),
-                    'min' => 1,
+                    'min' => 0,
+                    'max' => 1
+                ),
+                array(
+                    'key' => 'field_wpmzf_task_assigned_company',
+                    'label' => 'Przypisane do firmy',
+                    'name' => 'task_assigned_company',
+                    'type' => 'relationship',
+                    'post_type' => array('company'),
+                    'min' => 0,
                     'max' => 1
                 ),
                 array(
@@ -541,7 +562,17 @@ class WPMZF_ACF_Fields
                     'type' => 'relationship',
                     'post_type' => array('person'),
                     'max' => 1,
-                    'required' => 1,
+                    'required' => 0,
+                ),
+                // Pole do powiązania aktywności z firmą
+                array(
+                    'key' => 'field_wpmzf_activity_related_company',
+                    'label' => 'Powiązana firma',
+                    'name' => 'related_company',
+                    'type' => 'relationship',
+                    'post_type' => array('company'),
+                    'max' => 1,
+                    'required' => 0,
                 ),
             ),
             'location' => array(

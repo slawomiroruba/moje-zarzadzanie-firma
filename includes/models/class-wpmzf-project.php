@@ -357,4 +357,108 @@ class WPMZF_Project {
 
         return self::get_projects($args);
     }
+
+    /**
+     * Pobiera aktywne projekty dla firmy
+     *
+     * @param int $company_id ID firmy
+     * @return array
+     */
+    public static function get_active_projects_by_company($company_id) {
+        $args = array(
+            'post_type' => 'project',
+            'post_status' => 'publish',
+            'posts_per_page' => -1,
+            'meta_query' => array(
+                'relation' => 'AND',
+                array(
+                    'key' => 'project_company',
+                    'value' => '"' . $company_id . '"',
+                    'compare' => 'LIKE'
+                ),
+                array(
+                    'key' => 'project_status',
+                    'value' => array('Planowanie', 'W toku'),
+                    'compare' => 'IN'
+                )
+            )
+        );
+
+        $posts = get_posts($args);
+        $projects = array();
+        foreach ($posts as $post) {
+            $projects[] = new self($post->ID);
+        }
+        return $projects;
+    }
+
+    /**
+     * Pobiera zakończone projekty dla firmy
+     *
+     * @param int $company_id ID firmy
+     * @return array
+     */
+    public static function get_completed_projects_by_company($company_id) {
+        $args = array(
+            'post_type' => 'project',
+            'post_status' => 'publish',
+            'posts_per_page' => -1,
+            'meta_query' => array(
+                'relation' => 'AND',
+                array(
+                    'key' => 'project_company',
+                    'value' => '"' . $company_id . '"',
+                    'compare' => 'LIKE'
+                ),
+                array(
+                    'key' => 'project_status',
+                    'value' => 'Zakończony',
+                    'compare' => '='
+                )
+            )
+        );
+
+        $posts = get_posts($args);
+        $projects = array();
+        foreach ($posts as $post) {
+            $projects[] = new self($post->ID);
+        }
+        return $projects;
+    }
+
+    /**
+     * Pobiera tytuł projektu
+     *
+     * @return string
+     */
+    public function get_title() {
+        return $this->name;
+    }
+
+    /**
+     * Pobiera status projektu
+     *
+     * @return string
+     */
+    public function get_status() {
+        return $this->status ?: 'Planowanie';
+    }
+
+    /**
+     * Pobiera datę rozpoczęcia
+     *
+     * @return string
+     */
+    public function get_start_date() {
+        return $this->start_date;
+    }
+
+    /**
+     * Pobiera datę zakończenia
+     *
+     * @return string
+     */
+    public function get_end_date() {
+        return $this->end_date;
+    }
 }
