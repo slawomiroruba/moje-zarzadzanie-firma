@@ -30,7 +30,7 @@ class WPMZF_Admin_Pages
                 'wpmzf-person-view',
                 plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/css/admin-styles.css',
                 array(),
-                '1.0.2'
+                '1.3.0'
             );
             
             wp_enqueue_script(
@@ -67,7 +67,7 @@ class WPMZF_Admin_Pages
                 'wpmzf-company-view',
                 plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/css/admin-styles.css',
                 array(),
-                '1.0.2'
+                '1.3.0'
             );
             
             wp_enqueue_script(
@@ -104,7 +104,7 @@ class WPMZF_Admin_Pages
                 'wpmzf-project-view',
                 plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/css/admin-styles.css',
                 array(),
-                '1.0.1'
+                '1.3.0'
             );
             
             wp_enqueue_script(
@@ -132,7 +132,7 @@ class WPMZF_Admin_Pages
                 'wpmzf-companies-list',
                 plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/css/admin-styles.css',
                 array(),
-                '1.0.1'
+                '1.3.0'
             );
         }
         
@@ -144,7 +144,7 @@ class WPMZF_Admin_Pages
                 'wpmzf-dashboard',
                 plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/css/admin-styles.css',
                 array(),
-                '1.0.1'
+                '1.3.0'
             );
             
             // Dodajemy skrypt dla dashboardu
@@ -2928,17 +2928,21 @@ class WPMZF_Admin_Pages
 
                                         <div class="activity-meta-controls">
                                             <div class="activity-options">
-                                                <label for="note-type">Typ zdarzenia:</label>
-                                                <select id="note-type" name="activity_type">
-                                                    <option value="notatka">Notatka</option>
-                                                    <option value="email">E-mail (wysłany poza systemem)</option>
-                                                    <option value="telefon">Telefon</option>
-                                                    <option value="spotkanie">Spotkanie</option>
-                                                    <option value="spotkanie-online">Spotkanie online</option>
-                                                </select>
+                                                <div>
+                                                    <label for="note-type">Typ zdarzenia:</label>
+                                                    <select id="note-type" name="activity_type">
+                                                        <option value="notatka">Notatka</option>
+                                                        <option value="email">E-mail (wysłany poza systemem)</option>
+                                                        <option value="telefon">Telefon</option>
+                                                        <option value="spotkanie">Spotkanie</option>
+                                                        <option value="spotkanie-online">Spotkanie online</option>
+                                                    </select>
+                                                </div>
                                                 
-                                                <label for="wpmzf-note-date">Data aktywności:</label>
-                                                <input type="datetime-local" id="wpmzf-note-date" name="activity_date" value="<?php echo date('Y-m-d\TH:i'); ?>">
+                                                <div>
+                                                    <label for="wpmzf-note-date">Data aktywności:</label>
+                                                    <input type="datetime-local" id="wpmzf-note-date" name="activity_date" value="<?php echo date('Y-m-d\TH:i'); ?>">
+                                                </div>
                                             </div>
                                             <div class="activity-actions">
                                                 <button type="button" id="wpmzf-note-attach-files-btn" class="button">

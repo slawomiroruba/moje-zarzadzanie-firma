@@ -49,7 +49,7 @@ class WPMZF_Navbar {
             'wpmzf-navbar',
             plugin_dir_url(dirname(dirname(dirname(__FILE__)))) . 'assets/css/navbar.css',
             array(),
-            '1.1.0' // Poprawiona wersja po naprawie wszystkich problemów
+            '1.2.0' // Aktualizacja wersji po naprawie wszystkich problemów
         );
 
         wp_enqueue_script(

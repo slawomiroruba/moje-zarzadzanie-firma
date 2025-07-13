@@ -40,7 +40,7 @@ class WPMZF_Admin {
                 'wpmzf-admin',
                 plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/css/admin-styles.css',
                 array(),
-                '1.0.0'
+                '1.3.0'
             );
 
             wp_enqueue_script(

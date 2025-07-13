@@ -1395,17 +1395,21 @@ $company_address = $company_fields['company_address'] ?? [];
 
                                         <div class="activity-meta-controls">
                                             <div class="activity-options">
-                                                <label for="note-type">Typ zdarzenia:</label>
-                                                <select id="note-type" name="activity_type">
-                                                    <option value="notatka">Notatka</option>
-                                                    <option value="email">E-mail (wysłany poza systemem)</option>
-                                                    <option value="telefon">Telefon</option>
-                                                    <option value="spotkanie">Spotkanie</option>
-                                                    <option value="spotkanie-online">Spotkanie online</option>
-                                                </select>
+                                                <div>
+                                                    <label for="note-type">Typ zdarzenia:</label>
+                                                    <select id="note-type" name="activity_type">
+                                                        <option value="notatka">Notatka</option>
+                                                        <option value="email">E-mail (wysłany poza systemem)</option>
+                                                        <option value="telefon">Telefon</option>
+                                                        <option value="spotkanie">Spotkanie</option>
+                                                        <option value="spotkanie-online">Spotkanie online</option>
+                                                    </select>
+                                                </div>
                                                 
-                                                <label for="wpmzf-note-date">Data aktywności:</label>
-                                                <input type="datetime-local" id="wpmzf-note-date" name="activity_date" value="<?php echo date('Y-m-d\TH:i'); ?>">
+                                                <div>
+                                                    <label for="wpmzf-note-date">Data aktywności:</label>
+                                                    <input type="datetime-local" id="wpmzf-note-date" name="activity_date" value="<?php echo date('Y-m-d\TH:i'); ?>">
+                                                </div>
                                             </div>
                                             <div class="activity-actions">
                                                 <button type="button" id="wpmzf-note-attach-files-btn" class="button">
