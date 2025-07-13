@@ -490,6 +490,7 @@ jQuery(document).ready(function ($) {
 						<span class="attachment-progress-text">0%</span>
 					</div>
 					<span class="dashicons dashicons-no-alt remove-attachment" title="Usuń z listy"></span>
+               	${file.type.startsWith('audio/') ? `<div class="transcribe-option"><label><input type="checkbox" class="transcribe-checkbox" checked> Transkrybuj</label></div>` : ''}
 				</div>
 			`;
 		});

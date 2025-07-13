@@ -30,7 +30,13 @@ class WPMZF_File_Validator {
         'txt' => 'text/plain',
         'csv' => 'text/csv',
         'zip' => 'application/zip',
-        'rar' => 'application/x-rar-compressed'
+        'rar' => 'application/x-rar-compressed',
+        // Audio file types for transcription
+        'mp3'  => 'audio/mpeg',
+        'wav'  => 'audio/wav',
+        'm4a'  => 'audio/mp4',
+        'ogg'  => 'audio/ogg',
+        'flac' => 'audio/flac'
     ];
 
     /**
@@ -162,5 +168,16 @@ class WPMZF_File_Validator {
     public static function sanitize_filename($filename) {
         // Use WordPress function
         return sanitize_file_name($filename);
+    }
+
+    /**
+     * Check if attachment is an audio file
+     *
+     * @param int $attachment_id
+     * @return bool
+     */
+    public static function is_audio_attachment($attachment_id) {
+        $mime = get_post_mime_type($attachment_id);
+        return $mime && strpos($mime, 'audio/') === 0;
     }
 }
