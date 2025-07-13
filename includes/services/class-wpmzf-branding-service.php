@@ -197,22 +197,24 @@ class WPMZF_Branding_Service
                     });
                 });
                 
-                // Dodaj loading state do przycisku
+                // Dodaj loading state do przycisku - słuchaj na submit formularza, nie na click
+                var loginForm = document.getElementById("loginform");
                 var submitBtn = document.getElementById("wp-submit");
-                if (submitBtn) {
-                    submitBtn.addEventListener("click", function() {
-                        var originalText = this.value;
-                        this.value = "Logowanie...";
-                        this.disabled = true;
-                        this.style.opacity = "0.8";
+                
+                if (loginForm && submitBtn) {
+                    loginForm.addEventListener("submit", function(e) {
+                        // Nie blokuj submit, tylko pokaż loading state
+                        var originalText = submitBtn.value;
+                        submitBtn.value = "Logowanie...";
+                        submitBtn.style.opacity = "0.8";
                         
+                        // Przywróć stan przycisku po 5 sekundach (na wypadek błędu)
                         setTimeout(function() {
                             if (submitBtn) {
                                 submitBtn.value = originalText;
-                                submitBtn.disabled = false;
                                 submitBtn.style.opacity = "1";
                             }
-                        }, 3000);
+                        }, 5000);
                     });
                 }
             });

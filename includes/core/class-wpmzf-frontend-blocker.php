@@ -6,8 +6,8 @@
 class WPMZF_Frontend_Blocker {
 
     public function __construct() {
-        // Blokowanie frontendu dla wszystkich użytkowników
-        add_action('template_redirect', array($this, 'block_frontend_access'));
+        // Blokowanie frontendu dla wszystkich użytkowników - używamy init z niskim priorytetem
+        add_action('init', array($this, 'block_frontend_access'), 99);
         
         // Przekierowanie z domyślnego kokpitu na nasz dashboard
         add_action('admin_init', array($this, 'redirect_admin_dashboard'));
@@ -74,8 +74,19 @@ class WPMZF_Frontend_Blocker {
             return;
         }
 
-        // Sprawdź czy to nie jest strona logowania WordPressa
+        // Sprawdź czy to nie jest strona logowania WordPressa (różne sposoby)
         if (isset($GLOBALS['pagenow']) && $GLOBALS['pagenow'] === 'wp-login.php') {
+            return;
+        }
+        
+        // Dodatkowe sprawdzenie dla wp-login.php
+        if (strpos($_SERVER['REQUEST_URI'], 'wp-login.php') !== false) {
+            return;
+        }
+        
+        // Sprawdź czy to POST request na wp-login.php (formularz logowania)
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && strpos($_SERVER['REQUEST_URI'], 'wp-login.php') !== false) {
+            error_log('WPMZF Frontend Blocker: POST to wp-login.php detected, allowing...');
             return;
         }
 
@@ -83,6 +94,17 @@ class WPMZF_Frontend_Blocker {
         if (isset($_GET['action']) && in_array($_GET['action'], ['register', 'lostpassword', 'rp', 'resetpass'])) {
             return;
         }
+        
+        // Sprawdź czy to nie są inne akcje POST związane z logowaniem
+        if (isset($_POST['log']) && isset($_POST['pwd'])) {
+            error_log('WPMZF Frontend Blocker: Login POST data detected, allowing...');
+            return;
+        }
+
+        // Logowanie do debugowania
+        $current_uri = $_SERVER['REQUEST_URI'];
+        $is_logged_in = is_user_logged_in();
+        error_log('WPMZF Frontend Blocker: URI=' . $current_uri . ', logged_in=' . ($is_logged_in ? 'yes' : 'no'));
 
         // Jeśli użytkownik jest zalogowany, przekieruj na panel administratora
         if (is_user_logged_in()) {
@@ -175,10 +197,22 @@ class WPMZF_Frontend_Blocker {
      * Przekierowuje użytkownika na nasz dashboard po zalogowaniu
      */
     public function custom_login_redirect($redirect_to, $request, $user) {
-        // Sprawdź czy użytkownik został poprawnie zalogowany
-        if (isset($user->user_login)) {
-            // Przekieruj na nasz dashboard
-            return admin_url('admin.php?page=wpmzf_dashboard');
+        // Logowanie do debugowania
+        error_log('WPMZF Login Redirect: user=' . (is_object($user) ? get_class($user) : 'not object') . ', redirect_to=' . $redirect_to);
+        
+        // Sprawdź czy użytkownik został poprawnie zalogowany i czy nie ma błędów
+        if (isset($user->user_login) && !is_wp_error($user) && $user instanceof WP_User) {
+            error_log('WPMZF Login Redirect: SUCCESS for user ' . $user->user_login);
+            // Przekieruj na nasz dashboard tylko jeśli dashboard istnieje
+            $dashboard_url = admin_url('admin.php?page=wpmzf_dashboard');
+            error_log('WPMZF Login Redirect: Redirecting to ' . $dashboard_url);
+            return $dashboard_url;
+        }
+        
+        if (is_wp_error($user)) {
+            error_log('WPMZF Login Redirect: ERROR - ' . $user->get_error_message());
+        } else {
+            error_log('WPMZF Login Redirect: No valid user, using default redirect');
         }
 
         return $redirect_to;
