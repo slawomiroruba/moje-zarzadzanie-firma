@@ -1944,7 +1944,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 20px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid #dee2e6;
 }
 
 .luna-crm-modal-header h2 {
@@ -1968,597 +1968,197 @@
     color: #333;
 }
 
-/* Forms */
-.luna-crm-form-group {
-    margin-bottom: 20px;
-    padding: 0 20px;
-}
-
-.luna-crm-form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 600;
-    color: #333;
-}
-
-.luna-crm-form-group input,
-.luna-crm-form-group textarea,
-.luna-crm-form-group select {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
-    box-sizing: border-box;
-}
-
-.luna-crm-form-group textarea {
-    resize: vertical;
-    min-height: 80px;
-}
-
-.luna-crm-form-actions {
-    display: flex;
-    gap: 10px;
+.luna-crm-modal-body {
     padding: 20px;
-    border-top: 1px solid #e0e0e0;
-    background: #f8f9fa;
-}
-
-.luna-crm-form-actions .button {
+    overflow-y: auto;
     flex: 1;
-    text-align: center;
 }
 
-/* Form row for side-by-side fields */
-.luna-crm-form-row {
-    display: flex;
-    gap: 15px;
-    padding: 0 20px;
-    margin-bottom: 20px;
+.transcription-full-text {
+    line-height: 1.6;
+    color: #495057;
+    font-size: 14px;
+    white-space: pre-wrap;
 }
 
-.luna-crm-form-row .luna-crm-form-group {
-    flex: 1;
-    margin-bottom: 0;
-    padding: 0;
+.wpmzf-modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #dee2e6;
+    text-align: right;
 }
 
-/* Spinner styles for project form */
-.luna-crm-form-actions .spinner.is-active {
-    float: none;
-    margin: 0 10px;
-    display: inline-block;
-    visibility: visible;
-}
-
-/* Header */
-.luna-crm-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-/* Responsive */
+/* Responsive modal */
 @media (max-width: 768px) {
-    .luna-crm-main-content {
-        grid-template-columns: 1fr;
+    .wpmzf-modal {
+        margin: 10px;
+        max-height: 90vh;
     }
     
-    .luna-crm-stats-grid {
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    }
-    
-    .luna-crm-companies-grid,
-    .luna-crm-persons-grid,
-    .luna-crm-projects-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .timer-display {
-        font-size: 36px;
-    }
-    
-    .company-header,
-    .person-header,
-    .project-header {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .company-actions,
-    .person-actions,
-    .project-actions {
-        align-self: flex-end;
-    }
-    
-    .luna-crm-modal-content {
-        margin: 20px;
-        width: calc(100% - 40px);
+    .wpmzf-modal-header,
+    .wpmzf-modal-body,
+    .wpmzf-modal-footer {
+        padding: 15px;
     }
 }
 
-/* === COMPANY STATUS BADGES === */
-.company-status-badge {
+/* === STYLE DLA TRANSKRYPCJI === */
+
+/* Checkbox transkrypcji w podglądzie załączników */
+.transcribe-option {
+    margin-top: 8px;
+    padding: 5px 0;
+    border-top: 1px solid #e0e0e0;
+}
+
+.transcribe-option label {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+}
+
+.transcribe-option input[type="checkbox"] {
+    margin-right: 6px;
+    margin-left: 0;
+}
+
+/* Status transkrypcji w osi czasu */
+.transcription-status {
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
     display: inline-block;
-    padding: 3px 8px;
-    border-radius: 3px;
-    font-size: 11px;
-    font-weight: bold;
-    text-transform: uppercase;
-    line-height: 1;
 }
 
-.status-aktywny {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.status-nieaktywny {
-    background-color: #fff3cd;
+.transcription-status.pending {
+    background: #fff3cd;
     color: #856404;
     border: 1px solid #ffeaa7;
 }
 
-.status-zarchiwizowany {
-    background-color: #f8d7da;
+.transcription-status.failed {
+    background: #f8d7da;
     color: #721c24;
-    border: 1px solid #f5c6cb;
+    border: 1px solid #f1aeb5;
 }
 
-/* === IMPORTANT LINKS SECTION === */
-#important-links-section {
-    margin-bottom: 20px;
-}
-
-#important-links-container {
-    margin: 15px 0;
-}
-
-.important-link-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    margin-bottom: 10px;
-    background: #f9f9f9;
-    transition: all 0.2s ease;
-}
-
-.important-link-item:hover {
-    background: #f0f0f0;
-    border-color: #bbb;
-}
-
-.important-link-favicon {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-    text-align: center;
-    line-height: 20px;
-}
-
-.important-link-favicon img {
-    max-width: 16px;
-    max-height: 16px;
-    border-radius: 2px;
-}
-
-.important-link-content {
-    flex: 1;
-    min-width: 0;
-}
-
-.important-link-title {
-    display: block;
-    font-weight: 600;
-    color: #0073aa;
-    text-decoration: none;
-    margin-bottom: 2px;
-    word-break: break-word;
-}
-
-.important-link-title:hover {
-    color: #005177;
-    text-decoration: underline;
-}
-
-.important-link-url {
-    font-size: 12px;
-    color: #666;
-    margin: 0;
-    word-break: break-all;
-}
-
-.important-link-actions {
-    display: flex;
-    gap: 5px;
-    flex-shrink: 0;
-}
-
-.important-link-action {
-    background: none;
-    border: none;
-    font-size: 16px;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 3px;
-    transition: background-color 0.2s ease;
-}
-
-.important-link-action:hover {
-    background: rgba(0, 0, 0, 0.1);
-}
-
-.important-link-action.delete:hover {
-    background: rgba(220, 53, 69, 0.1);
-}
-
-#important-link-form {
+/* Wynik transkrypcji */
+.transcription-result {
+    margin-top: 10px;
+    padding: 10px;
     background: #f8f9fa;
     border: 1px solid #dee2e6;
-    border-radius: 6px;
-    padding: 15px;
-    margin-top: 15px;
-}
-
-#important-link-form .form-group {
-    margin-bottom: 15px;
-}
-
-#important-link-form label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 5px;
-    color: #333;
-}
-
-#important-link-form input[type="url"],
-#important-link-form input[type="text"] {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 14px;
-    transition: border-color 0.2s ease;
+    font-size: 13px;
 }
 
-#important-link-form input[type="url"]:focus,
-#important-link-form input[type="text"]:focus {
-    outline: none;
-    border-color: #0073aa;
-    box-shadow: 0 0 0 1px #0073aa;
-}
-
-.form-actions {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-top: 15px;
-}
-
-.no-important-links {
-    color: #666;
-    font-style: italic;
-    text-align: center;
-    padding: 20px;
-    background: #f8f9fa;
-    border: 1px dashed #ddd;
-    border-radius: 6px;
-}
-
-.important-links-loading {
-    color: #666;
-    text-align: center;
-    padding: 20px;
-    font-style: italic;
-}
-
-/* === STYLE DLA ZADAŃ === */
-
-/* Kontener zadań */
-.task-item {
-    border: 1px solid #e1e5e9;
-    border-radius: 6px;
-    margin-bottom: 10px;
-    background: #fff;
-    transition: box-shadow 0.2s ease;
-}
-
-.task-item:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.task-item.completed {
-    background: #f8f9fa;
-    opacity: 0.85;
-}
-
-.task-item.overdue {
-    border-left: 4px solid #dc3545;
-}
-
-.task-item.today {
-    border-left: 4px solid #ffc107;
-}
-
-.task-item.upcoming {
-    border-left: 4px solid #28a745;
-}
-
-/* Zawartość zadania */
-.task-content {
-    padding: 15px;
-}
-
-.task-main {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.task-title-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 10px;
-}
-
-.task-title {
-    font-weight: 600;
-    font-size: 14px;
-    color: #2c3e50;
-    line-height: 1.4;
-    flex: 1;
-    word-break: break-word;
-}
-
-.task-item.completed .task-title {
-    text-decoration: line-through;
-    color: #6c757d;
-}
-
-/* Akcje zadania */
-.task-actions {
-    display: flex;
-    gap: 5px;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-.task-actions .dashicons {
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 3px;
-    transition: all 0.2s ease;
-    color: #6c757d;
-    font-size: 16px;
-    width: 20px;
-    height: 20px;
-}
-
-.task-actions .dashicons:hover {
-    background: #f1f3f4;
+.transcription-result strong {
     color: #495057;
-}
-
-.task-actions .dashicons-yes-alt:hover {
-    background: #d4edda;
-    color: #28a745;
-}
-
-.task-actions .dashicons-undo:hover {
-    background: #fff3cd;
-    color: #856404;
-}
-
-.task-actions .dashicons-calendar-alt:hover {
-    background: #cce5ff;
-    color: #0066cc;
-}
-
-.task-actions .dashicons-admin-users:hover {
-    background: #e7f3ff;
-    color: #0073aa;
-}
-
-.task-actions .dashicons-edit:hover {
-    background: #e6f3ff;
-    color: #0073aa;
-}
-
-.task-actions .dashicons-trash:hover {
-    background: #f8d7da;
-    color: #dc3545;
-}
-
-/* Metadane zadania */
-.task-meta-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 5px;
-}
-
-.task-meta-left {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.task-status {
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    background: #e9ecef;
-    color: #6c757d;
-}
-
-.task-status.zrobione {
-    background: #d4edda;
-    color: #155724;
-}
-
-.task-status.w-toku {
-    background: #fff3cd;
-    color: #856404;
-}
-
-.task-priority-indicator {
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.task-priority-indicator.overdue {
-    background: #dc3545;
-    color: white;
-}
-
-.task-priority-indicator.today {
-    background: #ffc107;
-    color: #212529;
-}
-
-.task-priority-indicator.upcoming {
-    background: #28a745;
-    color: white;
-}
-
-.task-date {
     font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.transcription-result p {
+    margin: 6px 0 8px 0;
     color: #6c757d;
+    line-height: 1.4;
+}
+
+.view-full-transcription {
+    color: #007cba;
+    text-decoration: none;
+    font-size: 12px;
     font-weight: 500;
 }
 
-.task-date.overdue {
-    color: #dc3545;
-    font-weight: 600;
+.view-full-transcription:hover {
+    color: #005a87;
+    text-decoration: underline;
 }
 
-.task-date.today {
-    color: #856404;
-    font-weight: 600;
+/* Modal dla pełnej transkrypcji */
+.wpmzf-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
 }
 
-.task-assigned-user {
-    font-size: 12px;
+.wpmzf-modal {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.wpmzf-modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.wpmzf-modal-header h3 {
+    margin: 0;
     color: #495057;
-    background: #f8f9fa;
-    padding: 2px 8px;
-    border-radius: 12px;
-    border: 1px solid #e9ecef;
 }
 
-/* Select dla edycji osoby odpowiedzialnej */
-.task-assignee-select {
-    font-size: 12px !important;
-    padding: 2px 6px !important;
-    height: auto !important;
-    min-height: 24px !important;
-    border-radius: 4px !important;
+.wpmzf-modal-close {
+    font-size: 24px;
+    cursor: pointer;
+    color: #6c757d;
+    line-height: 1;
+    padding: 4px;
 }
 
-/* Responsywność */
+.wpmzf-modal-close:hover {
+    color: #495057;
+}
+
+.wpmzf-modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.transcription-full-text {
+    line-height: 1.6;
+    color: #495057;
+    font-size: 14px;
+    white-space: pre-wrap;
+}
+
+.wpmzf-modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #dee2e6;
+    text-align: right;
+}
+
+/* Responsive modal */
 @media (max-width: 768px) {
-    .task-title-row {
-        flex-direction: column;
-        gap: 8px;
+    .wpmzf-modal {
+        margin: 10px;
+        max-height: 90vh;
     }
     
-    .task-actions {
-        align-self: flex-start;
-    }
-    
-    .task-meta-left {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 6px;
-    }
-}
-
-/* === EDYTORY TINYMCE DLA AKTYWNOŚCI === */
-/* Style dla kontenerów edytorów aktywności */
-.activity-content-edit {
-    margin-top: 10px;
-    padding: 0;
-}
-
-/* Style dla kontenerów TinyMCE w trybie edycji */
-.activity-content-edit .mce-tinymce {
-    border: 1px solid #dcdcde !important;
-    border-radius: 4px !important;
-    box-shadow: none !important;
-}
-
-.activity-content-edit .mce-toolbar-grp {
-    border-bottom: 1px solid #dcdcde !important;
-    background: #f6f7f7 !important;
-}
-
-.activity-content-edit .mce-edit-area {
-    border: none !important;
-}
-
-.activity-content-edit .mce-edit-area iframe {
-    border: none !important;
-}
-
-/* Fallback dla textarea gdy TinyMCE nie jest dostępny */
-.activity-edit-textarea {
-    width: 100% !important;
-    min-height: 120px !important;
-    padding: 8px !important;
-    border: 1px solid #dcdcde !important;
-    border-radius: 4px !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-    font-size: 14px !important;
-    line-height: 1.4 !important;
-    resize: vertical !important;
-    box-sizing: border-box !important;
-}
-
-.activity-edit-textarea:focus {
-    border-color: #007cba !important;
-    box-shadow: 0 0 0 1px #007cba !important;
-    outline: none !important;
-}
-
-/* Style dla przycisków akcji edycji */
-.timeline-edit-actions {
-    margin-top: 10px !important;
-    display: flex !important;
-    gap: 8px !important;
-    align-items: center !important;
-}
-
-.timeline-edit-actions .button {
-    height: 32px !important;
-    line-height: 30px !important;
-    padding: 0 12px !important;
-    font-size: 13px !important;
-}
-
-/* Responsive dla małych ekranów */
-@media (max-width: 768px) {
-    .timeline-edit-actions {
-        flex-direction: column !important;
-        align-items: stretch !important;
-    }
-    
-    .timeline-edit-actions .button {
-        width: 100% !important;
-        text-align: center !important;
+    .wpmzf-modal-header,
+    .wpmzf-modal-body,
+    .wpmzf-modal-footer {
+        padding: 15px;
     }
 }

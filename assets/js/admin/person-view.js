@@ -352,6 +352,14 @@ jQuery(document).ready(function ($) {
 							<div class="attachment-progress-bar"></div>
 							<span class="attachment-progress-text">0%</span>
 						</div>
+						${file.type.startsWith('audio/') ? `
+							<div class="transcribe-option">
+								<label>
+									<input type="checkbox" class="transcribe-checkbox" data-file-index="${index}" checked> 
+									Transkrybuj
+								</label>
+							</div>
+						` : ''}
 						<span class="dashicons dashicons-no-alt remove-attachment" title="Usuń załącznik"></span>
 					</div>
 				</div>
@@ -1183,6 +1191,29 @@ jQuery(document).ready(function ($) {
 						previewHtml = `<span class="dashicons ${attachmentIcon}" title="${att.mime_type}"></span>`;
 					}
 
+					// Generuj HTML dla transkrypcji
+					let transcriptionHtml = '';
+					if (att.transcription) {
+						switch(att.transcription.status) {
+							case 'pending':
+							case 'processing':
+								transcriptionHtml = `<div class="transcription-status pending">⌛ Oczekuje na transkrypcję...</div>`;
+								break;
+							case 'completed':
+								transcriptionHtml = `
+									<div class="transcription-result">
+										<strong>Transkrypcja:</strong>
+										<p>${window.escapeHtml(att.transcription.text_preview)}</p>
+										<a href="#" class="view-full-transcription" data-attachment-id="${att.id}">Zobacz całość</a>
+									</div>
+								`;
+								break;
+							case 'failed':
+								transcriptionHtml = `<div class="transcription-status failed">❌ Transkrypcja nie powiodła się.</div>`;
+								break;
+						}
+					}
+
 					attachmentsHtml += `
 						<li data-attachment-id="${att.id}">
 							<a href="${att.url}" target="_blank">
@@ -1190,6 +1221,7 @@ jQuery(document).ready(function ($) {
 							   <span>${att.filename}</span>
 							</a>
 							<span class="dashicons dashicons-trash delete-attachment" title="Usuń załącznik"></span>
+							${transcriptionHtml}
 						</li>
 					`;
 				});
@@ -1280,6 +1312,7 @@ jQuery(document).ready(function ($) {
 
 		if (filesToUpload.length > 0) {
 			submitButton.text('Wysyłanie plików...');
+			// Update uploadPromises to return objects with id and transcribe flag
 			const uploadPromises = filesToUpload.map((file, index) => {
 				const formData = new FormData();
 				formData.append('file', file);
@@ -1310,33 +1343,34 @@ jQuery(document).ready(function ($) {
 						}, false);
 						return xhr;
 					}
-				}).done(function (response) {
+				}).then(response => {
 					if (response.success) {
 						// Dodaj do śledzonych uploadów
 						pendingUploads.add(response.data.id);
 						progressText.text('Gotowe!');
 						previewItem.addClass('upload-success');
+						const attId = response.data.id;
+						const shouldTranscribe = previewItem.find('.transcribe-checkbox').is(':checked');
+						return { id: attId, transcribe: shouldTranscribe };
+					} else {
+						throw new Error(response.data.message || 'Upload failed');
 					}
-				}).fail(function () {
-					progressText.text('Błąd!');
+				}).catch(error => {
+					console.error('Upload error for file:', file.name, error);
 					previewItem.addClass('upload-error');
+					progressText.text('Błąd');
+					throw error;
 				});
 			});
 
 			try {
-				const results = await Promise.all(uploadPromises);
-				results.forEach(response => {
-					if (response.success) {
-						uploadedAttachmentIds.push(response.data.id);
-					} else {
-						throw new Error('Błąd wysyłania pliku: ' + response.data.message);
-					}
-				});
+				uploadedAttachmentIds = await Promise.all(uploadPromises);
+				submitButton.text('Zapisywanie aktywności...');
 			} catch (error) {
-				showNotification(error.message || 'Wystąpił błąd podczas wysyłania plików.', 'error');
+				showNotification('Błąd podczas wysyłania plików: ' + error.message, 'error');
 				submitButton.text(originalButtonText).prop('disabled', false);
 				attachFileBtn.prop('disabled', false);
-				isSubmitting = false; // Reset flagi
+				isSubmitting = false;
 				// Przywróć wygląd preview
 				renderAttachmentsPreview();
 				return;
@@ -1369,6 +1403,7 @@ jQuery(document).ready(function ($) {
 		}
 
 		submitButton.text('Dodawanie aktywności...');
+		// Build activityData with transcription_ids
 		const activityData = {
 			action: 'add_wpmzf_activity',
 			security: securityNonce,
@@ -1376,7 +1411,8 @@ jQuery(document).ready(function ($) {
 			content: editorContent,
 			activity_type: $('#wpmzf-activity-type').val(),
 			activity_date: dateField.val(),
-			attachment_ids: uploadedAttachmentIds
+			attachment_ids: uploadedAttachmentIds.map(item => item.id),
+			transcription_ids: uploadedAttachmentIds.filter(item => item.transcribe).map(item => item.id)
 		};
 
 		$.ajax({
@@ -1386,8 +1422,8 @@ jQuery(document).ready(function ($) {
 			success: function (response) {
 				if (response.success) {
 					// Usuń przesłane pliki z pending uploads (zostały przypisane)
-					uploadedAttachmentIds.forEach(id => {
-						pendingUploads.delete(id);
+					uploadedAttachmentIds.forEach(item => {
+						pendingUploads.delete(item.id);
 					});
 
 					// Reset formularza z obsługą TinyMCE
@@ -1437,6 +1473,54 @@ jQuery(document).ready(function ($) {
 		}).fail(() => {
 			alert('Błąd serwera podczas usuwania.');
 			activityItem.css('opacity', '1');
+		});
+	});
+
+	// Wyświetlanie pełnej transkrypcji
+	timelineContainer.on('click', '.view-full-transcription', function (e) {
+		e.preventDefault();
+		const attachmentId = $(this).data('attachment-id');
+		
+		// Pobierz pełną transkrypcję
+		$.post(ajaxurl, {
+			action: 'get_wpmzf_full_transcription',
+			security: securityNonce,
+			attachment_id: attachmentId
+		}).done(response => {
+			if (response.success && response.data.transcription_text) {
+				// Wyświetl modal z pełną transkrypcją
+				const modal = $(`
+					<div class="wpmzf-modal-overlay">
+						<div class="wpmzf-modal">
+							<div class="wpmzf-modal-header">
+								<h3>Pełna transkrypcja</h3>
+								<span class="wpmzf-modal-close">&times;</span>
+							</div>
+							<div class="wpmzf-modal-body">
+								<div class="transcription-full-text">
+									${window.escapeHtml(response.data.transcription_text).replace(/\n/g, '<br>')}
+								</div>
+							</div>
+							<div class="wpmzf-modal-footer">
+								<button class="button" onclick="$(this).closest('.wpmzf-modal-overlay').remove()">Zamknij</button>
+							</div>
+						</div>
+					</div>
+				`);
+				
+				$('body').append(modal);
+				
+				// Obsługa zamykania modala
+				modal.on('click', '.wpmzf-modal-close, .wpmzf-modal-overlay', function(e) {
+					if (e.target === this) {
+						modal.remove();
+					}
+				});
+			} else {
+				alert('Nie udało się pobrać transkrypcji: ' + (response.data?.message || 'Nieznany błąd'));
+			}
+		}).fail(() => {
+			alert('Błąd serwera podczas pobierania transkrypcji.');
 		});
 	});
 

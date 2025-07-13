@@ -115,6 +115,8 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-ajax-handler.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-employee-helper.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-branding-service.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-transcription-service.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-audio-transcription.php';
 
         // Controllers
         require_once WPMZF_PLUGIN_PATH . 'includes/controllers/class-wpmzf-user-controller.php';
@@ -161,6 +163,7 @@ final class WPMZF_Plugin
         new WPMZF_Time_Tracking();
         new WPMZF_Reports();
         WPMZF_Branding_Service::init();
+        new WPMZF_Transcription_Service();
 
         // Admin
         // new WPMZF_Admin(); // WYŁĄCZONE - duplikuje funkcjonalność WPMZF_Admin_Pages

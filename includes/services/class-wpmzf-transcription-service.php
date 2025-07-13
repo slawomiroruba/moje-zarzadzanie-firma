@@ -14,12 +14,19 @@ if (!defined('ABSPATH')) {
 class WPMZF_Transcription_Service {
 
     /**
+     * Constructor
+     */
+    public function __construct() {
+        $this->init();
+    }
+
+    /**
      * Initialize the service
      */
-    public static function init() {
-        add_action('wpmzf_process_transcription', array(__CLASS__, 'process_transcription'));
-        add_action('wp_ajax_wpmzf_get_transcription_status', array(__CLASS__, 'get_transcription_status'));
-        add_action('wp_ajax_wpmzf_download_transcription', array(__CLASS__, 'download_transcription'));
+    public function init() {
+        add_action('wpmzf_process_transcription', array($this, 'process_transcription'));
+        add_action('wp_ajax_wpmzf_get_transcription_status', array($this, 'get_transcription_status'));
+        add_action('wp_ajax_wpmzf_download_transcription', array($this, 'download_transcription'));
     }
 
     /**
@@ -27,7 +34,7 @@ class WPMZF_Transcription_Service {
      *
      * @param int $attachment_id
      */
-    public static function process_transcription($attachment_id) {
+    public function process_transcription($attachment_id) {
         try {
             if (!WPMZF_File_Validator::is_audio_attachment($attachment_id)) {
                 WPMZF_Logger::warning('Attempted to transcribe non-audio file', [
@@ -285,7 +292,7 @@ class WPMZF_Transcription_Service {
     /**
      * Get transcription status via AJAX
      */
-    public static function get_transcription_status() {
+    public function get_transcription_status() {
         check_ajax_referer('wpmzf_person_view_nonce', 'security');
         
         $attachment_id = isset($_POST['attachment_id']) ? intval($_POST['attachment_id']) : 0;
@@ -329,7 +336,7 @@ class WPMZF_Transcription_Service {
     /**
      * Download transcription file
      */
-    public static function download_transcription() {
+    public function download_transcription() {
         $attachment_id = isset($_GET['attachment_id']) ? intval($_GET['attachment_id']) : 0;
         
         if (!$attachment_id || !wp_verify_nonce($_GET['_wpnonce'], 'download_transcription_' . $attachment_id)) {
@@ -368,5 +375,4 @@ class WPMZF_Transcription_Service {
     }
 }
 
-// Initialize the service
-WPMZF_Transcription_Service::init();
+// Service will be initialized when instantiated

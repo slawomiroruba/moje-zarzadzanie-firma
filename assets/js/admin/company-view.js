@@ -631,6 +631,29 @@ jQuery(document).ready(function ($) {
 						previewHtml = `<span class="dashicons ${attachmentIcon}" title="${att.mime_type}"></span>`;
 					}
 
+					// Generuj HTML dla transkrypcji
+					let transcriptionHtml = '';
+					if (att.transcription) {
+						switch(att.transcription.status) {
+							case 'pending':
+							case 'processing':
+								transcriptionHtml = `<div class="transcription-status pending">⌛ Oczekuje na transkrypcję...</div>`;
+								break;
+							case 'completed':
+								transcriptionHtml = `
+									<div class="transcription-result">
+										<strong>Transkrypcja:</strong>
+										<p>${window.escapeHtml(att.transcription.text_preview)}</p>
+										<a href="#" class="view-full-transcription" data-attachment-id="${att.id}">Zobacz całość</a>
+									</div>
+								`;
+								break;
+							case 'failed':
+								transcriptionHtml = `<div class="transcription-status failed">❌ Transkrypcja nie powiodła się.</div>`;
+								break;
+						}
+					}
+
 					attachmentsHtml += `
 						<li data-attachment-id="${att.id}">
 							<a href="${att.url}" target="_blank">
@@ -638,6 +661,7 @@ jQuery(document).ready(function ($) {
 							   <span>${att.filename}</span>
 							</a>
 							<span class="dashicons dashicons-trash delete-attachment" title="Usuń załącznik"></span>
+							${transcriptionHtml}
 						</li>
 					`;
 				});
@@ -1073,6 +1097,54 @@ jQuery(document).ready(function ($) {
 		}).fail(() => {
 			alert('Błąd serwera podczas usuwania.');
 			activityItem.css('opacity', '1');
+		});
+	});
+
+	// Wyświetlanie pełnej transkrypcji
+	timelineContainer.on('click', '.view-full-transcription', function (e) {
+		e.preventDefault();
+		const attachmentId = $(this).data('attachment-id');
+		
+		// Pobierz pełną transkrypcję
+		$.post(ajaxurl, {
+			action: 'get_wpmzf_full_transcription',
+			security: securityNonce,
+			attachment_id: attachmentId
+		}).done(response => {
+			if (response.success && response.data.transcription_text) {
+				// Wyświetl modal z pełną transkrypcją
+				const modal = $(`
+					<div class="wpmzf-modal-overlay">
+						<div class="wpmzf-modal">
+							<div class="wpmzf-modal-header">
+								<h3>Pełna transkrypcja</h3>
+								<span class="wpmzf-modal-close">&times;</span>
+							</div>
+							<div class="wpmzf-modal-body">
+								<div class="transcription-full-text">
+									${window.escapeHtml(response.data.transcription_text).replace(/\n/g, '<br>')}
+								</div>
+							</div>
+							<div class="wpmzf-modal-footer">
+								<button class="button" onclick="$(this).closest('.wpmzf-modal-overlay').remove()">Zamknij</button>
+							</div>
+						</div>
+					</div>
+				`);
+				
+				$('body').append(modal);
+				
+				// Obsługa zamykania modala
+				modal.on('click', '.wpmzf-modal-close, .wpmzf-modal-overlay', function(e) {
+					if (e.target === this) {
+						modal.remove();
+					}
+				});
+			} else {
+				alert('Nie udało się pobrać transkrypcji: ' + (response.data?.message || 'Nieznany błąd'));
+			}
+		}).fail(() => {
+			alert('Błąd serwera podczas pobierania transkrypcji.');
 		});
 	});
 

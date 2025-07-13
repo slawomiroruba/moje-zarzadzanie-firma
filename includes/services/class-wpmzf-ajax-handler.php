@@ -48,6 +48,8 @@ class WPMZF_Ajax_Handler
         add_action('wp_ajax_get_wpmzf_tasks', array($this, 'get_tasks'));
         add_action('wp_ajax_get_wpmzf_task_date', array($this, 'get_task_date'));
         add_action('wp_ajax_update_wpmzf_task_status', array($this, 'update_task_status'));
+        // Hook dla transkrypcji
+        add_action('wp_ajax_get_wpmzf_full_transcription', array($this, 'get_full_transcription'));
         add_action('wp_ajax_update_wpmzf_task_assignee', array($this, 'update_task_assignee'));
         add_action('wp_ajax_wpmzf_get_users_for_task', array($this, 'get_users_for_task'));
         add_action('wp_ajax_delete_wpmzf_task', array($this, 'delete_task'));
@@ -307,6 +309,25 @@ class WPMZF_Ajax_Handler
                 update_field('field_wpmzf_activity_attachments', $rows, $activity_id);
             }
 
+            // Obsługa transkrypcji
+            $transcription_ids = isset($_POST['transcription_ids']) && is_array($_POST['transcription_ids']) 
+                ? array_map('intval', $_POST['transcription_ids']) 
+                : [];
+
+            if (!empty($transcription_ids)) {
+                foreach ($transcription_ids as $att_id) {
+                    // Sprawdź, czy to na pewno plik audio, dla bezpieczeństwa
+                    if (strpos(get_post_mime_type($att_id), 'audio/') === 0) {
+                        // Użyj WP Cron do zlecenia zadania w tle
+                        // To zapobiega przekroczeniu limitu czasu wykonania skryptu
+                        wp_schedule_single_event(time(), 'wpmzf_process_transcription', array($att_id));
+                        
+                        // Ustaw wstępny status dla załącznika
+                        update_post_meta($att_id, '_wpmzf_transcription_status', 'pending');
+                    }
+                }
+            }
+
             wp_send_json_success(array('message' => 'Aktywność dodana pomyślnie.'));
         } else {
             wp_send_json_error(array('message' => 'Wystąpił błąd podczas dodawania aktywności.'));
@@ -469,7 +490,7 @@ class WPMZF_Ajax_Handler
                             $thumbnail_url = wp_get_attachment_image_url($attachment_id, 'thumbnail');
                         }
                         
-                        $formatted[] = [
+                        $formatted_attachment = [
                             'id' => $attachment_id,
                             'filename' => basename(get_attached_file($attachment_id)),
                             'title' => $attachment_post->post_title,
@@ -478,6 +499,18 @@ class WPMZF_Ajax_Handler
                             'thumbnail_url' => $thumbnail_url,
                             'size' => $file_path ? size_format(filesize($file_path)) : 'Nieznany'
                         ];
+                        
+                        // Dodaj dane transkrypcji jeśli istnieją
+                        $transcription_status = get_post_meta($attachment_id, '_wpmzf_transcription_status', true);
+                        if ($transcription_status) {
+                            $transcription_text = get_post_meta($attachment_id, '_wpmzf_transcription_text', true);
+                            $formatted_attachment['transcription'] = [
+                                'status' => $transcription_status,
+                                'text_preview' => $transcription_text ? mb_substr($transcription_text, 0, 150) . '...' : ''
+                            ];
+                        }
+                        
+                        $formatted[] = $formatted_attachment;
                     }
                 }
             }
@@ -2357,5 +2390,40 @@ class WPMZF_Ajax_Handler
         } else {
             wp_send_json_error(['message' => 'Błąd podczas usuwania linku']);
         }
+    }
+
+    /**
+     * Pobiera pełną transkrypcję dla załącznika
+     */
+    public function get_full_transcription() {
+        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+
+        $attachment_id = intval($_POST['attachment_id'] ?? 0);
+
+        if (empty($attachment_id)) {
+            wp_send_json_error(['message' => 'Nieprawidłowe ID załącznika']);
+            return;
+        }
+
+        // Sprawdź czy załącznik istnieje
+        $attachment = get_post($attachment_id);
+        if (!$attachment || $attachment->post_type !== 'attachment') {
+            wp_send_json_error(['message' => 'Załącznik nie został znaleziony']);
+            return;
+        }
+
+        // Pobierz pełną transkrypcję
+        $transcription_text = get_post_meta($attachment_id, '_wpmzf_transcription_text', true);
+        $transcription_status = get_post_meta($attachment_id, '_wpmzf_transcription_status', true);
+
+        if (empty($transcription_text) || $transcription_status !== 'completed') {
+            wp_send_json_error(['message' => 'Transkrypcja nie jest dostępna lub nie została ukończona']);
+            return;
+        }
+
+        wp_send_json_success([
+            'transcription_text' => $transcription_text,
+            'status' => $transcription_status
+        ]);
     }
 }
