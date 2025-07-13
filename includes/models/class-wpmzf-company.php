@@ -87,6 +87,78 @@ class WPMZF_Company {
     }
 
     /**
+     * Zwraca ID firmy
+     *
+     * @return int
+     */
+    public function get_id() {
+        return $this->id;
+    }
+
+    /**
+     * Zwraca nazwę firmy
+     *
+     * @return string
+     */
+    public function get_name() {
+        return $this->name ?: '';
+    }
+
+    /**
+     * Zwraca NIP firmy
+     *
+     * @return string
+     */
+    public function get_nip() {
+        return $this->nip ?: '';
+    }
+
+    /**
+     * Zwraca adres firmy
+     *
+     * @return string
+     */
+    public function get_address() {
+        return $this->address ?: '';
+    }
+
+    /**
+     * Zwraca telefon firmy
+     *
+     * @return string
+     */
+    public function get_phone() {
+        return $this->phone ?: '';
+    }
+
+    /**
+     * Zwraca email firmy
+     *
+     * @return string
+     */
+    public function get_email() {
+        return $this->email ?: '';
+    }
+
+    /**
+     * Zwraca stronę internetową firmy
+     *
+     * @return string
+     */
+    public function get_website() {
+        return $this->website ?: '';
+    }
+
+    /**
+     * Zwraca status firmy
+     *
+     * @return string
+     */
+    public function get_status() {
+        return $this->status ?: 'Aktywny';
+    }
+
+    /**
      * Zapisuje firmę
      *
      * @return int|WP_Error ID firmy lub błąd

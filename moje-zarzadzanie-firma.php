@@ -102,6 +102,7 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-time-entry.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-activity.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-important-link.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/models/class-wpmzf-opportunity.php';
 
         // Repositories
         require_once WPMZF_PLUGIN_PATH . 'includes/repositories/class-wpmzf-user-repository.php';
@@ -117,6 +118,7 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-branding-service.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-transcription-service.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-audio-transcription.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/services/class-wpmzf-opportunity-service.php';
 
         // Controllers
         require_once WPMZF_PLUGIN_PATH . 'includes/controllers/class-wpmzf-user-controller.php';
@@ -128,6 +130,7 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-admin-columns.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-custom-columns.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-meta-boxes.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-kanban-page.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/class-wpmzf-navbar.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/class-wpmzf-view-helper.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/card/simple-card.php';
@@ -164,12 +167,14 @@ final class WPMZF_Plugin
         new WPMZF_Reports();
         WPMZF_Branding_Service::init();
         new WPMZF_Transcription_Service();
+        new WPMZF_Opportunity_Service();
 
         // Admin
         // new WPMZF_Admin(); // WYŁĄCZONE - duplikuje funkcjonalność WPMZF_Admin_Pages
         new WPMZF_Admin_Pages(); 
         WPMZF_Debug_Admin_Page::init();
         new WPMZF_Custom_Columns_Service();
+        new WPMZF_Kanban_Page();
         // new WPMZF_Navbar(); // WYŁĄCZONE - navbar jest renderowany przez WPMZF_View_Helper::render_complete_header()
         
         // Inicjalizuj WPMZF_View_Helper

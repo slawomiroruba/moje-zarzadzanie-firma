@@ -27,6 +27,7 @@ class WPMZF_Taxonomies {
         $this->register_company_categories();
         $this->register_project_statuses();
         $this->register_project_types();
+        $this->register_opportunity_statuses();
     }
 
     /**
@@ -110,5 +111,49 @@ class WPMZF_Taxonomies {
         );
 
         register_taxonomy('project_type', 'project', $args);
+    }
+
+    /**
+     * Rejestruje statusy szans sprzedaży
+     */
+    private function register_opportunity_statuses() {
+        $args = array(
+            'labels' => array(
+                'name'              => 'Statusy Szans',
+                'singular_name'     => 'Status Szansy',
+                'search_items'      => 'Szukaj statusów',
+                'all_items'         => 'Wszystkie statusy',
+                'edit_item'         => 'Edytuj status',
+                'update_item'       => 'Aktualizuj status',
+                'add_new_item'      => 'Dodaj nowy status',
+                'new_item_name'     => 'Nazwa nowego statusu',
+                'menu_name'         => 'Statusy Szans',
+            ),
+            'hierarchical'      => true,
+            'public'            => false,
+            'show_ui'           => true,
+            'show_admin_column' => true,
+            'query_var'         => true,
+            'rewrite'           => false,
+            'show_in_rest'      => true,
+        );
+
+        register_taxonomy('opportunity_status', 'opportunity', $args);
+
+        // Dodaj domyślne statusy, jeśli nie istnieją
+        add_action('init', array($this, 'create_default_opportunity_statuses'), 20);
+    }
+
+    /**
+     * Tworzy domyślne statusy szans sprzedaży
+     */
+    public function create_default_opportunity_statuses() {
+        $statuses = array('Nowa', 'W toku', 'Negocjacje', 'Wygrana', 'Przegrana');
+        
+        foreach ($statuses as $status) {
+            if (!term_exists($status, 'opportunity_status')) {
+                wp_insert_term($status, 'opportunity_status');
+            }
+        }
     }
 }

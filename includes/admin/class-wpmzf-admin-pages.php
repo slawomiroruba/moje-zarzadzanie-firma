@@ -427,6 +427,11 @@ class WPMZF_Admin_Pages
             'order' => 'DESC'
         ]);
         
+        // Statystyki szans sprzedaży
+        $opportunity_service = new WPMZF_Opportunity_Service();
+        $opportunity_stats = $opportunity_service->get_opportunities_stats();
+        $opportunities_due_soon = $opportunity_service->get_opportunities_due_soon(7);
+        
         ?>
         <style>
             /* Dashboard Styles - identyczne z widokami osób/firm */
@@ -677,6 +682,137 @@ class WPMZF_Admin_Pages
                 font-size: 16px;
             }
 
+            /* Opportunities Widget Styles */
+            .opportunities-stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 12px;
+                margin-bottom: 20px;
+            }
+
+            .opportunity-status-item {
+                background: #f8f9fa;
+                border: 1px solid #e1e5e9;
+                border-radius: 6px;
+                padding: 12px;
+                text-align: center;
+                transition: all 0.2s ease;
+            }
+
+            .opportunity-status-item:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+
+            .opportunity-status-item.status-nowa {
+                border-left: 4px solid #3498db;
+            }
+
+            .opportunity-status-item.status-w-toku {
+                border-left: 4px solid #f39c12;
+            }
+
+            .opportunity-status-item.status-negocjacje {
+                border-left: 4px solid #9b59b6;
+            }
+
+            .opportunity-status-item.status-wygrana {
+                border-left: 4px solid #27ae60;
+            }
+
+            .opportunity-status-item.status-przegrana {
+                border-left: 4px solid #e74c3c;
+            }
+
+            .status-count {
+                font-size: 18px;
+                font-weight: 700;
+                color: #1d2327;
+                line-height: 1;
+                margin-bottom: 4px;
+            }
+
+            .status-name {
+                font-size: 11px;
+                font-weight: 600;
+                color: #50575e;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 2px;
+            }
+
+            .status-value {
+                font-size: 10px;
+                color: #8c8f94;
+                font-weight: 500;
+            }
+
+            .opportunities-due-soon {
+                border-top: 1px solid #e1e5e9;
+                padding-top: 15px;
+            }
+
+            .opportunity-due-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 0;
+                border-bottom: 1px solid #f1f1f1;
+            }
+
+            .opportunity-due-item:last-child {
+                border-bottom: none;
+            }
+
+            .opportunity-due-item.overdue {
+                background: rgba(220, 53, 69, 0.05);
+                border-radius: 4px;
+                padding: 8px 10px;
+                margin: 2px 0;
+            }
+
+            .opportunity-title {
+                font-weight: 600;
+                color: #1d2327;
+                text-decoration: none;
+                font-size: 13px;
+                line-height: 1.3;
+            }
+
+            .opportunity-title:hover {
+                color: #2271b1;
+            }
+
+            .opportunity-meta {
+                font-size: 11px;
+                color: #8c8f94;
+                margin-top: 2px;
+            }
+
+            .opportunity-due-date {
+                text-align: right;
+                flex-shrink: 0;
+            }
+
+            .days-left {
+                font-size: 10px;
+                font-weight: 600;
+                padding: 2px 6px;
+                border-radius: 3px;
+                background: #f0f0f1;
+                color: #50575e;
+            }
+
+            .days-left.today {
+                background: #fff3cd;
+                color: #856404;
+            }
+
+            .days-left.overdue {
+                background: #f8d7da;
+                color: #721c24;
+            }
+
             @media screen and (max-width: 1200px) {
                 .dashboard-grid {
                     grid-template-columns: 1fr;
@@ -711,6 +847,14 @@ class WPMZF_Admin_Pages
                 <div class="stat-tile">
                     <div class="stat-number"><?php echo $open_projects_count; ?></div>
                     <div class="stat-label">Otwarte projekty</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-number"><?php echo $opportunity_stats['total_count']; ?></div>
+                    <div class="stat-label">Szanse sprzedaży</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-number"><?php echo number_format($opportunity_stats['total_value'], 0); ?> PLN</div>
+                    <div class="stat-label">Wartość szans</div>
                 </div>
             </div>
 
@@ -957,6 +1101,81 @@ class WPMZF_Admin_Pages
                     </div>
                 </div>
 
+                <!-- Widget Szans Sprzedaży -->
+                <div class="dashboard-center-column">
+                    <div class="dashboard-box">
+                        <div class="dashboard-header">
+                            <h2 class="dashboard-title">
+                                <span class="dashicons dashicons-chart-line"></span>
+                                Szanse sprzedaży
+                            </h2>
+                            <a href="<?php echo esc_url(admin_url('edit.php?post_type=opportunity&page=wpmzf_kanban_view')); ?>" class="button button-primary button-small">
+                                Kanban
+                            </a>
+                        </div>
+                        <div class="dashboard-content">
+                            <?php if (!empty($opportunity_stats['by_status'])): ?>
+                                <div class="opportunities-stats">
+                                    <?php foreach ($opportunity_stats['by_status'] as $status_name => $status_data): ?>
+                                        <div class="opportunity-status-item status-<?php echo sanitize_title($status_name); ?>">
+                                            <div class="status-count"><?php echo $status_data['count']; ?></div>
+                                            <div class="status-name"><?php echo esc_html($status_name); ?></div>
+                                            <div class="status-value"><?php echo number_format($status_data['value'], 0); ?> PLN</div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                
+                                <?php if (!empty($opportunities_due_soon)): ?>
+                                    <div class="opportunities-due-soon">
+                                        <h4 style="margin: 20px 0 10px; color: #1d2327; font-size: 14px;">
+                                            <span class="dashicons dashicons-clock" style="color: #f39c12;"></span>
+                                            Do zamknięcia w ciągu 7 dni
+                                        </h4>
+                                        <?php foreach (array_slice($opportunities_due_soon, 0, 5) as $opportunity): ?>
+                                            <?php
+                                            $company = $opportunity->get_company();
+                                            $expected_close = get_field('opportunity_expected_close_date', $opportunity->get_id());
+                                            $days_left = $expected_close ? floor((strtotime($expected_close) - time()) / (60 * 60 * 24)) : null;
+                                            ?>
+                                            <div class="opportunity-due-item <?php echo $days_left !== null && $days_left <= 0 ? 'overdue' : ''; ?>">
+                                                <div class="opportunity-info">
+                                                    <a href="<?php echo get_edit_post_link($opportunity->get_id()); ?>" class="opportunity-title">
+                                                        <?php echo esc_html($opportunity->get_title()); ?>
+                                                    </a>
+                                                    <div class="opportunity-meta">
+                                                        <?php if ($company): ?>
+                                                            <?php echo esc_html($company->get_name()); ?> • 
+                                                        <?php endif; ?>
+                                                        <?php echo number_format($opportunity->get_value(), 0); ?> PLN
+                                                    </div>
+                                                </div>
+                                                <div class="opportunity-due-date">
+                                                    <?php if ($days_left !== null): ?>
+                                                        <?php if ($days_left > 0): ?>
+                                                            <span class="days-left"><?php echo $days_left; ?> dni</span>
+                                                        <?php elseif ($days_left == 0): ?>
+                                                            <span class="days-left today">Dziś</span>
+                                                        <?php else: ?>
+                                                            <span class="days-left overdue"><?php echo abs($days_left); ?> dni po terminie</span>
+                                                        <?php endif; ?>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <div style="text-align: center; color: #8c8f94; padding: 20px;">
+                                    <p style="margin: 0;">Brak szans sprzedaży.</p>
+                                    <a href="<?php echo admin_url('post-new.php?post_type=opportunity'); ?>" class="button button-secondary" style="margin-top: 10px;">
+                                        Dodaj pierwszą szansę
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Prawa kolumna - Nawigacja -->
                 <div class="dashboard-right-column">
                     <div class="dashboard-box">
@@ -974,6 +1193,14 @@ class WPMZF_Admin_Pages
                                 <span class="dashicons dashicons-portfolio"></span>
                                 Wszystkie projekty
                             </a>
+                            <a href="<?php echo esc_url(admin_url('edit.php?post_type=opportunity')); ?>" class="nav-button">
+                                <span class="dashicons dashicons-chart-line"></span>
+                                Szanse sprzedaży
+                            </a>
+                            <a href="<?php echo esc_url(admin_url('edit.php?post_type=opportunity&page=wpmzf_kanban_view')); ?>" class="nav-button">
+                                <span class="dashicons dashicons-grid-view"></span>
+                                Kanban szans
+                            </a>
                             <a href="<?php echo esc_url(admin_url('post-new.php?post_type=person')); ?>" class="nav-button">
                                 <span class="dashicons dashicons-plus"></span>
                                 Dodaj osobę
@@ -985,6 +1212,10 @@ class WPMZF_Admin_Pages
                             <a href="<?php echo esc_url(admin_url('post-new.php?post_type=project')); ?>" class="nav-button">
                                 <span class="dashicons dashicons-plus"></span>
                                 Dodaj projekt
+                            </a>
+                            <a href="<?php echo esc_url(admin_url('post-new.php?post_type=opportunity')); ?>" class="nav-button">
+                                <span class="dashicons dashicons-plus"></span>
+                                Dodaj szansę
                             </a>
                         </div>
                     </div>

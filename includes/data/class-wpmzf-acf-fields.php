@@ -366,7 +366,105 @@ class WPMZF_ACF_Fields
     }
     private function define_opportunity_fields()
     {
-        // ... (Analogicznie dla Szans Sprzedaży)
+        acf_add_local_field_group(array(
+            'key' => 'group_wpmzf_opportunity',
+            'title' => 'Szczegóły Szansy Sprzedaży',
+            'fields' => array(
+                array(
+                    'key' => 'field_wpmzf_opportunity_company',
+                    'label' => 'Firma',
+                    'name' => 'opportunity_company',
+                    'type' => 'relationship',
+                    'post_type' => array('company'),
+                    'max' => 1,
+                    'min' => 0,
+                    'return_format' => 'id',
+                    'ui' => 1,
+                    'instructions' => 'Wybierz firmę, dla której dotyczy ta szansa sprzedaży.',
+                ),
+                array(
+                    'key' => 'field_wpmzf_opportunity_value',
+                    'label' => 'Wartość (PLN)',
+                    'name' => 'opportunity_value',
+                    'type' => 'number',
+                    'step' => 0.01,
+                    'min' => 0,
+                    'instructions' => 'Szacowana wartość szansy sprzedaży w PLN.',
+                ),
+                array(
+                    'key' => 'field_wpmzf_opportunity_probability',
+                    'label' => 'Prawdopodobieństwo (%)',
+                    'name' => 'opportunity_probability',
+                    'type' => 'number',
+                    'min' => 0,
+                    'max' => 100,
+                    'default_value' => 50,
+                    'instructions' => 'Prawdopodobieństwo wygrania szansy (0-100%).',
+                ),
+                array(
+                    'key' => 'field_wpmzf_opportunity_expected_close_date',
+                    'label' => 'Przewidywana data zamknięcia',
+                    'name' => 'opportunity_expected_close_date',
+                    'type' => 'date_picker',
+                    'display_format' => 'd/m/Y',
+                    'return_format' => 'Y-m-d',
+                    'instructions' => 'Kiedy spodziewamy się zamknięcia tej szansy?',
+                ),
+                array(
+                    'key' => 'field_wpmzf_opportunity_reason',
+                    'label' => 'Powód wygranej/przegranej',
+                    'name' => 'opportunity_reason',
+                    'type' => 'textarea',
+                    'rows' => 3,
+                    'instructions' => 'Opisz powód wygrania lub przegrania szansy. Pole opcjonalne.',
+                ),
+                array(
+                    'key' => 'field_wpmzf_opportunity_contact_person',
+                    'label' => 'Osoba kontaktowa',
+                    'name' => 'opportunity_contact_person',
+                    'type' => 'relationship',
+                    'post_type' => array('person'),
+                    'max' => 1,
+                    'min' => 0,
+                    'return_format' => 'id',
+                    'ui' => 1,
+                    'instructions' => 'Główna osoba kontaktowa w tej szansie sprzedaży.',
+                ),
+                array(
+                    'key' => 'field_wpmzf_opportunity_source',
+                    'label' => 'Źródło',
+                    'name' => 'opportunity_source',
+                    'type' => 'select',
+                    'choices' => array(
+                        'website' => 'Strona internetowa',
+                        'referral' => 'Polecenie',
+                        'cold_call' => 'Zimny kontakt',
+                        'social_media' => 'Media społecznościowe',
+                        'trade_show' => 'Targi',
+                        'advertising' => 'Reklama',
+                        'email_campaign' => 'Kampania email',
+                        'other' => 'Inne',
+                    ),
+                    'default_value' => 'website',
+                    'allow_null' => 1,
+                    'instructions' => 'Skąd pochodzi ta szansa sprzedaży?',
+                ),
+            ),
+            'location' => array(
+                array(
+                    array(
+                        'param' => 'post_type',
+                        'operator' => '==',
+                        'value' => 'opportunity',
+                    ),
+                ),
+            ),
+            'menu_order' => 0,
+            'position' => 'normal',
+            'style' => 'default',
+            'label_placement' => 'top',
+            'instruction_placement' => 'label',
+        ));
     }
 
     private function define_quote_fields()
