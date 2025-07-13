@@ -92,6 +92,15 @@ class WPMZF_Company {
      * @return int|WP_Error ID firmy lub błąd
      */
     public function save() {
+        // Walidacja przed zapisem
+        $validation = $this->validate();
+        if (is_array($validation)) {
+            return new WP_Error('validation_failed', 'Błędy walidacji: ' . implode(', ', $validation));
+        }
+        
+        // Sanityzacja danych przed zapisem
+        $this->sanitize();
+        
         $post_data = array(
             'post_type' => 'company',
             'post_title' => $this->name,
@@ -108,9 +117,75 @@ class WPMZF_Company {
         if (!is_wp_error($result)) {
             $this->id = $result;
             $this->save_meta();
+            
+            // Log successful save
+            WPMZF_Logger::info('Company saved successfully', ['company_id' => $this->id, 'name' => $this->name]);
+        } else {
+            WPMZF_Logger::error('Failed to save company', ['error' => $result->get_error_message()]);
         }
 
         return $result;
+    }
+
+    /**
+     * Waliduje dane firmy
+     *
+     * @return array|bool true jeśli dane są poprawne, array z błędami w przeciwnym razie
+     */
+    public function validate() {
+        $errors = [];
+
+        // Walidacja nazwy firmy
+        if (empty($this->name) || strlen(trim($this->name)) < 2) {
+            $errors['name'] = 'Nazwa firmy musi mieć co najmniej 2 znaki';
+        }
+
+        // Walidacja NIP-u (opcjonalna ale jeśli podana, to musi być poprawna)
+        if (!empty($this->nip)) {
+            $nip_clean = preg_replace('/[^0-9]/', '', $this->nip);
+            if (strlen($nip_clean) !== 10) {
+                $errors['nip'] = 'NIP musi składać się z 10 cyfr';
+            }
+        }
+
+        // Walidacja email (opcjonalna ale jeśli podana, to musi być poprawna)
+        if (!empty($this->email) && !is_email($this->email)) {
+            $errors['email'] = 'Niepoprawny format email';
+        }
+
+        // Walidacja telefonu (opcjonalna ale jeśli podana, to musi być poprawna)
+        if (!empty($this->phone)) {
+            $phone_clean = preg_replace('/[^0-9+\-\s]/', '', $this->phone);
+            if (strlen($phone_clean) < 9) {
+                $errors['phone'] = 'Niepoprawny numer telefonu';
+            }
+        }
+
+        // Walidacja strony internetowej
+        if (!empty($this->website) && !filter_var($this->website, FILTER_VALIDATE_URL)) {
+            $errors['website'] = 'Niepoprawny format strony internetowej';
+        }
+
+        // Walidacja statusu
+        $allowed_statuses = ['Aktywny', 'Nieaktywny', 'Zarchiwizowany'];
+        if (!empty($this->status) && !in_array($this->status, $allowed_statuses)) {
+            $errors['status'] = 'Niepoprawny status firmy';
+        }
+
+        return empty($errors) ? true : $errors;
+    }
+
+    /**
+     * Sanityzuje dane przed zapisem
+     */
+    public function sanitize() {
+        $this->name = sanitize_text_field($this->name);
+        $this->nip = sanitize_text_field($this->nip);
+        $this->address = sanitize_textarea_field($this->address);
+        $this->phone = sanitize_text_field($this->phone);
+        $this->email = sanitize_email($this->email);
+        $this->website = esc_url_raw($this->website);
+        $this->status = sanitize_text_field($this->status);
     }
 
     /**

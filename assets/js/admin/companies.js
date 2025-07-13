@@ -1,11 +1,80 @@
 /**
- * Companies Management JavaScript
+ * Companies Management JavaScript - Vanilla JS
  *
  * @package WPMZF
  */
 
-(function($) {
+(function() {
     'use strict';
+
+    // Utility functions for vanilla JS replacements
+    function ready(fn) {
+        if (document.readyState !== 'loading') {
+            fn();
+        } else {
+            document.addEventListener('DOMContentLoaded', fn);
+        }
+    }
+
+    function $(selector, context = document) {
+        if (selector.startsWith('#')) {
+            return context.getElementById(selector.slice(1));
+        }
+        return context.querySelector(selector);
+    }
+
+    function $$(selector, context = document) {
+        return context.querySelectorAll(selector);
+    }
+
+    function ajax(options) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const method = options.type || options.method || 'GET';
+            const url = options.url;
+            
+            xhr.open(method, url, true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            
+            xhr.onload = function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (options.success) options.success(response);
+                        resolve(response);
+                    } catch (e) {
+                        if (options.success) options.success(xhr.responseText);
+                        resolve(xhr.responseText);
+                    }
+                } else {
+                    if (options.error) options.error(xhr);
+                    reject(xhr);
+                }
+            };
+            
+            xhr.onerror = function() {
+                if (options.error) options.error(xhr);
+                reject(xhr);
+            };
+            
+            if (options.beforeSend) options.beforeSend();
+            
+            xhr.send(options.data || null);
+            
+            xhr.onloadend = function() {
+                if (options.complete) options.complete();
+            };
+        });
+    }
+
+    function serializeForm(form) {
+        const formData = new FormData(form);
+        const params = new URLSearchParams();
+        for (const [key, value] of formData) {
+            params.append(key, value);
+        }
+        return params.toString();
+    }
 
     var Companies = {
         init: function() {
@@ -14,16 +83,39 @@
         },
 
         bindEvents: function() {
-            $(document).on('click', '.add-company', this.showAddForm);
-            $(document).on('click', '.edit-company', this.showEditForm);
-            $(document).on('click', '.delete-company', this.deleteCompany);
-            $(document).on('submit', '#company-form', this.saveCompany);
-            $(document).on('click', '.company-card', this.showCompanyDetails);
+            document.addEventListener('click', this.handleClick.bind(this));
+            document.addEventListener('submit', this.handleSubmit.bind(this));
+        },
+
+        handleClick: function(e) {
+            if (e.target.matches('.add-company') || e.target.closest('.add-company')) {
+                this.showAddForm();
+            } else if (e.target.matches('.edit-company') || e.target.closest('.edit-company')) {
+                this.showEditForm(e.target.closest('.edit-company'));
+            } else if (e.target.matches('.delete-company') || e.target.closest('.delete-company')) {
+                this.deleteCompany(e.target.closest('.delete-company'));
+            } else if (e.target.matches('.company-card') || e.target.closest('.company-card')) {
+                this.showCompanyDetails(e.target.closest('.company-card'));
+            } else if (e.target.matches('.modal-close, .cancel-company')) {
+                $('#company-modal').style.display = 'none';
+            } else if (e.target.matches('.luna-crm-modal')) {
+                if (e.target === e.currentTarget) {
+                    e.target.style.display = 'none';
+                }
+            }
+        },
+
+        handleSubmit: function(e) {
+            if (e.target.matches('#company-form')) {
+                this.saveCompany(e);
+            }
         },
 
         initDataTable: function() {
-            if ($('#companies-table').length > 0) {
-                $('#companies-table').DataTable({
+            const table = $('#companies-table');
+            if (table && typeof jQuery !== 'undefined' && jQuery.fn.DataTable) {
+                // Keep DataTable as jQuery dependency if it exists
+                jQuery(table).DataTable({
                     language: {
                         url: '//cdn.datatables.net/plug-ins/1.10.24/i18n/Polish.json'
                     },
@@ -37,49 +129,50 @@
         },
 
         showAddForm: function() {
-            Companies.openModal('add');
+            this.openModal('add');
         },
 
-        showEditForm: function() {
-            var companyId = $(this).data('company-id');
-            Companies.openModal('edit', companyId);
+        showEditForm: function(element) {
+            const companyId = element.dataset.companyId;
+            this.openModal('edit', companyId);
         },
 
         openModal: function(action, companyId = null) {
-            var modal = $('#company-modal');
-            var form = $('#company-form');
+            const modal = $('#company-modal');
+            const form = $('#company-form');
+            const modalTitle = modal.querySelector('.modal-title');
             
             if (action === 'edit' && companyId) {
-                Companies.loadCompanyData(companyId);
-                modal.find('.modal-title').text('Edytuj firmę');
+                this.loadCompanyData(companyId);
+                modalTitle.textContent = 'Edytuj firmę';
             } else {
-                form[0].reset();
-                modal.find('.modal-title').text('Dodaj firmę');
-                $('#company-id').val('');
+                form.reset();
+                modalTitle.textContent = 'Dodaj firmę';
+                $('#company-id').value = '';
             }
             
-            modal.show();
+            modal.style.display = 'block';
         },
 
         loadCompanyData: function(companyId) {
-            $.ajax({
+            ajax({
                 url: ajaxurl,
                 type: 'POST',
-                data: {
+                data: new URLSearchParams({
                     action: 'wpmzf_get_company',
                     company_id: companyId,
                     nonce: wpmzf_companies.nonce
-                },
+                }).toString(),
                 success: function(response) {
                     if (response.success) {
-                        var company = response.data;
-                        $('#company-id').val(company.id);
-                        $('#company-name').val(company.name);
-                        $('#company-nip').val(company.nip);
-                        $('#company-address').val(company.address);
-                        $('#company-phone').val(company.phone);
-                        $('#company-email').val(company.email);
-                        $('#company-website').val(company.website);
+                        const company = response.data;
+                        $('#company-id').value = company.id;
+                        $('#company-name').value = company.name;
+                        $('#company-nip').value = company.nip;
+                        $('#company-address').value = company.address;
+                        $('#company-phone').value = company.phone;
+                        $('#company-email').value = company.email;
+                        $('#company-website').value = company.website;
                     }
                 }
             });
@@ -88,19 +181,20 @@
         saveCompany: function(e) {
             e.preventDefault();
             
-            var form = $(this);
-            var formData = form.serialize();
+            const form = e.target;
+            const formData = serializeForm(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
             
-            $.ajax({
+            ajax({
                 url: ajaxurl,
                 type: 'POST',
                 data: formData + '&action=wpmzf_save_company&nonce=' + wpmzf_companies.nonce,
                 beforeSend: function() {
-                    form.find('button[type="submit"]').prop('disabled', true);
+                    submitBtn.disabled = true;
                 },
                 success: function(response) {
                     if (response.success) {
-                        $('#company-modal').hide();
+                        $('#company-modal').style.display = 'none';
                         Companies.showNotification('Firma została zapisana', 'success');
                         setTimeout(function() {
                             location.reload();
@@ -110,24 +204,25 @@
                     }
                 },
                 complete: function() {
-                    form.find('button[type="submit"]').prop('disabled', false);
+                    submitBtn.disabled = false;
                 }
             });
         },
 
-        deleteCompany: function() {
-            var companyId = $(this).data('company-id');
-            var companyName = $(this).closest('.company-card').find('h3').text();
+        deleteCompany: function(element) {
+            const companyId = element.dataset.companyId;
+            const companyCard = element.closest('.company-card');
+            const companyName = companyCard.querySelector('h3').textContent;
             
             if (confirm('Czy na pewno chcesz usunąć firmę "' + companyName + '"?')) {
-                $.ajax({
+                ajax({
                     url: ajaxurl,
                     type: 'POST',
-                    data: {
+                    data: new URLSearchParams({
                         action: 'wpmzf_delete_company',
                         company_id: companyId,
                         nonce: wpmzf_companies.nonce
-                    },
+                    }).toString(),
                     success: function(response) {
                         if (response.success) {
                             Companies.showNotification('Firma została usunięta', 'success');
@@ -142,38 +237,38 @@
             }
         },
 
-        showCompanyDetails: function() {
-            var companyId = $(this).data('company-id');
+        showCompanyDetails: function(element) {
+            const companyId = element.dataset.companyId;
             window.location.href = wpmzf_companies.company_view_url + '&company_id=' + companyId;
         },
 
         showNotification: function(message, type) {
-            var notification = $('<div class="notice notice-' + type + ' is-dismissible"><p>' + message + '</p></div>');
-            $('.wrap h1').after(notification);
+            const notification = document.createElement('div');
+            notification.className = 'notice notice-' + type + ' is-dismissible';
+            notification.innerHTML = '<p>' + message + '</p>';
+            
+            const wrapH1 = document.querySelector('.wrap h1');
+            if (wrapH1) {
+                wrapH1.insertAdjacentElement('afterend', notification);
+            }
             
             setTimeout(function() {
-                notification.fadeOut();
+                notification.style.transition = 'opacity 0.3s';
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
             }, 3000);
         }
     };
 
     // Inicjalizacja
-    $(document).ready(function() {
+    ready(function() {
         if (typeof wpmzf_companies !== 'undefined') {
             Companies.init();
         }
     });
 
-    // Modal events
-    $(document).on('click', '.modal-close, .cancel-company', function() {
-        $('#company-modal').hide();
-    });
-
-    // Click outside modal to close
-    $(document).on('click', '.luna-crm-modal', function(e) {
-        if (e.target === this) {
-            $(this).hide();
-        }
-    });
-
-})(jQuery);
+})();

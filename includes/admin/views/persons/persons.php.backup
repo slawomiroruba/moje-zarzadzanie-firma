@@ -10,21 +10,37 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Renderuj nawigację i header
+WPMZF_View_Helper::render_complete_header(array(
+    'title' => 'Osoby',
+    'subtitle' => 'Zarządzaj kontaktami osobowymi w swoim systemie CRM',
+    'breadcrumbs' => array(
+        array('label' => 'Dashboard', 'url' => admin_url('admin.php?page=wpmzf_dashboard')),
+        array('label' => 'Osoby', 'url' => '')
+    ),
+    'actions' => array(
+        array(
+            'label' => 'Dodaj osobę',
+            'url' => admin_url('post-new.php?post_type=person'),
+            'icon' => '➕',
+            'class' => 'button button-primary'
+        ),
+        array(
+            'label' => 'Import osób',
+            'url' => '#',
+            'icon' => '📥',
+            'class' => 'button'
+        )
+    )
+));
+
 // Pobieranie osób
 $persons = WPMZF_Person::get_persons();
 $companies = WPMZF_Company::get_companies();
 ?>
 
-<div class="wrap">
-    <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-    
-    <div class="luna-crm-persons">
-        <div class="luna-crm-header">
-            <button class="button button-primary" id="add-person">
-                <span class="dashicons dashicons-plus"></span> Dodaj osobę
-            </button>
-        </div>
-        
+<div class="wrap">    
+    <div class="luna-crm-persons">        
         <div class="luna-crm-persons-grid">
             <?php if (!empty($persons)): ?>
                 <?php foreach ($persons as $person): ?>
@@ -118,6 +134,23 @@ $companies = WPMZF_Company::get_companies();
                 </select>
             </div>
             
+            <div class="luna-crm-form-group">
+                <label for="person-referrer">Polecający</label>
+                <select id="person-referrer" name="person_referrer">
+                    <option value="">Brak polecającego</option>
+                    <optgroup label="👤 Osoby">
+                        <?php foreach ($persons as $person_option): ?>
+                            <option value="<?php echo $person_option->id; ?>">👤 <?php echo esc_html($person_option->get_full_name()); ?></option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                    <optgroup label="🏢 Firmy">
+                        <?php foreach ($companies as $company_option): ?>
+                            <option value="<?php echo $company_option->id; ?>">🏢 <?php echo esc_html($company_option->name); ?></option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                </select>
+            </div>
+            
             <div class="luna-crm-form-actions">
                 <button type="submit" class="button button-primary">Zapisz</button>
                 <button type="button" class="button cancel-person">Anuluj</button>
@@ -205,6 +238,7 @@ jQuery(document).ready(function($) {
                     $('#person-phone').val(person.phone);
                     $('#person-position').val(person.position);
                     $('#person-company').val(person.company_id);
+                    $('#person-referrer').val(person.person_referrer || '');
                 }
             }
         });

@@ -88,14 +88,34 @@ class WPMZF_User {
     public function validate() {
         $errors = [];
 
-        if (empty($this->name)) {
-            $errors['name'] = 'Imię jest wymagane';
+        if (empty($this->name) || strlen(trim($this->name)) < 2) {
+            $errors['name'] = 'Imię musi mieć co najmniej 2 znaki';
         }
 
         if (empty($this->email)) {
             $errors['email'] = 'Email jest wymagany';
         } elseif (!is_email($this->email)) {
             $errors['email'] = 'Niepoprawny format email';
+        } else {
+            // Sprawdź czy email jest unikalny
+            global $wpdb;
+            $existing = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}wpmzf_users WHERE email = %s AND id != %d",
+                $this->email,
+                $this->id ?? 0
+            ));
+            
+            if ($existing) {
+                $errors['email'] = 'Ten adres email jest już używany';
+            }
+        }
+
+        // Walidacja telefonu
+        if (!empty($this->phone)) {
+            $phone_clean = preg_replace('/[^0-9+\-\s]/', '', $this->phone);
+            if (strlen($phone_clean) < 9) {
+                $errors['phone'] = 'Niepoprawny numer telefonu';
+            }
         }
 
         return empty($errors) ? true : $errors;

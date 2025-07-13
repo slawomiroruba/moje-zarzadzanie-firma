@@ -79,12 +79,23 @@ function showNotification(message, type = 'info') {
 jQuery(document).ready(function ($) {
 	// --- Zmienne ---
 	const personId = $('input[name="person_id"]').val();
-	// Używamy zmiennych z wp_localize_script jeśli są dostępne, w przeciwnym razie fallback
-	const securityNonce = (typeof wpmzfPersonView !== 'undefined' && wpmzfPersonView.nonce) ? 
-		wpmzfPersonView.nonce : $('#wpmzf_security').val();
-	const taskSecurityNonce = (typeof wpmzfPersonView !== 'undefined' && wpmzfPersonView.taskNonce) ? 
-		wpmzfPersonView.taskNonce : $('#wpmzf_task_security').val();
+	console.log('Person ID found:', personId); // Debug
 	
+	// Używamy zmiennych z wp_localize_script jeśli są dostępne, w przeciwnym razie fallback
+	const securityNonce = (typeof wpmzfPersonView !== 'undefined' && wpmzfPersonView.nonce) ?
+		wpmzfPersonView.nonce : $('#wpmzf_security').val();
+	const taskSecurityNonce = (typeof wpmzfPersonView !== 'undefined' && wpmzfPersonView.taskNonce) ?
+		wpmzfPersonView.taskNonce : $('#wpmzf_task_security').val();
+
+	console.log('Security nonce:', securityNonce); // Debug
+	console.log('Task security nonce:', taskSecurityNonce); // Debug
+
+	// Sprawdź czy personId jest prawidłowe
+	if (!personId || personId === '' || personId === 'undefined') {
+		console.error('Person ID not found or invalid!');
+		return;
+	}
+
 	const form = $('#wpmzf-add-activity-form');
 	const timelineContainer = $('#wpmzf-activity-timeline');
 	const submitButton = $('#wpmzf-submit-activity-btn');
@@ -175,6 +186,61 @@ jQuery(document).ready(function ($) {
 					id: params.term,
 					text: params.term + " (nowa firma)",
 					newTag: true
+				}
+			}
+		});
+	}
+
+	// === INICJALIZACJA PERSON REFERRER SELECT ===
+	// Sprawdzamy, czy na stronie istnieje element #person_referrer_select
+	if ($('#person_referrer_select').length) {
+
+		$('#person_referrer_select').select2({
+			width: '100%',
+			placeholder: 'Wybierz polecającego',
+			allowClear: true,
+			// Używamy wyszukiwania mieszanego - osoby i firmy
+			ajax: {
+				url: ajaxurl,
+				dataType: 'json',
+				delay: 250,
+
+				data: function (params) {
+					return {
+						action: 'wpmzf_search_referrers', // Nowa akcja dla polecających
+						security: $('#wpmzf_security').val(),
+						term: params.term
+					};
+				},
+
+				processResults: function (data, params) {
+					if (data.success && Array.isArray(data.data)) {
+						return {
+							results: data.data
+						};
+					}
+					return {
+						results: []
+					};
+				},
+				cache: true
+			},
+
+			minimumInputLength: 2,
+
+			language: {
+				inputTooShort: function (args) {
+					var remainingChars = args.minimum - args.input.length;
+					return 'Wpisz jeszcze ' + remainingChars + ' znaki';
+				},
+				loadingMore: function () {
+					return 'Wczytywanie wyników…';
+				},
+				noResults: function () {
+					return 'Nie znaleziono osoby lub firmy.';
+				},
+				searching: function () {
+					return 'Szukanie…';
 				}
 			}
 		});
@@ -798,7 +864,7 @@ jQuery(document).ready(function ($) {
 			'text/plain', 'text/csv', 'application/zip', 'application/x-rar-compressed'
 		];
 
-		const maxSize = 10 * 1024 * 1024; // 10MB
+		const maxSize = 50 * 1024 * 1024; // 50MB
 
 		if (!allowedTypes.includes(file.type)) {
 			showNotification('Niedozwolony typ pliku: ' + file.type, 'error');
@@ -806,7 +872,7 @@ jQuery(document).ready(function ($) {
 		}
 
 		if (file.size > maxSize) {
-			showNotification('Plik jest za duży. Maksymalny rozmiar to 10MB.', 'error');
+			showNotification('Plik jest za duży. Maksymalny rozmiar to 50MB.', 'error');
 			return false;
 		}
 
@@ -991,22 +1057,33 @@ jQuery(document).ready(function ($) {
 	function loadActivities() {
 		timelineContainer.html('<p><em>Ładowanie aktywności...</em></p>');
 
+		console.log('person Loading activities for person ID:', personId);
+		console.log('Data being sent:', {
+			action: 'get_wpmzf_activities',
+			person_id: personId,
+			security: securityNonce
+		});
+
 		$.ajax({
 			url: ajaxurl,
-			type: 'GET',
+			type: 'POST',
 			data: {
 				action: 'get_wpmzf_activities',
 				security: securityNonce,
 				person_id: personId
 			},
 			success: function (response) {
+				console.log('Person activities response:', response);
 				if (response.success) {
 					renderTimeline(response.data);
 				} else {
-					timelineContainer.html('<p style="color:red;">Błąd ładowania: ' + response.data.message + '</p>');
+					console.error('Error loading person activities:', response.data);
+					const errorMsg = response.data && response.data.message ? response.data.message : 'Nieznany błąd';
+					timelineContainer.html('<p style="color:red;">Błąd ładowania: ' + errorMsg + '</p>');
 				}
 			},
-			error: function () {
+			error: function (xhr, status, error) {
+				console.error('Person activities AJAX error:', status, error, xhr);
 				timelineContainer.html('<p style="color:red;">Wystąpił krytyczny błąd serwera.</p>');
 			}
 		});
@@ -1259,7 +1336,7 @@ jQuery(document).ready(function ($) {
 				}
 			},
 			error: function () {
-				showNotification('Wystąpił krytyczny błąd serwera przy dodawaniu aktywności.', 'error');
+				showNotification('Brak zarejestrowanych aktywności. Dodaj pierwszą!', 'error');
 			},
 			complete: function () {
 				submitButton.text(originalButtonText).prop('disabled', false);
@@ -1518,6 +1595,7 @@ jQuery(document).ready(function ($) {
 			person_email: form.find('#person_email').val(),
 			person_phone: form.find('#person_phone').val(),
 			person_company: $('#company_search_select').val(),
+			person_referrer: $('#person_referrer_select').val(),
 			person_street: form.find('#person_street').val(),
 			person_postal_code: form.find('#person_postal_code').val(),
 			person_city: form.find('#person_city').val(),
@@ -1540,6 +1618,14 @@ jQuery(document).ready(function ($) {
 						companySpan.html(response.data.company_html);
 					} else {
 						companySpan.text('Brak');
+					}
+
+					// Aktualizacja polecającego
+					const referrerSpan = viewMode.find('span[data-field="person_referrer"]');
+					if (response.data.referrer_html) {
+						referrerSpan.html(response.data.referrer_html);
+					} else {
+						referrerSpan.text('Brak');
 					}
 
 					const addressParts = [formData.person_street, formData.person_postal_code, formData.person_city];
@@ -1591,7 +1677,7 @@ jQuery(document).ready(function ($) {
 		const day = String(now.getDate()).padStart(2, '0');
 		const hours = String(now.getHours()).padStart(2, '0');
 		const minutes = String(now.getMinutes()).padStart(2, '0');
-		
+
 		const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
 		taskDueDateInput.val(dateTimeString);
 	}
@@ -1603,13 +1689,14 @@ jQuery(document).ready(function ($) {
 	// === DODAWANIE ZADANIA ===
 	taskForm.on('submit', function (e) {
 		e.preventDefault();
-		
+
 		// Oznacz, że handler AJAX jest przypisany
 		$(this).data('ajax-handler-attached', true);
 
 		const taskTitle = taskTitleInput.val().trim();
 		const taskDueDate = taskDueDateInput.val();
-		
+		const assignedUser = $('#wpmzf-task-assigned-user').val();
+
 		if (!taskTitle) {
 			alert('Proszę wpisać treść zadania.');
 			return;
@@ -1626,13 +1713,15 @@ jQuery(document).ready(function ($) {
 				wpmzf_task_security: taskSecurityNonce,
 				person_id: personId,
 				task_title: taskTitle,
-				task_due_date: taskDueDate
+				task_due_date: taskDueDate,
+				assigned_user: assignedUser
 			},
 			dataType: 'json'
 		})
 			.done(function (response) {
 				if (response.success) {
 					taskTitleInput.val(''); // Wyczyść pole tytułu
+					$('#wpmzf-task-assigned-user').val(''); // Wyczyść pole przypisanego użytkownika
 					setDefaultTaskDateTime(); // Ustaw nową bieżącą datę zamiast czyścić
 					loadTasks(); // Odśwież listę zadań
 
@@ -1736,9 +1825,9 @@ jQuery(document).ready(function ($) {
 							<div class="task-title">${window.escapeHtml(task.title)}</div>
 							<div class="task-actions">
 								${task.status !== 'Zrobione' ?
-					`<span class="dashicons dashicons-yes-alt" title="Oznacz jako zrobione" data-action="complete"></span>` :
-					`<span class="dashicons dashicons-undo" title="Oznacz jako do zrobienia" data-action="reopen"></span>`
-				}
+				`<span class="dashicons dashicons-yes-alt" title="Oznacz jako zrobione" data-action="complete"></span>` :
+				`<span class="dashicons dashicons-undo" title="Oznacz jako do zrobienia" data-action="reopen"></span>`
+			}
 								<span class="dashicons dashicons-calendar-alt" title="Edytuj termin" data-action="edit-date"></span>
 								<span class="dashicons dashicons-trash" title="Usuń zadanie" data-action="delete"></span>
 								<span class="dashicons dashicons-edit" title="Edytuj zadanie" data-action="edit"></span>
@@ -1749,6 +1838,7 @@ jQuery(document).ready(function ($) {
 								<span class="task-status ${task.status.toLowerCase().replace(/\s+/g, '-')}">${statusLabel}</span>
 								${priorityInfo ? `<span class="task-priority-indicator ${task.priority}">${priorityInfo}</span>` : ''}
 								${taskDateTime ? `<span class="task-date ${taskClass}">${taskDateTime}</span>` : ''}
+								${task.assigned_user_name ? `<span class="task-assigned-user">👤 ${window.escapeHtml(task.assigned_user_name)}</span>` : ''}
 							</div>
 						</div>
 					</div>
@@ -1781,7 +1871,7 @@ jQuery(document).ready(function ($) {
 
 		const date = new Date(dateString);
 		const today = new Date();
-		
+
 		// Jeśli to dzisiaj, pokaż tylko godzinę
 		if (date.toDateString() === today.toDateString()) {
 			return date.toLocaleTimeString('pl-PL', {
@@ -1789,7 +1879,7 @@ jQuery(document).ready(function ($) {
 				minute: '2-digit'
 			});
 		}
-		
+
 		// W przeciwnym razie pokaż datę i godzinę
 		return date.toLocaleDateString('pl-PL', {
 			day: '2-digit',
@@ -1803,13 +1893,13 @@ jQuery(document).ready(function ($) {
 
 	function getPriorityInfo(priority, dueDate) {
 		if (!dueDate) return null;
-		
+
 		const priorityLabels = {
 			'overdue': 'SPÓŹNIONE',
 			'today': 'DZISIAJ',
 			'upcoming': 'ZAPLANOWANE'
 		};
-		
+
 		return priorityLabels[priority] || null;
 	}
 
@@ -2000,7 +2090,7 @@ jQuery(document).ready(function ($) {
 		const taskItem = $(`.task-item[data-task-id="${taskId}"]`);
 		const taskDateElement = taskItem.find('.task-date');
 		let currentDate = '';
-		
+
 		// Pobierz aktualną datę z atrybutu data lub z serwera
 		$.ajax({
 			url: ajaxurl,
@@ -2012,23 +2102,23 @@ jQuery(document).ready(function ($) {
 			},
 			dataType: 'json'
 		})
-		.done(function (response) {
-			if (response.success && response.data.due_date) {
-				// Konwertuj datę z formatu MySQL do datetime-local
-				const date = new Date(response.data.due_date);
-				const year = date.getFullYear();
-				const month = String(date.getMonth() + 1).padStart(2, '0');
-				const day = String(date.getDate()).padStart(2, '0');
-				const hours = String(date.getHours()).padStart(2, '0');
-				const minutes = String(date.getMinutes()).padStart(2, '0');
-				currentDate = `${year}-${month}-${day}T${hours}:${minutes}`;
-			}
-			
-			showDateEditDialog(taskId, currentDate);
-		})
-		.fail(function () {
-			showDateEditDialog(taskId, '');
-		});
+			.done(function (response) {
+				if (response.success && response.data.due_date) {
+					// Konwertuj datę z formatu MySQL do datetime-local
+					const date = new Date(response.data.due_date);
+					const year = date.getFullYear();
+					const month = String(date.getMonth() + 1).padStart(2, '0');
+					const day = String(date.getDate()).padStart(2, '0');
+					const hours = String(date.getHours()).padStart(2, '0');
+					const minutes = String(date.getMinutes()).padStart(2, '0');
+					currentDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+				}
+
+				showDateEditDialog(taskId, currentDate);
+			})
+			.fail(function () {
+				showDateEditDialog(taskId, '');
+			});
 	}
 
 	function showDateEditDialog(taskId, currentDate) {
@@ -2046,32 +2136,32 @@ jQuery(document).ready(function ($) {
 				</div>
 			</div>
 		`;
-		
+
 		$('body').append(dialogHtml);
 		$('#task-date-edit-input').focus();
-		
+
 		// Obsługa zapisywania
-		$('#task-date-edit-save').on('click', function() {
+		$('#task-date-edit-save').on('click', function () {
 			const newDate = $('#task-date-edit-input').val();
 			saveTaskDate(taskId, newDate);
 			$('#task-date-edit-modal').remove();
 		});
-		
+
 		// Obsługa anulowania
-		$('#task-date-edit-cancel').on('click', function() {
+		$('#task-date-edit-cancel').on('click', function () {
 			$('#task-date-edit-modal').remove();
 		});
-		
+
 		// Obsługa klawisza Escape
-		$(document).on('keydown.task-date-edit', function(e) {
+		$(document).on('keydown.task-date-edit', function (e) {
 			if (e.which === 27) { // Escape
 				$('#task-date-edit-modal').remove();
 				$(document).off('keydown.task-date-edit');
 			}
 		});
-		
+
 		// Obsługa klawisza Enter
-		$('#task-date-edit-input').on('keydown', function(e) {
+		$('#task-date-edit-input').on('keydown', function (e) {
 			if (e.which === 13) { // Enter
 				e.preventDefault();
 				$('#task-date-edit-save').click();
@@ -2092,17 +2182,17 @@ jQuery(document).ready(function ($) {
 			},
 			dataType: 'json'
 		})
-		.done(function (response) {
-			if (response.success) {
-				loadTasks(); // Odśwież listę zadań
-				showTaskMessage('Termin zadania został zaktualizowany.', 'success');
-			} else {
-				showTaskMessage(response.data || 'Wystąpił błąd podczas aktualizacji terminu.', 'error');
-			}
-		})
-		.fail(function () {
-			showTaskMessage('Wystąpił błąd serwera.', 'error');
-		});
+			.done(function (response) {
+				if (response.success) {
+					loadTasks(); // Odśwież listę zadań
+					showTaskMessage('Termin zadania został zaktualizowany.', 'success');
+				} else {
+					showTaskMessage(response.data || 'Wystąpił błąd podczas aktualizacji terminu.', 'error');
+				}
+			})
+			.fail(function () {
+				showTaskMessage('Wystąpił błąd serwera.', 'error');
+			});
 	}
 
 	// === ROZWIJANIE/ZWIJANIE ZAKOŃCZONYCH ZADAŃ ===
@@ -2120,15 +2210,26 @@ jQuery(document).ready(function ($) {
 	});
 
 	// === OBSŁUGA PROJEKTÓW/ZLECEŃ ===
-	
+
+	// Obsługa linków do projektów - przekierowanie do widoku projektu
+	$(document).on('click', '.project-link', function (e) {
+		e.preventDefault();
+
+		const projectId = $(this).data('project-id');
+		if (projectId) {
+			const projectUrl = wpmzfPersonView.adminUrl + 'admin.php?page=wpmzf_view_project&project_id=' + projectId;
+			window.location.href = projectUrl;
+		}
+	});
+
 	// Obsługa przycisku "Nowe zlecenie"
-	$(document).on('click', '#add-new-project-btn', function(e) {
+	$(document).on('click', '#add-new-project-btn', function (e) {
 		e.preventDefault();
 		openProjectModal();
 	});
 
 	// Obsługa rozwijania zakończonych projektów
-	$(document).on('click', '#toggle-completed-projects', function(e) {
+	$(document).on('click', '#toggle-completed-projects', function (e) {
 		e.preventDefault();
 		const arrow = $(this).find('.dashicons');
 		const completedList = $('#completed-projects-list');
@@ -2150,15 +2251,15 @@ jQuery(document).ready(function ($) {
 		if ($('#project-modal').length === 0) {
 			createProjectModal();
 		}
-		
+
 		// Wyczyść formularz i pokaż modal
 		$('#project-form')[0].reset();
 		$('#project-modal').show();
-		
+
 		// Ustaw domyślną datę rozpoczęcia na dzisiaj
 		const today = new Date().toISOString().slice(0, 10);
 		$('#project-start-date').val(today);
-		
+
 		// Fokus na pierwszym polu
 		$('#project-name').focus();
 	}
@@ -2217,9 +2318,9 @@ jQuery(document).ready(function ($) {
 				</div>
 			</div>
 		`;
-		
+
 		$('body').append(modalHtml);
-		
+
 		// Inicjalizuj Select2 dla firm
 		$('#project-company').select2({
 			width: '100%',
@@ -2260,14 +2361,14 @@ jQuery(document).ready(function ($) {
 				}
 			}
 		});
-		
+
 		// Obsługa zamykania modala
-		$(document).on('click', '.luna-crm-modal-close, .cancel-project', function() {
+		$(document).on('click', '.luna-crm-modal-close, .cancel-project', function () {
 			$('#project-modal').hide();
 		});
-		
+
 		// Obsługa wysyłania formularza
-		$(document).on('submit', '#project-form', function(e) {
+		$(document).on('submit', '#project-form', function (e) {
 			e.preventDefault();
 			submitProject();
 		});
@@ -2278,11 +2379,11 @@ jQuery(document).ready(function ($) {
 		const form = $('#project-form');
 		const spinner = form.find('.spinner');
 		const submitBtn = form.find('button[type="submit"]');
-		
+
 		// Pokaż spinner i zablokuj przycisk
 		spinner.addClass('is-active');
 		submitBtn.prop('disabled', true);
-		
+
 		const formData = {
 			action: 'add_wpmzf_project',
 			security: securityNonce,
@@ -2294,26 +2395,26 @@ jQuery(document).ready(function ($) {
 			budget: $('#project-budget').val(),
 			company_id: $('#project-company').val()
 		};
-		
+
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
 			data: formData,
-			success: function(response) {
+			success: function (response) {
 				spinner.removeClass('is-active');
 				submitBtn.prop('disabled', false);
-				
+
 				if (response.success) {
 					$('#project-modal').hide();
 					showNotification('Zlecenie zostało dodane pomyślnie!', 'success');
-					
+
 					// Odśwież listę projektów
 					refreshProjectsList();
 				} else {
 					showNotification('Błąd: ' + (response.data.message || 'Nieznany błąd'), 'error');
 				}
 			},
-			error: function() {
+			error: function () {
 				spinner.removeClass('is-active');
 				submitBtn.prop('disabled', false);
 				showNotification('Wystąpił błąd serwera.', 'error');
@@ -2331,7 +2432,7 @@ jQuery(document).ready(function ($) {
 				security: securityNonce,
 				person_id: personId
 			},
-			success: function(response) {
+			success: function (response) {
 				if (response.success) {
 					updateProjectsDisplay(response.data);
 				}
@@ -2341,19 +2442,19 @@ jQuery(document).ready(function ($) {
 
 	// Funkcja aktualizacji wyświetlania projektów
 	function updateProjectsDisplay(data) {
-		const projectsContainer = $('.dossier-box').filter(function() {
+		const projectsContainer = $('.dossier-box').filter(function () {
 			return $(this).find('h2.dossier-title').text().trim() === 'Zlecenia';
 		}).find('.dossier-content');
-		
+
 		let html = '';
-		
+
 		// Aktywne projekty
 		if (data.active_projects && data.active_projects.length > 0) {
 			html += '<div class="projects-section">';
 			html += '<h4 style="margin: 0 0 10px 0; color: #1d2327; font-size: 13px; font-weight: 600;">Aktywne zlecenia:</h4>';
 			html += '<ul class="projects-list">';
-			
-			data.active_projects.forEach(function(project) {
+
+			data.active_projects.forEach(function (project) {
 				html += '<li class="project-item active-project">';
 				html += '<div class="project-info">';
 				html += '<a href="#" class="project-link" data-project-id="' + project.id + '">' + escapeHtml(project.name) + '</a>';
@@ -2361,11 +2462,11 @@ jQuery(document).ready(function ($) {
 				html += '</div>';
 				html += '</li>';
 			});
-			
+
 			html += '</ul>';
 			html += '</div>';
 		}
-		
+
 		// Zakończone projekty
 		if (data.completed_projects && data.completed_projects.length > 0) {
 			html += '<div class="projects-section" style="margin-top: 20px;">';
@@ -2373,8 +2474,8 @@ jQuery(document).ready(function ($) {
 			html += '<span class="dashicons dashicons-arrow-right"></span> Zakończone zlecenia (' + data.completed_projects.length + ')';
 			html += '</h4>';
 			html += '<ul class="projects-list" id="completed-projects-list" style="display: none;">';
-			
-			data.completed_projects.forEach(function(project) {
+
+			data.completed_projects.forEach(function (project) {
 				html += '<li class="project-item completed-project">';
 				html += '<div class="project-info">';
 				html += '<a href="#" class="project-link" data-project-id="' + project.id + '">' + escapeHtml(project.name) + '</a>';
@@ -2382,17 +2483,275 @@ jQuery(document).ready(function ($) {
 				html += '</div>';
 				html += '</li>';
 			});
-			
+
 			html += '</ul>';
 			html += '</div>';
 		}
-		
+
 		// Jeśli brak projektów
-		if ((!data.active_projects || data.active_projects.length === 0) && 
+		if ((!data.active_projects || data.active_projects.length === 0) &&
 			(!data.completed_projects || data.completed_projects.length === 0)) {
 			html = '<p><em>Brak zleceń dla tej osoby.</em></p>';
 		}
-		
+
 		projectsContainer.html(html);
+	}
+
+	// === WAŻNE LINKI ===
+
+	// Debug - sprawdź czy personId jest poprawne
+	console.log('Person ID found:', personId);
+	console.log('Security nonce:', securityNonce);
+
+	if (!personId || personId === '' || personId === 'undefined') {
+		console.error('Person ID not found or invalid!');
+		return;
+	}
+
+	// Ładowanie linków przy inicjalizacji
+	loadImportantLinks();
+
+	// Obsługa formularza dodawania/edycji linku
+	const linkForm = $('#wpmzf-important-link-form');
+	const linkFormContainer = $('#important-link-form');
+	const addLinkBtn = $('#add-important-link-btn');
+	const cancelLinkBtn = $('#cancel-link-form');
+	const linkSubmitText = $('#link-submit-text');
+	const editLinkId = $('#edit-link-id');
+
+	// Debug - sprawdź czy elementy istnieją
+	console.log('Link form elements check:');
+	console.log('linkForm:', linkForm.length);
+	console.log('linkFormContainer:', linkFormContainer.length);
+	console.log('addLinkBtn:', addLinkBtn.length);
+	console.log('cancelLinkBtn:', cancelLinkBtn.length);
+
+	// Pokazywanie formularza dodawania linku
+	addLinkBtn.on('click', function() {
+		console.log('Add link button clicked'); // Debug
+		resetLinkForm();
+		linkFormContainer.slideDown();
+		$('#link-url').focus();
+	});
+
+	// Anulowanie formularza
+	cancelLinkBtn.on('click', function() {
+		console.log('Cancel link button clicked'); // Debug
+		linkFormContainer.slideUp();
+		resetLinkForm();
+	});
+
+	// Obsługa wysyłania formularza linku
+	linkForm.on('submit', function(e) {
+		e.preventDefault();
+
+		const linkId = editLinkId.val();
+		const url = $('#link-url').val().trim();
+		const customTitle = $('#link-custom-title').val().trim();
+
+		if (!url) {
+			alert('Proszę podać URL linku');
+			return;
+		}
+
+		// Sprawdzenie czy URL jest prawidłowy
+		try {
+			new URL(url);
+		} catch(e) {
+			alert('Proszę podać prawidłowy URL (np. https://example.com)');
+			return;
+		}
+
+		const isEdit = linkId && linkId !== '';
+		const action = isEdit ? 'wpmzf_update_important_link' : 'wpmzf_add_important_link';
+
+		const formData = {
+			action: action,
+			security: securityNonce,
+			url: url,
+			custom_title: customTitle,
+			object_id: personId,
+			object_type: 'person'
+		};
+
+		if (isEdit) {
+			formData.link_id = linkId;
+		}
+
+		// Blokowanie formularza
+		const submitBtn = linkForm.find('button[type="submit"]');
+		const originalText = linkSubmitText.text();
+		submitBtn.prop('disabled', true);
+		linkSubmitText.text(isEdit ? 'Aktualizuję...' : 'Dodaję...');
+
+		const ajaxUrl = (typeof wpmzfPersonView !== 'undefined' && wpmzfPersonView.ajaxUrl) ? 
+			wpmzfPersonView.ajaxUrl : ajaxurl;
+
+		$.ajax({
+			url: ajaxUrl,
+			type: 'POST',
+			data: formData,
+			success: function(response) {
+				if (response.success) {
+					showNotification(response.data.message, 'success');
+					loadImportantLinks();
+					linkFormContainer.slideUp();
+					resetLinkForm();
+				} else {
+					showNotification(response.data.message || 'Wystąpił błąd', 'error');
+				}
+			},
+			error: function() {
+				showNotification('Wystąpił błąd podczas komunikacji z serwerem', 'error');
+			},
+			complete: function() {
+				submitBtn.prop('disabled', false);
+				linkSubmitText.text(originalText);
+			}
+		});
+	});
+
+	// Delegowane obsługa akcji na linkach
+	$(document).on('click', '.edit-important-link', function(e) {
+		e.preventDefault();
+		
+		const linkItem = $(this).closest('.important-link-item');
+		const linkId = linkItem.data('link-id');
+		const url = linkItem.data('url');
+		const customTitle = linkItem.data('custom-title') || '';
+
+		// Wypełnienie formularza danymi do edycji
+		editLinkId.val(linkId);
+		$('#link-url').val(url);
+		$('#link-custom-title').val(customTitle);
+		linkSubmitText.text('Aktualizuj link');
+
+		// Pokazanie formularza
+		linkFormContainer.slideDown();
+		$('#link-url').focus();
+	});
+
+	$(document).on('click', '.delete-important-link', function(e) {
+		e.preventDefault();
+		
+		if (!confirm('Czy na pewno chcesz usunąć ten link?')) {
+			return;
+		}
+
+		const linkItem = $(this).closest('.important-link-item');
+		const linkId = linkItem.data('link-id');
+
+		const ajaxUrl = (typeof wpmzfPersonView !== 'undefined' && wpmzfPersonView.ajaxUrl) ? 
+			wpmzfPersonView.ajaxUrl : ajaxurl;
+
+		$.ajax({
+			url: ajaxUrl,
+			type: 'POST',
+			data: {
+				action: 'wpmzf_delete_important_link',
+				security: securityNonce,
+				link_id: linkId
+			},
+			success: function(response) {
+				if (response.success) {
+					linkItem.fadeOut(300, function() {
+						$(this).remove();
+						// Sprawdź czy jest to ostatni link
+						if ($('.important-link-item').length === 0) {
+							$('#important-links-container').html('<p class="no-important-links">Brak ważnych linków. Kliknij "Dodaj link" aby dodać pierwszy.</p>');
+						}
+					});
+					showNotification(response.data.message, 'success');
+				} else {
+					showNotification(response.data.message || 'Wystąpił błąd', 'error');
+				}
+			},
+			error: function() {
+				showNotification('Wystąpił błąd podczas komunikacji z serwerem', 'error');
+			}
+		});
+	});
+
+	function loadImportantLinks() {
+		console.log('Loading important links for person:', personId); // Debug
+		
+		if (!personId || personId === '' || personId === 'undefined') {
+			console.error('Cannot load links - invalid person ID');
+			$('#important-links-container').html('<p class="important-links-loading" style="color: #d63638;">Błąd: Nieprawidłowe ID osoby</p>');
+			return;
+		}
+
+		const ajaxUrl = (typeof wpmzfPersonView !== 'undefined' && wpmzfPersonView.ajaxUrl) ? 
+			wpmzfPersonView.ajaxUrl : ajaxurl;
+
+		$.ajax({
+			url: ajaxUrl,
+			type: 'POST',
+			data: {
+				action: 'wpmzf_get_important_links',
+				security: securityNonce,
+				object_id: personId,
+				object_type: 'person'
+			},
+			success: function(response) {
+				console.log('Links AJAX response:', response); // Debug
+				if (response.success) {
+					renderImportantLinks(response.data.links);
+				} else {
+					$('#important-links-container').html('<p class="important-links-loading" style="color: #d63638;">Błąd ładowania linków: ' + (response.data.message || 'Nieznany błąd') + '</p>');
+				}
+			},
+			error: function(xhr, status, error) {
+				console.error('Links AJAX error:', status, error); // Debug
+				$('#important-links-container').html('<p class="important-links-loading" style="color: #d63638;">Błąd podczas ładowania linków: ' + error + '</p>');
+			}
+		});
+	}
+
+	function renderImportantLinks(links) {
+		const container = $('#important-links-container');
+		
+		if (!links || links.length === 0) {
+			container.html('<p class="no-important-links">Brak ważnych linków. Kliknij "Dodaj link" aby dodać pierwszy.</p>');
+			return;
+		}
+
+		let html = '';
+		links.forEach(function(link) {
+			const faviconHtml = link.favicon ? 
+				`<img src="${escapeHtml(link.favicon)}" alt="Ikona" onerror="this.style.display='none'">` :
+				'🔗';
+			
+			html += `
+				<div class="important-link-item" data-link-id="${link.id}" data-url="${escapeHtml(link.url)}" data-custom-title="${escapeHtml(link.custom_title || '')}">
+					<div class="important-link-favicon">
+						${faviconHtml}
+					</div>
+					<div class="important-link-content">
+						<a href="${escapeHtml(link.url)}" target="_blank" class="important-link-title" rel="noopener noreferrer">
+							${escapeHtml(link.title)}
+						</a>
+						<p class="important-link-url">${escapeHtml(link.url)}</p>
+					</div>
+					<div class="important-link-actions">
+						<button type="button" class="important-link-action edit-important-link" title="Edytuj link">
+							✏️
+						</button>
+						<button type="button" class="important-link-action delete-important-link delete" title="Usuń link">
+							🗑️
+						</button>
+					</div>
+				</div>
+			`;
+		});
+		
+		container.html(html);
+	}
+
+	function resetLinkForm() {
+		editLinkId.val('');
+		$('#link-url').val('');
+		$('#link-custom-title').val('');
+		linkSubmitText.text('Dodaj link');
 	}
 });

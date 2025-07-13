@@ -12,14 +12,29 @@ class WPMZF_ACF_Fields
         add_action('acf/include_fields', array($this, 'register_all_field_groups'));
         add_filter('acf/fields/relationship/query/key=field_wpmzf_person_company_relation', array($this, 'extend_company_relationship_search'), 10, 3);
         
+        // Dodajemy filtry dla pól user aby zapewnić ich poprawne działanie
+        add_filter('acf/fields/user/query', array($this, 'acf_user_query'), 10, 3);
+        add_filter('acf/fields/user/result', array($this, 'acf_user_result'), 10, 4);
+        
+        // Dodajemy specjalny filtr dla pola employee_user
+        add_filter('acf/fields/user/query/name=employee_user', array($this, 'filter_employee_user_query'), 10, 3);
+        
         // Dodajemy walidację dla pól kontaktowych
         add_filter('acf/validate_value/name=person_emails', array($this, 'validate_person_emails'), 10, 4);
         add_filter('acf/validate_value/name=person_phones', array($this, 'validate_person_phones'), 10, 4);
         add_filter('acf/validate_value/name=company_emails', array($this, 'validate_company_emails'), 10, 4);
         add_filter('acf/validate_value/name=company_phones', array($this, 'validate_company_phones'), 10, 4);
         
+        // Dodajemy walidację zadań - każde zadanie musi mieć przypisanego pracownika
+        add_filter('acf/validate_value/name=task_employee', array($this, 'validate_task_employee'), 10, 4);
+        
         // Dodajemy auto-przypisanie osoby do nowego projektu
         add_filter('acf/load_value/name=project_person', array($this, 'auto_assign_person_to_project'), 10, 3);
+        
+        // Synchronizacja pól pracownika i użytkownika w zadaniach
+        add_action('acf/save_post', array($this, 'sync_task_employee_user_fields'), 20);
+        add_filter('acf/load_value/name=task_assigned_user', array($this, 'load_task_user_from_employee'), 10, 3);
+        add_filter('acf/load_value/name=task_employee', array($this, 'load_task_employee_from_user'), 10, 3);
     }
     
     /**
@@ -188,6 +203,18 @@ class WPMZF_ACF_Fields
                         array('key' => 'field_wpmzf_company_city', 'label' => 'Miasto', 'name' => 'city', 'type' => 'text'),
                     ),
                 ),
+                // Pole polecającego dla firm
+                array(
+                    'key'       => 'field_wpmzf_company_referrer',
+                    'label'     => 'Polecający',
+                    'name'      => 'company_referrer',
+                    'type'      => 'relationship',
+                    'post_type' => array('company', 'person'),
+                    'filters'   => array('search', 'post_type'),
+                    'min'       => 0,
+                    'max'       => 1,
+                    'instructions' => 'Wybierz osobę lub firmę, która poleciła tę firmę',
+                ),
             ),
             'location' => array(array(array('param' => 'post_type', 'operator' => '==', 'value' => 'company'))),
         ));
@@ -313,6 +340,18 @@ class WPMZF_ACF_Fields
                     'filters'   => array('search'),
                     'max'       => 5,    // max pozostaje, usuń 'min' żeby nie było wymagane
                 ),
+                // Pole polecającego dla osób
+                array(
+                    'key'       => 'field_wpmzf_person_referrer',
+                    'label'     => 'Polecający',
+                    'name'      => 'person_referrer',
+                    'type'      => 'relationship',
+                    'post_type' => array('company', 'person'),
+                    'filters'   => array('search', 'post_type'),
+                    'min'       => 0,
+                    'max'       => 1,
+                    'instructions' => 'Wybierz osobę lub firmę, która poleciła tę osobę',
+                ),
             ),
             'location' => array(
                 array(
@@ -356,6 +395,7 @@ class WPMZF_ACF_Fields
             'title' => 'Szczegóły Projektu',
             'fields' => array(
                 array('key' => 'field_wpmzf_project_status', 'label' => 'Status', 'name' => 'project_status', 'type' => 'select', 'choices' => array('Planowanie' => 'Planowanie', 'W toku' => 'W toku', 'Zakończony' => 'Zakończony')),
+                array('key' => 'field_wpmzf_project_budget', 'label' => 'Budżet (PLN)', 'name' => 'project_budget', 'type' => 'number', 'step' => 0.01, 'min' => 0),
                 array('key' => 'field_wpmzf_project_company_relation', 'label' => 'Realizowane dla Firmy', 'name' => 'project_company', 'type' => 'relationship', 'post_type' => array('company'), 'min' => 0, 'max' => 1),
                 array('key' => 'field_wpmzf_project_person_relation', 'label' => 'Przypisane do Osoby', 'name' => 'project_person', 'type' => 'relationship', 'post_type' => array('person'), 'min' => 0, 'max' => 1),
                 array('key' => 'field_wpmzf_project_start_date', 'label' => 'Data rozpoczęcia', 'name' => 'start_date', 'type' => 'date_picker', 'display_format' => 'Y-m-d', 'return_format' => 'Y-m-d'),
@@ -439,6 +479,21 @@ class WPMZF_ACF_Fields
                     'name' => 'task_employee',
                     'type' => 'relationship',
                     'post_type' => array('employee'),
+                    'min' => 1, // Wymagane!
+                    'max' => 1,
+                    'required' => 1
+                ),
+                array(
+                    'key' => 'field_wpmzf_task_assigned_user',
+                    'label' => 'Odpowiedzialny użytkownik',
+                    'name' => 'task_assigned_user',
+                    'type' => 'user',
+                    'instructions' => 'Bezpośrednie przypisanie zadania do użytkownika WordPress. To pole jest używane zamiast relacji z pracownikiem.',
+                    'required' => 0,
+                    'allow_null' => 1,
+                    'multiple' => 0,
+                    'return_format' => 'id',
+                    'role' => array('subscriber', 'contributor', 'author', 'editor', 'administrator'), // Wyraźnie określone role
                     'min' => 0,
                     'max' => 1
                 ),
@@ -498,7 +553,20 @@ class WPMZF_ACF_Fields
             'fields' => array(
                 array('key' => 'field_wpmzf_employee_position', 'label' => 'Stanowisko', 'name' => 'employee_position', 'type' => 'text'),
                 array('key' => 'field_wpmzf_employee_rate', 'label' => 'Stawka godzinowa', 'name' => 'employee_rate', 'type' => 'number'),
-                array('key' => 'field_wpmzf_employee_user_relation', 'label' => 'Powiązany Użytkownik WP', 'name' => 'employee_user', 'type' => 'user', 'role' => 'all', 'min' => 1, 'max' => 1, 'instructions' => 'Połącz ten wpis z kontem użytkownika WordPress, aby mógł się logować i rejestrować czas pracy.'),
+                array(
+                    'key' => 'field_wpmzf_employee_user_relation', 
+                    'label' => 'Powiązany Użytkownik WP', 
+                    'name' => 'employee_user', 
+                    'type' => 'user', 
+                    'instructions' => 'Połącz ten wpis z kontem użytkownika WordPress, aby mógł się logować i rejestrować czas pracy.',
+                    'required' => 0,
+                    'allow_null' => 1,
+                    'multiple' => 0,
+                    'return_format' => 'id',
+                    'role' => array('subscriber', 'contributor', 'author', 'editor', 'administrator'), // Wyraźnie określone role
+                    'min' => 0,
+                    'max' => 1
+                ),
             ),
             'location' => array(array(array('param' => 'post_type', 'operator' => '==', 'value' => 'employee'))),
         ));
@@ -571,6 +639,16 @@ class WPMZF_ACF_Fields
                     'name' => 'related_company',
                     'type' => 'relationship',
                     'post_type' => array('company'),
+                    'max' => 1,
+                    'required' => 0,
+                ),
+                // Pole do powiązania aktywności z projektem
+                array(
+                    'key' => 'field_wpmzf_activity_related_project',
+                    'label' => 'Powiązany projekt',
+                    'name' => 'related_project',
+                    'type' => 'relationship',
+                    'post_type' => array('project'),
                     'max' => 1,
                     'required' => 0,
                 ),
@@ -675,6 +753,170 @@ class WPMZF_ACF_Fields
         
         if ($primary_count > 1) {
             return 'Tylko jeden numer telefonu może być oznaczony jako główny.';
+        }
+        
+        return $valid;
+    }
+    
+    /**
+     * Filtruje query dla pól user w ACF
+     */
+    public function acf_user_query($args, $field, $post_id) {
+        // Domyślnie zwracamy wszystkich użytkowników
+        return $args;
+    }
+    
+    /**
+     * Formatuje wyniki dla pól user w ACF
+     */
+    public function acf_user_result($title, $user, $field, $post_id) {
+        // Debug: logujemy typ danych (tylko w trybie deweloperskim)
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('WPMZF Debug - acf_user_result: user type = ' . gettype($user) . 
+                     ', is_object = ' . (is_object($user) ? 'true' : 'false') . 
+                     ', is_array = ' . (is_array($user) ? 'true' : 'false'));
+        }
+        
+        // Sprawdzamy czy $user jest obiektem WP_User czy tablicą
+        if (is_object($user) && isset($user->ID)) {
+            // $user jest już obiektem WP_User
+            $user_obj = $user;
+        } elseif (is_array($user) && isset($user['ID'])) {
+            // $user jest tablicą, pobieramy obiekt
+            $user_obj = get_user_by('ID', $user['ID']);
+        } else {
+            // Nieprawidłowy format, zwracamy oryginalny tytuł
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPMZF Warning - acf_user_result: nieznany format danych user');
+            }
+            return $title;
+        }
+        
+        if ($user_obj && is_object($user_obj)) {
+            $roles = implode(', ', $user_obj->roles);
+            $title = $user_obj->display_name . ' (' . $user_obj->user_login . ') - ' . $roles;
+        }
+        return $title;
+    }
+    
+    /**
+     * Specjalny filtr dla pola employee_user
+     */
+    public function filter_employee_user_query($args, $field, $post_id) {
+        // Pokaż wszystkich użytkowników bez ograniczeń
+        $args['number'] = -1; // Bez limitu
+        $args['fields'] = 'all'; // Wszystkie pola
+        
+        // Opcjonalnie: możemy wykluczyć użytkowników, którzy już mają profil pracownika
+        // ale na początku lepiej pokazać wszystkich
+        
+        return $args;
+    }
+    
+    /**
+     * Synchronizuje pola pracownika i użytkownika w zadaniach po zapisaniu
+     */
+    public function sync_task_employee_user_fields($post_id) {
+        // Sprawdź czy to jest zadanie
+        if (get_post_type($post_id) !== 'task') {
+            return;
+        }
+        
+        // Pobierz wartości pól
+        $assigned_user = get_field('task_assigned_user', $post_id);
+        $assigned_employee = get_field('task_employee', $post_id);
+        
+        // Jeśli jest przypisany użytkownik, ale nie ma pracownika - znajdź pracownika dla tego użytkownika
+        if ($assigned_user && !$assigned_employee) {
+            $employee = WPMZF_Employee_Helper::get_employee_by_user_id($assigned_user);
+            if ($employee) {
+                update_field('task_employee', array($employee->ID), $post_id);
+            }
+        }
+        
+        // Jeśli jest przypisany pracownik, ale nie ma użytkownika - znajdź użytkownika dla tego pracownika
+        if ($assigned_employee && !$assigned_user) {
+            if (is_array($assigned_employee) && !empty($assigned_employee)) {
+                $employee_id = $assigned_employee[0];
+                $user_id = get_field('employee_user', $employee_id);
+                if ($user_id) {
+                    update_field('task_assigned_user', $user_id, $post_id);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Ładuje użytkownika na podstawie przypisanego pracownika
+     */
+    public function load_task_user_from_employee($value, $post_id, $field) {
+        // Tylko dla zadań
+        if (get_post_type($post_id) !== 'task') {
+            return $value;
+        }
+        
+        // Jeśli użytkownik już jest przypisany, nie zmieniaj
+        if ($value) {
+            return $value;
+        }
+        
+        // Sprawdź czy jest przypisany pracownik
+        $assigned_employee = get_field('task_employee', $post_id);
+        if ($assigned_employee && is_array($assigned_employee) && !empty($assigned_employee)) {
+            $employee_id = $assigned_employee[0];
+            $user_id = get_field('employee_user', $employee_id);
+            if ($user_id) {
+                return $user_id;
+            }
+        }
+        
+        return $value;
+    }
+    
+    /**
+     * Ładuje pracownika na podstawie przypisanego użytkownika
+     */
+    public function load_task_employee_from_user($value, $post_id, $field) {
+        // Tylko dla zadań
+        if (get_post_type($post_id) !== 'task') {
+            return $value;
+        }
+        
+        // Jeśli pracownik już jest przypisany, nie zmieniaj
+        if ($value) {
+            return $value;
+        }
+        
+        // Sprawdź czy jest przypisany użytkownik
+        $assigned_user = get_field('task_assigned_user', $post_id);
+        if ($assigned_user) {
+            $employee = WPMZF_Employee_Helper::get_employee_by_user_id($assigned_user);
+            if ($employee) {
+                return array($employee->ID);
+            }
+        }
+        
+        return $value;
+    }
+    
+    /**
+     * Waliduje czy zadanie ma przypisanego pracownika
+     */
+    public function validate_task_employee($valid, $value, $field, $input) {
+        // Tylko dla zadań
+        $post_id = $_POST['post_ID'] ?? 0;
+        if ($post_id && get_post_type($post_id) !== 'task') {
+            return $valid;
+        }
+        
+        // Sprawdź czy to jest nowe zadanie
+        if (!$post_id && isset($_POST['post_type']) && $_POST['post_type'] === 'task') {
+            // To jest nowe zadanie
+        }
+        
+        // Sprawdź czy pracownik jest przypisany
+        if (empty($value) || (is_array($value) && count($value) == 0)) {
+            return 'Każde zadanie musi mieć przypisanego pracownika.';
         }
         
         return $valid;

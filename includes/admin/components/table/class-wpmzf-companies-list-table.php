@@ -5,12 +5,31 @@ if (!class_exists('WP_List_Table')) {
 
 class WPMZF_companies_List_Table extends WP_List_Table {
 
+    /**
+     * Cache manager
+     */
+    private $cache_manager;
+
+    /**
+     * Rate limiter
+     */
+    private $rate_limiter;
+
+    /**
+     * Performance monitor
+     */
+    private $performance_monitor;
+
     public function __construct() {
         parent::__construct([
             'singular' => 'Firma',
             'plural'   => 'Firmy',
             'ajax'     => false
         ]);
+        
+        $this->cache_manager = new WPMZF_Cache_Manager();
+        $this->rate_limiter = new WPMZF_Rate_Limiter();
+        $this->performance_monitor = new WPMZF_Performance_Monitor();
     }
 
     // Definicja kolumn
@@ -140,19 +159,37 @@ class WPMZF_companies_List_Table extends WP_List_Table {
      * Przetwarza masowe akcje.
      */
     public function process_bulk_action() {
+        // Sprawdzenie nonce dla bezpieczeństwa
+        if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'bulk-' . $this->_args['plural'])) {
+            return;
+        }
+        
         // Sprawdzamy, czy akcja została wykonana
         if ('delete' === $this->current_action()) {
-            $post_ids = esc_sql($_POST['bulk-action']);
+            $post_ids = isset($_POST['bulk-action']) ? array_map('intval', $_POST['bulk-action']) : [];
+            
             foreach ($post_ids as $post_id) {
-                wp_delete_post($post_id, true); // true = usuń trwale
+                // Sprawdź uprawnienia
+                if (current_user_can('delete_post', $post_id)) {
+                    wp_delete_post($post_id, true);
+                    WPMZF_Logger::info('Company deleted via bulk action', ['company_id' => $post_id]);
+                } else {
+                    WPMZF_Logger::log_security_violation('Attempt to delete company without permissions', null, ['company_id' => $post_id]);
+                }
             }
         }
 
         if ('archive' === $this->current_action()) {
-            $post_ids = esc_sql($_POST['bulk-action']);
+            $post_ids = isset($_POST['bulk-action']) ? array_map('intval', $_POST['bulk-action']) : [];
+            
             foreach ($post_ids as $post_id) {
-                // Używamy funkcji ACF do aktualizacji pola
-                update_field('company_status', 'Zarchiwizowany', $post_id);
+                // Sprawdź uprawnienia
+                if (current_user_can('edit_post', $post_id)) {
+                    update_field('company_status', 'Zarchiwizowany', $post_id);
+                    WPMZF_Logger::info('Company archived via bulk action', ['company_id' => $post_id]);
+                } else {
+                    WPMZF_Logger::log_security_violation('Attempt to archive company without permissions', null, ['company_id' => $post_id]);
+                }
             }
         }
     }

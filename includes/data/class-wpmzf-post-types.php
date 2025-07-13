@@ -40,6 +40,10 @@ class WPMZF_Post_Types {
 
         $this->register_single_cpt('activity', 'Aktywność', 'Aktywności', 'dashicons-format-chat', 32, ['title', 'editor', 'custom-fields', 'author']);
 
+        // --- WAŻNE LINKI ---
+
+        $this->register_single_cpt('important_link', 'Ważny Link', 'Ważne Linki', 'dashicons-admin-links', 33, ['title', 'custom-fields', 'author']);
+
 
     }
 

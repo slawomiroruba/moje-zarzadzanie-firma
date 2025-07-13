@@ -29,6 +29,37 @@ $company_title = get_the_title($company_id);
 $title = 'Widok Firmy: ' . $company_title; // Ustawiamy globalny tytuł strony
 $company_fields = get_fields($company_id);
 
+// Renderuj nawigację i header
+WPMZF_View_Helper::render_complete_header(array(
+    'title' => $company_title,
+    'subtitle' => 'Szczegółowe informacje o firmie',
+    'breadcrumbs' => array(
+        array('label' => 'Dashboard', 'url' => admin_url('admin.php?page=wpmzf_dashboard')),
+        array('label' => 'Firmy', 'url' => admin_url('admin.php?page=wpmzf_companies')),
+        array('label' => $company_title, 'url' => '')
+    ),
+    'actions' => array(
+        array(
+            'label' => 'Edytuj firmę',
+            'url' => admin_url('post.php?post=' . $company_id . '&action=edit'),
+            'icon' => '✏️',
+            'class' => 'button button-primary'
+        ),
+        array(
+            'label' => 'Dodaj projekt',
+            'url' => admin_url('post-new.php?post_type=project'),
+            'icon' => '📁',
+            'class' => 'button'
+        ),
+        array(
+            'label' => 'Dodaj osobę',
+            'url' => admin_url('post-new.php?post_type=person'),
+            'icon' => '👤',
+            'class' => 'button'
+        )
+    )
+));
+
 // Pobranie projektów firmy
 $active_projects = WPMZF_Project::get_active_projects_by_company($company_id);
 $completed_projects = WPMZF_Project::get_completed_projects_by_company($company_id);
@@ -953,6 +984,156 @@ $company_address = $company_fields['company_address'] ?? [];
                 border-left-color: #721c24;
                 color: #721c24;
             }
+            
+            /* Important Links Styles */
+            #important-links-container {
+                min-height: 60px;
+            }
+            
+            .important-link-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 12px;
+                border: 1px solid #e1e5e9;
+                border-radius: 6px;
+                margin-bottom: 8px;
+                background: #fff;
+                transition: all 0.2s ease;
+                position: relative;
+            }
+            
+            .important-link-item:hover {
+                border-color: #2271b1;
+                box-shadow: 0 2px 8px rgba(34, 113, 177, 0.15);
+            }
+            
+            .important-link-favicon {
+                flex-shrink: 0;
+                width: 20px;
+                height: 20px;
+                background: #f0f0f1;
+                border-radius: 3px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .important-link-favicon img {
+                width: 16px;
+                height: 16px;
+                border-radius: 2px;
+            }
+            
+            .important-link-content {
+                flex: 1;
+                min-width: 0;
+            }
+            
+            .important-link-title {
+                font-weight: 500;
+                color: #1d2327;
+                margin: 0 0 4px 0;
+                font-size: 14px;
+                line-height: 1.3;
+                display: block;
+                text-decoration: none;
+                word-break: break-word;
+            }
+            
+            .important-link-title:hover {
+                color: #2271b1;
+                text-decoration: underline;
+            }
+            
+            .important-link-url {
+                font-size: 12px;
+                color: #646970;
+                margin: 0;
+                word-break: break-all;
+            }
+            
+            .important-link-actions {
+                display: flex;
+                gap: 4px;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+            }
+            
+            .important-link-item:hover .important-link-actions {
+                opacity: 1;
+            }
+            
+            .important-link-action {
+                padding: 4px 6px;
+                border: 1px solid #c3c4c7;
+                background: #fff;
+                color: #646970;
+                text-decoration: none;
+                border-radius: 3px;
+                font-size: 12px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            
+            .important-link-action:hover {
+                border-color: #2271b1;
+                color: #2271b1;
+            }
+            
+            .important-link-action.delete:hover {
+                border-color: #d63638;
+                color: #d63638;
+                background: #fef7f7;
+            }
+            
+            #important-link-form {
+                background: #f8f9fa;
+                border: 1px solid #e1e5e9;
+                border-radius: 6px;
+                padding: 16px;
+                margin-top: 12px;
+            }
+            
+            #important-link-form .form-group {
+                margin-bottom: 12px;
+            }
+            
+            #important-link-form label {
+                display: block;
+                margin-bottom: 4px;
+                font-weight: 500;
+                color: #1d2327;
+            }
+            
+            #important-link-form input[type="url"],
+            #important-link-form input[type="text"] {
+                width: 100%;
+                padding: 8px 12px;
+                border: 1px solid #c3c4c7;
+                border-radius: 4px;
+                font-size: 14px;
+                background: #fff;
+            }
+            
+            #important-link-form input:focus {
+                outline: none;
+                border-color: #2271b1;
+                box-shadow: 0 0 0 1px #2271b1;
+            }
+            
+            .no-important-links {
+                text-align: center;
+                color: #646970;
+                font-style: italic;
+                padding: 20px;
+            }
+            
+            .important-links-loading {
+                text-align: center;
+                color: #646970;
+                padding: 16px;
+            }
         </style>
 
         <div class="wrap">
@@ -1043,6 +1224,22 @@ $company_address = $company_fields['company_address'] ?? [];
                             echo esc_html($address ?: 'Brak');
                             ?></p>
                             <p><strong>Status:</strong> <?php echo esc_html($current_status); ?></p>
+                            <p><strong>Polecający:</strong> 
+                                <?php
+                                $referrer = get_field('company_referrer', $company_id);
+                                if ($referrer && is_array($referrer) && !empty($referrer)) {
+                                    $referrer_post = get_post($referrer[0]);
+                                    if ($referrer_post) {
+                                        $referrer_type = get_post_type($referrer_post->ID) === 'company' ? '🏢' : '👤';
+                                        echo $referrer_type . ' ' . esc_html($referrer_post->post_title);
+                                    } else {
+                                        echo 'Brak';
+                                    }
+                                } else {
+                                    echo 'Brak';
+                                }
+                                ?>
+                            </p>
                         </div>
                     </div>
                     
@@ -1110,6 +1307,48 @@ $company_address = $company_fields['company_address'] ?? [];
                             <?php endif; ?>
                         </div>
                     </div>
+                    
+                    <!-- Sekcja Ważnych Linków -->
+                    <div class="dossier-box" id="important-links-section">
+                        <h2 class="dossier-title">
+                            Ważne linki
+                            <button type="button" id="add-important-link-btn" class="edit-data-button">Dodaj link</button>
+                        </h2>
+                        <div class="dossier-content">
+                            <div id="important-links-container">
+                                <p><em>Ładowanie linków...</em></p>
+                            </div>
+                            
+                            <!-- Formularz dodawania/edycji linku -->
+                            <div id="important-link-form" style="display: none;">
+                                <form id="wpmzf-important-link-form">
+                                    <?php wp_nonce_field('wpmzf_company_view_nonce', 'wpmzf_link_security'); ?>
+                                    <input type="hidden" name="company_id" value="<?php echo esc_attr($company_id); ?>">
+                                    <input type="hidden" name="object_id" value="<?php echo esc_attr($company_id); ?>">
+                                    <input type="hidden" name="object_type" value="company">
+                                    <input type="hidden" name="link_id" id="edit-link-id" value="">
+                                    
+                                    <div class="form-group">
+                                        <label for="link-url">URL linku:</label>
+                                        <input type="url" id="link-url" name="url" placeholder="https://example.com" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    </div>
+                                    
+                                    <div class="form-group" style="margin-top: 10px;">
+                                        <label for="link-custom-title">Niestandardowy opis (opcjonalnie):</label>
+                                        <input type="text" id="link-custom-title" name="custom_title" placeholder="Jeśli pozostawisz puste, pobierzemy automatycznie tytuł strony" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <small style="color: #666;">Jeśli nie wpiszesz opisu, automatycznie pobierzemy tytuł strony</small>
+                                    </div>
+                                    
+                                    <div class="form-actions" style="margin-top: 15px; display: flex; gap: 10px;">
+                                        <button type="submit" class="button button-primary">
+                                            <span id="link-submit-text">Dodaj link</span>
+                                        </button>
+                                        <button type="button" id="cancel-link-form" class="button">Anuluj</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Środkowa kolumna - Aktywności -->
@@ -1129,7 +1368,22 @@ $company_address = $company_fields['company_address'] ?? [];
                                     </div>
                                     
                                     <div id="wpmzf-editor-container" style="display: none;">
-                                        <textarea id="wpmzf-activity-content" name="content" rows="6" style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.5; resize: vertical;"></textarea>
+                                        <?php
+                                        // Używamy wp_editor zamiast zwykłego textarea
+                                        wp_editor('', 'wpmzf-activity-content', array(
+                                            'textarea_name' => 'content',
+                                            'textarea_rows' => 6,
+                                            'media_buttons' => false,
+                                            'teeny' => true,
+                                            'quicktags' => true,
+                                            'tinymce' => array(
+                                                'toolbar1' => 'bold,italic,underline,forecolor,bullist,numlist,link,unlink,removeformat,undo,redo',
+                                                'toolbar2' => '',
+                                                'height' => 120,
+                                                'plugins' => 'lists,link,paste,textcolor'
+                                            )
+                                        ));
+                                        ?>
                                     </div>
                                 </div>
 
@@ -1180,6 +1434,19 @@ $company_address = $company_fields['company_address'] ?? [];
                                 
                                 <div class="task-input-wrapper">
                                     <input type="text" id="wpmzf-task-title" name="task_title" placeholder="Wpisz treść zadania..." required>
+                                </div>
+                                <div class="task-assigned-user-wrapper" style="margin-top: 10px;">
+                                    <label for="wpmzf-task-assigned-user" style="display: block; margin-bottom: 5px; font-weight: 600;">Odpowiedzialny pracownik:</label>
+                                    <?php
+                                    echo WPMZF_Employee_Helper::render_employee_select(
+                                        'assigned_user',
+                                        0,
+                                        [
+                                            'id' => 'wpmzf-task-assigned-user',
+                                            'style' => 'width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;'
+                                        ]
+                                    );
+                                    ?>
                                 </div>
                                 <div class="task-due-date-wrapper" style="margin-top: 10px;">
                                     <label for="wpmzf-task-due-date" style="display: block; margin-bottom: 5px; font-weight: 600;">Termin wykonania:</label>

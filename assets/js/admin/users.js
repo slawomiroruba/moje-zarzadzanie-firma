@@ -5,12 +5,39 @@
  * @package WPMZF
  */
 
-(function($) {
+// Utility functions - vanilla JS helpers
+function ready(fn) {
+    if (document.readyState !== 'loading') {
+        fn();
+    } else {
+        document.addEventListener('DOMContentLoaded', fn);
+    }
+}
+
+function $(selector, context = document) {
+    return context.querySelector(selector);
+}
+
+function $$(selector, context = document) {
+    return context.querySelectorAll(selector);
+}
+
+function fadeOut(element, duration = 300) {
+    element.style.transition = `opacity ${duration}ms`;
+    element.style.opacity = '0';
+    setTimeout(() => {
+        if (element.parentNode) {
+            element.parentNode.removeChild(element);
+        }
+    }, duration);
+}
+
+(function() {
     'use strict';
 
     var Users = {
-        apiUrl: wpApiSettings.root + 'wpmzf/v1/users',
-        nonce: wpApiSettings.nonce,
+        apiUrl: (typeof wpApiSettings !== 'undefined') ? wpApiSettings.root + 'wpmzf/v1/users' : '',
+        nonce: (typeof wpApiSettings !== 'undefined') ? wpApiSettings.nonce : '',
 
         init: function() {
             this.bindEvents();
@@ -18,30 +45,70 @@
         },
 
         bindEvents: function() {
-            $(document).on('click', '.add-user', this.showAddForm);
-            $(document).on('click', '.edit-user', this.showEditForm);
-            $(document).on('click', '.delete-user', this.deleteUser);
-            $(document).on('submit', '#user-form', this.saveUser);
-            $(document).on('click', '.search-users', this.searchUsers);
+            document.addEventListener('click', function(e) {
+                if (e.target.matches('.add-user') || e.target.closest('.add-user')) {
+                    e.preventDefault();
+                    Users.showAddForm();
+                }
+                if (e.target.matches('.edit-user') || e.target.closest('.edit-user')) {
+                    e.preventDefault();
+                    Users.showEditForm.call(e.target.closest('.edit-user'));
+                }
+                if (e.target.matches('.delete-user') || e.target.closest('.delete-user')) {
+                    e.preventDefault();
+                    Users.deleteUser.call(e.target.closest('.delete-user'));
+                }
+                if (e.target.matches('.search-users') || e.target.closest('.search-users')) {
+                    e.preventDefault();
+                    Users.searchUsers();
+                }
+                if (e.target.matches('.modal-close, .cancel-user') || e.target.closest('.modal-close, .cancel-user')) {
+                    e.preventDefault();
+                    const modal = $('#user-modal');
+                    if (modal) modal.style.display = 'none';
+                }
+                if (e.target.matches('.luna-crm-modal')) {
+                    if (e.target === e.currentTarget) {
+                        e.target.style.display = 'none';
+                    }
+                }
+            });
+
+            document.addEventListener('submit', function(e) {
+                if (e.target.matches('#user-form')) {
+                    e.preventDefault();
+                    Users.saveUser.call(e.target, e);
+                }
+            });
         },
 
         /**
          * Ładuje listę użytkowników
          */
         loadUsers: function() {
-            $.ajax({
-                url: Users.apiUrl,
-                type: 'GET',
-                beforeSend: function(xhr) {
-                    xhr.setRequestHeader('X-WP-Nonce', Users.nonce);
-                },
-                success: function(response) {
-                    Users.renderUsers(response);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Błąd ładowania użytkowników:', error);
-                    Users.showNotification('Błąd ładowania użytkowników', 'error');
+            if (!Users.apiUrl) {
+                console.error('API URL not available');
+                return;
+            }
+
+            fetch(Users.apiUrl, {
+                method: 'GET',
+                headers: {
+                    'X-WP-Nonce': Users.nonce
                 }
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                Users.renderUsers(data);
+            })
+            .catch(function(error) {
+                console.error('Błąd ładowania użytkowników:', error);
+                Users.showNotification('Błąd ładowania użytkowników', 'error');
             });
         },
 
@@ -68,44 +135,74 @@
             });
 
             html += '</tbody></table>';
-            $('#users-list').html(html);
+            const usersList = $('#users-list');
+            if (usersList) {
+                usersList.innerHTML = html;
+            }
         },
 
         /**
          * Pokazuje formularz dodawania użytkownika
          */
         showAddForm: function() {
-            $('#user-form')[0].reset();
-            $('#user-id').val('');
-            $('#user-modal .modal-title').text('Dodaj użytkownika');
-            $('#user-modal').show();
+            const form = $('#user-form');
+            const modal = $('#user-modal');
+            const title = modal ? modal.querySelector('.modal-title') : null;
+            const idField = $('#user-id');
+
+            if (form) form.reset();
+            if (idField) idField.value = '';
+            if (title) title.textContent = 'Dodaj użytkownika';
+            if (modal) modal.style.display = 'block';
         },
 
         /**
          * Pokazuje formularz edycji użytkownika
          */
         showEditForm: function() {
-            var userId = $(this).data('user-id');
+            var userId = this.getAttribute('data-user-id');
             
-            $.ajax({
-                url: Users.apiUrl + '/' + userId,
-                type: 'GET',
-                beforeSend: function(xhr) {
-                    xhr.setRequestHeader('X-WP-Nonce', Users.nonce);
-                },
-                success: function(user) {
-                    $('#user-id').val(user.id);
-                    $('#user-name').val(user.name);
-                    $('#user-email').val(user.email);
-                    $('#user-phone').val(user.phone);
-                    $('#user-position').val(user.position);
-                    $('#user-modal .modal-title').text('Edytuj użytkownika');
-                    $('#user-modal').show();
-                },
-                error: function(xhr, status, error) {
-                    console.error('Błąd ładowania użytkownika:', error);
-                    Users.showNotification('Błąd ładowania użytkownika', 'error');
+            if (!Users.apiUrl) {
+                console.error('API URL not available');
+                return;
+            }
+
+            fetch(Users.apiUrl + '/' + userId, {
+                method: 'GET',
+                headers: {
+                    'X-WP-Nonce': Users.nonce
                 }
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(function(user) {
+                const fields = {
+                    'user-id': user.id,
+                    'user-name': user.name,
+                    'user-email': user.email,
+                    'user-phone': user.phone,
+                    'user-position': user.position
+                };
+
+                Object.keys(fields).forEach(function(fieldId) {
+                    const field = $('#' + fieldId);
+                    if (field) {
+                        field.value = fields[fieldId] || '';
+                    }
+                });
+
+                const modal = $('#user-modal');
+                const title = modal ? modal.querySelector('.modal-title') : null;
+                if (title) title.textContent = 'Edytuj użytkownika';
+                if (modal) modal.style.display = 'block';
+            })
+            .catch(function(error) {
+                console.error('Błąd ładowania użytkownika:', error);
+                Users.showNotification('Błąd ładowania użytkownika', 'error');
             });
         },
 
@@ -115,47 +212,52 @@
         saveUser: function(e) {
             e.preventDefault();
             
-            var form = $(this);
-            var userId = $('#user-id').val();
+            var form = this;
+            var userIdField = $('#user-id');
+            var userId = userIdField ? userIdField.value : '';
             var isEdit = userId !== '';
             
             var userData = {
-                name: $('#user-name').val(),
-                email: $('#user-email').val(),
-                phone: $('#user-phone').val(),
-                position: $('#user-position').val()
+                name: $('#user-name').value || '',
+                email: $('#user-email').value || '',
+                phone: $('#user-phone').value || '',
+                position: $('#user-position').value || ''
             };
             
             var url = isEdit ? Users.apiUrl + '/' + userId : Users.apiUrl;
             var method = isEdit ? 'PUT' : 'POST';
             
-            $.ajax({
-                url: url,
-                type: method,
-                data: JSON.stringify(userData),
-                contentType: 'application/json',
-                beforeSend: function(xhr) {
-                    xhr.setRequestHeader('X-WP-Nonce', Users.nonce);
-                    form.find('button[type="submit"]').prop('disabled', true);
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (submitButton) submitButton.disabled = true;
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-WP-Nonce': Users.nonce
                 },
-                success: function(response) {
-                    $('#user-modal').hide();
-                    Users.showNotification(isEdit ? 'Użytkownik zaktualizowany' : 'Użytkownik dodany', 'success');
-                    Users.loadUsers();
-                },
-                error: function(xhr, status, error) {
-                    console.error('Błąd zapisywania użytkownika:', error);
-                    var errorMessage = 'Błąd zapisywania użytkownika';
-                    
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMessage = xhr.responseJSON.message;
-                    }
-                    
-                    Users.showNotification(errorMessage, 'error');
-                },
-                complete: function() {
-                    form.find('button[type="submit"]').prop('disabled', false);
+                body: JSON.stringify(userData)
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    return response.json().then(function(errorData) {
+                        throw new Error(errorData.message || 'Request failed');
+                    });
                 }
+                return response.json();
+            })
+            .then(function(data) {
+                const modal = $('#user-modal');
+                if (modal) modal.style.display = 'none';
+                Users.showNotification(isEdit ? 'Użytkownik zaktualizowany' : 'Użytkownik dodany', 'success');
+                Users.loadUsers();
+            })
+            .catch(function(error) {
+                console.error('Błąd zapisywania użytkownika:', error);
+                Users.showNotification(error.message || 'Błąd zapisywania użytkownika', 'error');
+            })
+            .finally(function() {
+                if (submitButton) submitButton.disabled = false;
             });
         },
 
@@ -163,26 +265,31 @@
          * Usuwa użytkownika
          */
         deleteUser: function() {
-            var userId = $(this).data('user-id');
+            var userId = this.getAttribute('data-user-id');
             
             if (!confirm('Czy na pewno chcesz usunąć tego użytkownika?')) {
                 return;
             }
             
-            $.ajax({
-                url: Users.apiUrl + '/' + userId,
-                type: 'DELETE',
-                beforeSend: function(xhr) {
-                    xhr.setRequestHeader('X-WP-Nonce', Users.nonce);
-                },
-                success: function(response) {
-                    Users.showNotification('Użytkownik usunięty', 'success');
-                    Users.loadUsers();
-                },
-                error: function(xhr, status, error) {
-                    console.error('Błąd usuwania użytkownika:', error);
-                    Users.showNotification('Błąd usuwania użytkownika', 'error');
+            fetch(Users.apiUrl + '/' + userId, {
+                method: 'DELETE',
+                headers: {
+                    'X-WP-Nonce': Users.nonce
                 }
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                Users.showNotification('Użytkownik usunięty', 'success');
+                Users.loadUsers();
+            })
+            .catch(function(error) {
+                console.error('Błąd usuwania użytkownika:', error);
+                Users.showNotification('Błąd usuwania użytkownika', 'error');
             });
         },
 
@@ -190,26 +297,32 @@
          * Wyszukuje użytkowników
          */
         searchUsers: function() {
-            var searchTerm = $('#user-search').val().trim();
+            var searchField = $('#user-search');
+            var searchTerm = searchField ? searchField.value.trim() : '';
             
             if (searchTerm.length < 2) {
                 Users.showNotification('Wprowadź co najmniej 2 znaki', 'error');
                 return;
             }
             
-            $.ajax({
-                url: Users.apiUrl + '/search?q=' + encodeURIComponent(searchTerm),
-                type: 'GET',
-                beforeSend: function(xhr) {
-                    xhr.setRequestHeader('X-WP-Nonce', Users.nonce);
-                },
-                success: function(response) {
-                    Users.renderUsers(response);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Błąd wyszukiwania:', error);
-                    Users.showNotification('Błąd wyszukiwania', 'error');
+            fetch(Users.apiUrl + '/search?q=' + encodeURIComponent(searchTerm), {
+                method: 'GET',
+                headers: {
+                    'X-WP-Nonce': Users.nonce
                 }
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                Users.renderUsers(data);
+            })
+            .catch(function(error) {
+                console.error('Błąd wyszukiwania:', error);
+                Users.showNotification('Błąd wyszukiwania', 'error');
             });
         },
 
@@ -217,40 +330,43 @@
          * Pokazuje powiadomienie
          */
         showNotification: function(message, type) {
+            // Remove existing notifications
+            const existingNotifications = $$('.notice');
+            existingNotifications.forEach(function(notification) {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            });
+
             var className = type === 'success' ? 'notice-success' : 'notice-error';
-            var notification = $('<div class="notice ' + className + ' is-dismissible"><p>' + message + '</p></div>');
+            var notification = document.createElement('div');
+            notification.className = 'notice ' + className + ' is-dismissible';
+            notification.innerHTML = '<p>' + message + '</p>';
             
-            $('.wrap h1').after(notification);
+            const wrap = $('.wrap h1');
+            if (wrap && wrap.parentNode) {
+                wrap.parentNode.insertBefore(notification, wrap.nextSibling);
+            } else {
+                document.body.appendChild(notification);
+            }
             
             setTimeout(function() {
-                notification.fadeOut();
+                fadeOut(notification);
             }, 3000);
         }
     };
 
     // Inicjalizacja gdy DOM jest gotowy
-    $(document).ready(function() {
-        if (typeof wpApiSettings !== 'undefined' && $('#users-management').length > 0) {
+    ready(function() {
+        if (typeof wpApiSettings !== 'undefined' && $('#users-management')) {
             Users.init();
-        }
-    });
-
-    // Obsługa zamykania modalu
-    $(document).on('click', '.modal-close, .cancel-user', function() {
-        $('#user-modal').hide();
-    });
-
-    // Zamykanie modalu po kliknięciu w tło
-    $(document).on('click', '.luna-crm-modal', function(e) {
-        if (e.target === this) {
-            $(this).hide();
         }
     });
 
     // Eksport do globalnego zasięgu dla innych skryptów
     window.WPMZFUsers = Users;
 
-})(jQuery);
+})();
 
 // Przykłady użycia API z poziomu konsoli:
 

@@ -44,6 +44,7 @@ class WPMZF_Admin_Pages
             // Przekaż zmienne do JavaScript dla widoku osoby
             wp_localize_script('wpmzf-person-view', 'wpmzfPersonView', array(
                 'ajaxUrl' => admin_url('admin-ajax.php'),
+                'adminUrl' => admin_url(),
                 'nonce' => wp_create_nonce('wpmzf_person_view_nonce'),
                 'taskNonce' => wp_create_nonce('wpmzf_task_nonce')
             ));
@@ -80,7 +81,45 @@ class WPMZF_Admin_Pages
             // Przekaż zmienne do JavaScript dla widoku firmy
             wp_localize_script('wpmzf-company-view', 'wpmzfCompanyView', array(
                 'ajaxUrl' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('wpmzf_person_view_nonce'),
+                'adminUrl' => admin_url(),
+                'nonce' => wp_create_nonce('wpmzf_company_view_nonce'),
+                'taskNonce' => wp_create_nonce('wpmzf_task_nonce')
+            ));
+        }
+        
+        // Widoki projektów
+        if ('admin_page_wpmzf_view_project' === $hook) {
+            
+            // Włączamy skrypty i style ACF, aby pole 'relationship' działało poprawnie.
+            if (function_exists('acf_enqueue_scripts')) {
+                acf_enqueue_scripts();
+            }
+            
+            // Dodajemy skrypty edytora WYSIWYG
+            wp_enqueue_editor();
+            wp_enqueue_media();
+            
+            // Dodajemy nasze style i skrypty dla widoku projektu
+            wp_enqueue_style(
+                'wpmzf-project-view',
+                plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/css/admin-styles.css',
+                array(),
+                '1.0.1'
+            );
+            
+            wp_enqueue_script(
+                'wpmzf-project-view',
+                plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/js/admin/project-view.js',
+                array('jquery'),
+                '1.0.1',
+                true
+            );
+            
+            // Przekaż zmienne do JavaScript dla widoku projektu
+            wp_localize_script('wpmzf-project-view', 'wpmzfProjectView', array(
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'adminUrl' => admin_url(),
+                'nonce' => wp_create_nonce('wpmzf_project_view_nonce'),
                 'taskNonce' => wp_create_nonce('wpmzf_task_nonce')
             ));
         }
@@ -95,6 +134,33 @@ class WPMZF_Admin_Pages
                 array(),
                 '1.0.1'
             );
+        }
+        
+        // Dashboard - dodajemy style i podstawowe skrypty
+        if ('wpmzf_page_wpmzf_dashboard' === $hook || 'toplevel_page_wpmzf_dashboard' === $hook) {
+            
+            // Dodajemy style timeline'u
+            wp_enqueue_style(
+                'wpmzf-dashboard',
+                plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/css/admin-styles.css',
+                array(),
+                '1.0.1'
+            );
+            
+            // Dodajemy skrypt dla dashboardu
+            wp_enqueue_script(
+                'wpmzf-dashboard',
+                plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/js/admin/dashboard.js',
+                array('jquery'),
+                '1.0.1',
+                true
+            );
+            
+            // Przekaż zmienne do JavaScript dla dashboardu
+            wp_localize_script('wpmzf-dashboard', 'wpmzfDashboard', array(
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('wpmzf_dashboard_nonce')
+            ));
         }
     }
 
@@ -185,6 +251,17 @@ class WPMZF_Admin_Pages
             'wpmzf_view_company',        // slug dla widoku firmy
             array($this, 'render_single_company_page') // callback renderujący
         );
+
+        // Rejestrujemy "ukrytą" stronę do widoku pojedynczego zlecenia/projektu.
+        // `parent_slug` jako '' ukrywa ją z menu.
+        add_submenu_page(
+            '',                          // Brak rodzica w menu (ukryta)
+            'Widok Zlecenia',            // page_title – tytuł w <title> i nagłówku
+            'Widok Zlecenia',            // menu_title – nazwa w menu (choć tu niewidoczna)
+            'manage_options',            // wymagane uprawnienia
+            'wpmzf_view_project',        // slug dla widoku zlecenia
+            array($this, 'render_single_project_page') // callback renderujący
+        );
     }
 
     /**
@@ -192,7 +269,909 @@ class WPMZF_Admin_Pages
      */
     public function render_dashboard_page()
     {
-        echo '<div class="wrap"><h1>Witaj w kokpicie Twojej firmy!</h1><p>Wybierz jedną z opcji z menu po lewej stronie.</p></div>';
+        // Renderuj nawigację i header
+        WPMZF_View_Helper::render_complete_header(array(
+            'title' => 'Dashboard',
+            'subtitle' => 'Przegląd najważniejszych informacji o Twojej firmie',
+            'breadcrumbs' => array(
+                array('label' => 'Dashboard', 'url' => '')
+            ),
+            'actions' => array(
+                array(
+                    'label' => 'Dodaj firmę',
+                    'url' => admin_url('post-new.php?post_type=company'),
+                    'icon' => '🏢',
+                    'class' => 'button button-primary'
+                    ),
+                    array(
+                        'label' => 'Dodaj osobę',
+                        'url' => admin_url('post-new.php?post_type=person'),
+                        'icon' => '👤',
+                        'class' => 'button'
+                    )
+                )
+            ));
+
+        // Pobieramy dane dla dashboardu
+        $current_user_id = get_current_user_id();
+        $today = current_time('Y-m-d');
+        $now = current_time('Y-m-d H:i:s');
+        
+        // Najpierw znajdujemy ID employee dla aktualnego użytkownika
+        $employee_query = new WP_Query([
+            'post_type' => 'employee',
+            'posts_per_page' => 1,
+            'meta_query' => [
+                [
+                    'key' => 'employee_user',
+                    'value' => $current_user_id,
+                    'compare' => '='
+                ]
+            ]
+        ]);
+        
+        $employee_id = null;
+        if ($employee_query->have_posts()) {
+            $employee_query->the_post();
+            $employee_id = get_the_ID();
+            wp_reset_postdata();
+        }
+        
+        // Pobieramy zadania przypisane do aktualnego employee
+        $my_tasks_query = null;
+        if ($employee_id) {
+            $my_tasks_query = new WP_Query([
+                'post_type' => 'task',
+                'posts_per_page' => -1,
+                'meta_query' => [
+                    [
+                        'key' => 'task_employee',
+                        'value' => '"' . $employee_id . '"',
+                        'compare' => 'LIKE'
+                    ]
+                ],
+                'meta_key' => 'task_start_date',
+                'orderby' => 'meta_value',
+                'order' => 'ASC'
+            ]);
+        }
+        
+        // Zliczamy spóźnione zadania
+        $overdue_tasks = 0;
+        $my_open_tasks = [];
+        
+        if ($my_tasks_query && $my_tasks_query->have_posts()) {
+            while ($my_tasks_query->have_posts()) {
+                $my_tasks_query->the_post();
+                $task_id = get_the_ID();
+                $task_status = get_field('task_status', $task_id) ?: 'Do zrobienia';
+                $start_date = get_field('task_start_date', $task_id);
+                
+                if ($task_status !== 'Zrobione') {
+                    $my_open_tasks[] = [
+                        'id' => $task_id,
+                        'title' => get_the_title(),
+                        'status' => $task_status,
+                        'start_date' => $start_date,
+                        'is_overdue' => $start_date && $start_date < $now
+                    ];
+                    
+                    if ($start_date && $start_date < $now) {
+                        $overdue_tasks++;
+                    }
+                }
+            }
+            wp_reset_postdata();
+        }
+        
+        // 10 ostatnio dodanych osób
+        $recent_persons_query = new WP_Query([
+            'post_type' => 'person',
+            'posts_per_page' => 10,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'meta_query' => [
+                'relation' => 'OR',
+                [
+                    'key' => 'person_status',
+                    'value' => ['archived', 'Zarchiwizowany'],
+                    'compare' => 'NOT IN'
+                ],
+                [
+                    'key' => 'person_status',
+                    'compare' => 'NOT EXISTS'
+                ]
+            ]
+        ]);
+        
+        // 10 ostatnio dodanych firm
+        $recent_companies_query = new WP_Query([
+            'post_type' => 'company',
+            'posts_per_page' => 10,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'meta_query' => [
+                'relation' => 'OR',
+                [
+                    'key' => 'company_status',
+                    'value' => ['archived', 'Zarchiwizowany'],
+                    'compare' => 'NOT IN'
+                ],
+                [
+                    'key' => 'company_status',
+                    'compare' => 'NOT EXISTS'
+                ]
+            ]
+        ]);
+        
+        // Otwarte projekty
+        $open_projects_query = new WP_Query([
+            'post_type' => 'project',
+            'posts_per_page' => -1,
+            'meta_query' => [
+                [
+                    'key' => 'project_status',
+                    'value' => ['Planowanie', 'W toku'],
+                    'compare' => 'IN'
+                ]
+            ]
+        ]);
+        $open_projects_count = $open_projects_query->found_posts;
+        
+        // Wszystkie aktywności (nie przyszłe)
+        $activities_query = new WP_Query([
+            'post_type' => 'activity',
+            'post_status' => 'publish',
+            'posts_per_page' => 20,
+            'orderby' => 'date',
+            'order' => 'DESC'
+        ]);
+        
+        ?>
+        <style>
+            /* Dashboard Styles - identyczne z widokami osób/firm */
+            .dashboard-header {
+                background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+                border: 1px solid #e1e5e9;
+                border-radius: 12px;
+                padding: 24px 28px;
+                margin: 20px 0 28px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                position: relative;
+                overflow: hidden;
+            }
+
+            .dashboard-header::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 4px;
+                background: linear-gradient(90deg, #2271b1 0%, #1e90ff 50%, #00bcd4 100%);
+            }
+
+            .dashboard-header h1 {
+                margin: 0;
+                font-size: 28px;
+                font-weight: 700;
+                color: #1d2327;
+                line-height: 1.2;
+                padding: 0 !important;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            }
+
+            .dashboard-grid {
+                display: grid;
+                grid-template-columns: 320px 1fr 360px;
+                gap: 24px;
+                margin-top: 0;
+            }
+
+            .dashboard-left-column,
+            .dashboard-center-column,
+            .dashboard-right-column {
+                display: flex;
+                flex-direction: column;
+                gap: 24px;
+            }
+
+            .dashboard-box {
+                background: #fff;
+                border: 1px solid #e1e5e9;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                transition: all 0.2s ease;
+            }
+
+            .dashboard-box:hover {
+                border-color: #d0d5dd;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            }
+
+            .dashboard-box h2.dashboard-title {
+                font-size: 14px;
+                font-weight: 600;
+                padding: 16px 20px;
+                margin: 0;
+                border-bottom: 1px solid #e1e5e9;
+                background: #f8f9fa;
+                border-radius: 8px 8px 0 0;
+                color: #1d2327;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .dashboard-box .dashboard-content {
+                padding: 20px;
+            }
+
+            .quick-stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 16px;
+                margin-bottom: 24px;
+            }
+
+            .stat-tile {
+                background: #fff;
+                border: 1px solid #e1e5e9;
+                border-radius: 8px;
+                padding: 20px;
+                text-align: center;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+                transition: all 0.2s ease;
+            }
+
+            .stat-tile:hover {
+                border-color: #2271b1;
+                box-shadow: 0 2px 8px rgba(34, 113, 177, 0.15);
+            }
+
+            .stat-tile.overdue {
+                border-color: #dc3232;
+                background: #fdf2f2;
+            }
+
+            .stat-tile .stat-number {
+                font-size: 32px;
+                font-weight: 700;
+                color: #1d2327;
+                line-height: 1;
+                margin-bottom: 8px;
+            }
+
+            .stat-tile.overdue .stat-number {
+                color: #dc3232;
+            }
+
+            .stat-tile .stat-label {
+                font-size: 13px;
+                color: #646970;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .recent-item {
+                display: flex;
+                align-items: center;
+                padding: 12px 0;
+                border-bottom: 1px solid #f0f0f1;
+                transition: all 0.2s ease;
+            }
+
+            .recent-item:last-child {
+                border-bottom: none;
+            }
+
+            .recent-item:hover {
+                background: #f8f9fa;
+                margin: 0 -20px;
+                padding: 12px 20px;
+                border-radius: 4px;
+            }
+
+            .recent-item .item-title {
+                font-weight: 600;
+                color: #2271b1;
+                text-decoration: none;
+                margin-bottom: 4px;
+            }
+
+            .recent-item .item-title:hover {
+                color: #135e96;
+                text-decoration: underline;
+            }
+
+            .recent-item .item-meta {
+                font-size: 12px;
+                color: #646970;
+            }
+
+            /* Usunięto stare style .activity-item - teraz używamy timeline */
+
+            .task-item-simple {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 0;
+                border-bottom: 1px solid #f0f0f1;
+            }
+
+            .task-item-simple:last-child {
+                border-bottom: none;
+            }
+
+            .task-item-simple.overdue {
+                border-left: 4px solid #dc3232;
+                background: #fdf2f2;
+                margin: 0 -20px 0 -16px;
+                padding: 12px 20px 12px 16px;
+                border-radius: 0 4px 4px 0;
+            }
+
+            .task-title-simple {
+                font-weight: 600;
+                color: #1d2327;
+                font-size: 14px;
+            }
+
+            .task-meta-simple {
+                font-size: 12px;
+                color: #646970;
+            }
+
+            .task-status-simple {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+            }
+
+            .task-status-simple.do-zrobienia {
+                background: #fff2cc;
+                color: #996f00;
+            }
+
+            .task-status-simple.w-toku {
+                background: #cce5ff;
+                color: #0073aa;
+            }
+
+            .nav-button {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 500;
+                padding: 10px 18px;
+                border-radius: 6px;
+                transition: all 0.3s ease;
+                border: 1px solid #e1e5e9;
+                background: #f8f9fa;
+                color: #50575e;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+                margin-bottom: 8px;
+                width: 100%;
+                box-sizing: border-box;
+                text-align: center;
+                justify-content: center;
+            }
+
+            .nav-button:hover {
+                background: #fff;
+                border-color: #2271b1;
+                color: #2271b1;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(34, 113, 177, 0.15);
+                text-decoration: none;
+            }
+
+            .nav-button .dashicons {
+                font-size: 16px;
+            }
+
+            @media screen and (max-width: 1200px) {
+                .dashboard-grid {
+                    grid-template-columns: 1fr;
+                    gap: 20px;
+                }
+                
+                .quick-stats {
+                    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                }
+            }
+        </style>
+
+        <div class="wrap">
+            <div class="dashboard-header">
+                <h1>Witaj w kokpicie Twojej firmy!</h1>
+                <p style="margin: 8px 0 0; color: #646970; font-size: 16px;">Dzisiaj: <?php echo date_i18n('j F Y', current_time('timestamp')); ?></p>
+            </div>
+
+            <!-- Szybkie statystyki -->
+            <div class="quick-stats">
+                <div class="stat-tile <?php echo $overdue_tasks > 0 ? 'overdue' : ''; ?>">
+                    <div class="stat-number"><?php echo $overdue_tasks; ?></div>
+                    <div class="stat-label">Spóźnione zadania</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-number"><?php echo count($my_open_tasks); ?></div>
+                    <div class="stat-label">Moje zadania</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-number"><?php echo $recent_persons_query->found_posts; ?></div>
+                    <div class="stat-label">Nowe osoby (10)</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-number"><?php echo $recent_companies_query->found_posts; ?></div>
+                    <div class="stat-label">Nowe firmy (10)</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-number"><?php echo $open_projects_count; ?></div>
+                    <div class="stat-label">Otwarte projekty</div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <!-- Lewa kolumna - Moje zadania -->
+                <div class="dashboard-left-column">
+                    <div class="dashboard-box">
+                        <h2 class="dashboard-title">Moje zadania</h2>
+                        <div class="dashboard-content">
+                            <?php if (!$employee_id) : ?>
+                                <div style="padding: 20px; text-align: center; color: #8c8f94; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #ffb900;">
+                                    <p style="margin: 0; font-weight: 600;">Brak powiązania z pracownikiem</p>
+                                    <p style="margin: 8px 0 0; font-size: 13px;">
+                                        Aby widzieć swoje zadania, administrator musi utworzyć dla Ciebie wpis w sekcji "Pracownicy" 
+                                        i połączyć go z Twoim kontem użytkownika.
+                                    </p>
+                                </div>
+                            <?php elseif (!empty($my_open_tasks)) : ?>
+                                <?php foreach (array_slice($my_open_tasks, 0, 10) as $task) : ?>
+                                    <div class="task-item-simple <?php echo $task['is_overdue'] ? 'overdue' : ''; ?>">
+                                        <div>
+                                            <div class="task-title-simple"><?php echo esc_html($task['title']); ?></div>
+                                            <div class="task-meta-simple">
+                                                <span class="task-status-simple <?php echo sanitize_html_class(strtolower(str_replace(' ', '-', $task['status']))); ?>">
+                                                    <?php echo esc_html($task['status']); ?>
+                                                </span>
+                                                <?php if ($task['start_date']) : ?>
+                                                    | <?php echo date_i18n('j.m.Y H:i', strtotime($task['start_date'])); ?>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else : ?>
+                                <p style="color: #8c8f94; font-style: italic;">Brak otwartych zadań.</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-box">
+                        <h2 class="dashboard-title">Ostatnie osoby</h2>
+                        <div class="dashboard-content">
+                            <?php if ($recent_persons_query->have_posts()) : ?>
+                                <?php while ($recent_persons_query->have_posts()) : $recent_persons_query->the_post(); ?>
+                                    <div class="recent-item">
+                                        <div>
+                                            <div>
+                                                <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_person', 'person_id' => get_the_ID()], admin_url('admin.php'))); ?>" class="item-title">
+                                                    <?php echo esc_html(get_the_title()); ?>
+                                                </a>
+                                            </div>
+                                            <div class="item-meta">
+                                                Dodano: <?php echo get_the_date('j.m.Y H:i'); ?>
+                                                <?php 
+                                                $person_company = get_field('person_company', get_the_ID());
+                                                if ($person_company && is_array($person_company) && !empty($person_company)) :
+                                                    $company_title = get_the_title($person_company[0]);
+                                                ?>
+                                                    | <?php echo esc_html($company_title); ?>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endwhile; wp_reset_postdata(); ?>
+                            <?php else : ?>
+                                <p style="color: #8c8f94; font-style: italic;">Brak nowych osób.</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-box">
+                        <h2 class="dashboard-title">Ostatnie firmy</h2>
+                        <div class="dashboard-content">
+                            <?php if ($recent_companies_query->have_posts()) : ?>
+                                <?php while ($recent_companies_query->have_posts()) : $recent_companies_query->the_post(); ?>
+                                    <div class="recent-item">
+                                        <div>
+                                            <div>
+                                                <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_company', 'company_id' => get_the_ID()], admin_url('admin.php'))); ?>" class="item-title">
+                                                    <?php echo esc_html(get_the_title()); ?>
+                                                </a>
+                                            </div>
+                                            <div class="item-meta">
+                                                Dodano: <?php echo get_the_date('j.m.Y H:i'); ?>
+                                                <?php 
+                                                $company_nip = get_field('company_nip', get_the_ID());
+                                                if ($company_nip) :
+                                                ?>
+                                                    | NIP: <?php echo esc_html($company_nip); ?>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endwhile; wp_reset_postdata(); ?>
+                            <?php else : ?>
+                                <p style="color: #8c8f94; font-style: italic;">Brak nowych firm.</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Środkowa kolumna - Aktywności -->
+                <div class="dashboard-center-column">
+                    <div class="dashboard-box">
+                        <h2 class="dashboard-title">Ostatnie aktywności</h2>
+                        <div class="dashboard-content">
+                            <div id="dashboard-activity-timeline">
+                                <?php if ($activities_query->have_posts()) : ?>
+                                    <?php while ($activities_query->have_posts()) : $activities_query->the_post(); ?>
+                                        <?php 
+                                        $activity_id = get_the_ID();
+                                        $activity_post = get_post($activity_id);
+                                        $activity_type = get_field('activity_type', $activity_id) ?: 'note';
+                                        $activity_date = get_field('activity_date', $activity_id);
+                                        $related_person = get_field('related_person', $activity_id);
+                                        $related_company = get_field('related_company', $activity_id);
+                                        $activity_content = $activity_post->post_content;
+                                        $activity_author = get_the_author_meta('display_name', $activity_post->post_author);
+                                        $activity_author_id = $activity_post->post_author;
+                                        $activity_avatar = get_avatar_url($activity_author_id, ['size' => 50]);
+
+                                        // Pobierz załączniki
+                                        $attachments = get_field('activity_attachments', $activity_id) ?: [];
+                                        
+                                        // Ikony dla typów aktywności
+                                        $activity_icons = [
+                                            'note' => 'dashicons-edit',
+                                            'email' => 'dashicons-email-alt',
+                                            'phone' => 'dashicons-phone',
+                                            'meeting' => 'dashicons-groups',
+                                            'meeting_online' => 'dashicons-video-alt3'
+                                        ];
+                                        $icon_class = $activity_icons[$activity_type] ?? 'dashicons-edit';
+                                        
+                                        // Etykiety typów
+                                        $type_labels = [
+                                            'note' => 'Notatka',
+                                            'email' => 'E-mail',
+                                            'phone' => 'Telefon',
+                                            'meeting' => 'Spotkanie',
+                                            'meeting_online' => 'Spotkanie online'
+                                        ];
+                                        $type_label = $type_labels[$activity_type] ?? $activity_type;
+                                        
+                                        // Formatuj datę
+                                        $formatted_date = $activity_date ? date_i18n('j.m.Y o H:i', strtotime($activity_date)) : get_the_date('j.m.Y o H:i', $activity_id);
+                                        ?>
+                                        <div class="timeline-item" data-activity-id="<?php echo esc_attr($activity_id); ?>">
+                                            <div class="timeline-avatar">
+                                                <img src="<?php echo esc_url($activity_avatar); ?>" alt="<?php echo esc_attr($activity_author); ?>">
+                                            </div>
+                                            <div class="timeline-content">
+                                                <div class="timeline-header">
+                                                    <div class="timeline-header-left">
+                                                        <div class="timeline-header-meta">
+                                                            <span class="dashicons <?php echo esc_attr($icon_class); ?>"></span>
+                                                            <span><strong><?php echo esc_html($activity_author); ?></strong> dodał(a) <strong><?php echo esc_html($type_label); ?></strong></span>
+                                                        </div>
+                                                        <span class="timeline-header-date"><?php echo esc_html($formatted_date); ?></span>
+                                                    </div>
+                                                    <div class="timeline-actions">
+                                                        <span class="dashicons dashicons-visibility view-activity" title="Zobacz szczegóły" onclick="viewActivityDetails(<?php echo esc_attr($activity_id); ?>)"></span>
+                                                    </div>
+                                                </div>
+                                                <div class="timeline-body">
+                                                    <div class="activity-content-display">
+                                                        <?php echo wp_kses_post(wp_trim_words($activity_content, 30)); ?>
+                                                    </div>
+                                                    
+                                                    <?php if ($related_person || $related_company) : ?>
+                                                        <div class="activity-related" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e3e5e8; font-size: 13px; color: #646970;">
+                                                            <strong>Dotycząca:</strong> 
+                                                            <?php if ($related_person) : ?>
+                                                                <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_person', 'person_id' => $related_person], admin_url('admin.php'))); ?>" style="color: #2271b1; text-decoration: none;">
+                                                                    <?php echo esc_html(get_the_title($related_person)); ?>
+                                                                </a>
+                                                            <?php endif; ?>
+                                                            <?php if ($related_company) : ?>
+                                                                <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_company', 'company_id' => $related_company], admin_url('admin.php'))); ?>" style="color: #2271b1; text-decoration: none;">
+                                                                    <?php echo esc_html(get_the_title($related_company)); ?>
+                                                                </a>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                                     <?php if (!empty($attachments) && is_array($attachments)) : ?>
+                                        <div class="timeline-attachments">
+                                            <ul>
+                                                <?php foreach ($attachments as $attachment) : ?>
+                                                    <?php 
+                                                    // Obsługa różnych struktur attachmentów
+                                                    $attachment_id = '';
+                                                    if (is_array($attachment) && isset($attachment['ID'])) {
+                                                        $attachment_id = $attachment['ID'];
+                                                    } elseif (is_object($attachment) && isset($attachment->ID)) {
+                                                        $attachment_id = $attachment->ID;
+                                                    } elseif (is_numeric($attachment)) {
+                                                        $attachment_id = $attachment;
+                                                    }
+                                                    
+                                                    if (!$attachment_id) continue;
+                                                    
+                                                    $file_url = wp_get_attachment_url($attachment_id);
+                                                    if (!$file_url) continue;
+                                                    
+                                                    $file_name = get_the_title($attachment_id) ?: basename($file_url);
+                                                    $mime_type = get_post_mime_type($attachment_id);
+                                                    $is_image = strpos($mime_type, 'image/') === 0;
+                                                    ?>
+                                                    <li>
+                                                        <a href="<?php echo esc_url($file_url); ?>" target="_blank">
+                                                            <?php if ($is_image) : ?>
+                                                                <?php $thumb_url = wp_get_attachment_image_url($attachment_id, 'thumbnail'); ?>
+                                                                <img src="<?php echo esc_url($thumb_url ?: $file_url); ?>" alt="Podgląd załącznika">
+                                                            <?php else : ?>
+                                                                <?php
+                                                                $icon_map = [
+                                                                    'application/pdf' => 'dashicons-pdf',
+                                                                    'application/msword' => 'dashicons-media-document',
+                                                                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'dashicons-media-document',
+                                                                    'application/vnd.ms-excel' => 'dashicons-media-spreadsheet',
+                                                                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'dashicons-media-spreadsheet',
+                                                                    'text/plain' => 'dashicons-media-text'
+                                                                ];
+                                                                $icon_class = $icon_map[$mime_type] ?? 'dashicons-media-default';
+                                                                ?>
+                                                                <span class="dashicons <?php echo esc_attr($icon_class); ?>"></span>
+                                                            <?php endif; ?>
+                                                            <span><?php echo esc_html($file_name); ?></span>
+                                                        </a>
+                                                    </li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        </div>
+                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php endwhile; wp_reset_postdata(); ?>
+                                <?php else : ?>
+                                    <p style="color: #8c8f94; font-style: italic; text-align: center; padding: 40px 20px;">Brak aktywności.</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prawa kolumna - Nawigacja -->
+                <div class="dashboard-right-column">
+                    <div class="dashboard-box">
+                        <h2 class="dashboard-title">Szybka nawigacja</h2>
+                        <div class="dashboard-content">
+                            <a href="<?php echo esc_url(admin_url('admin.php?page=wpmzf_persons')); ?>" class="nav-button">
+                                <span class="dashicons dashicons-groups"></span>
+                                Wszystkie osoby
+                            </a>
+                            <a href="<?php echo esc_url(admin_url('admin.php?page=wpmzf_companies')); ?>" class="nav-button">
+                                <span class="dashicons dashicons-building"></span>
+                                Wszystkie firmy
+                            </a>
+                            <a href="<?php echo esc_url(admin_url('admin.php?page=wpmzf_projects')); ?>" class="nav-button">
+                                <span class="dashicons dashicons-portfolio"></span>
+                                Wszystkie projekty
+                            </a>
+                            <a href="<?php echo esc_url(admin_url('post-new.php?post_type=person')); ?>" class="nav-button">
+                                <span class="dashicons dashicons-plus"></span>
+                                Dodaj osobę
+                            </a>
+                            <a href="<?php echo esc_url(admin_url('post-new.php?post_type=company')); ?>" class="nav-button">
+                                <span class="dashicons dashicons-plus"></span>
+                                Dodaj firmę
+                            </a>
+                            <a href="<?php echo esc_url(admin_url('post-new.php?post_type=project')); ?>" class="nav-button">
+                                <span class="dashicons dashicons-plus"></span>
+                                Dodaj projekt
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+        // Dashboard timeline functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Jeśli funkcja viewActivityDetails nie jest jeszcze dostępna (skrypt nie załadowany)
+            // utworzmy prostą implementację
+            if (typeof window.viewActivityDetails === 'undefined') {
+                window.viewActivityDetails = function(activityId) {
+                    const activityElement = document.querySelector(`[data-activity-id="${activityId}"]`);
+                    
+                    if (!activityElement) {
+                        console.error('Nie znaleziono aktywności o ID:', activityId);
+                        return;
+                    }
+                    
+                    // Pobierz informacje z elementu
+                    const activityContentElement = activityElement.querySelector('.activity-content-display');
+                    const activityHeaderElement = activityElement.querySelector('.timeline-header-meta span:last-child');
+                    const activityDateElement = activityElement.querySelector('.timeline-header-date');
+                    const relatedElement = activityElement.querySelector('.activity-related');
+                    const attachmentsElement = activityElement.querySelector('.timeline-attachments');
+                    
+                    const activityContent = activityContentElement ? activityContentElement.innerHTML : '';
+                    const activityHeader = activityHeaderElement ? activityHeaderElement.textContent : '';
+                    const activityDate = activityDateElement ? activityDateElement.textContent : '';
+                    const relatedInfo = relatedElement ? relatedElement.innerHTML : '';
+                    const attachments = attachmentsElement ? attachmentsElement.innerHTML : '';
+                    
+                    // Stwórz modal z szczegółami
+                    const modalHtml = `
+                        <div id="activity-details-modal" style="
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            background: rgba(0,0,0,0.7);
+                            z-index: 100000;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        ">
+                            <div style="
+                                background: #fff;
+                                border-radius: 8px;
+                                max-width: 800px;
+                                width: 90%;
+                                max-height: 80%;
+                                overflow-y: auto;
+                                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                            ">
+                                <div style="
+                                    padding: 24px;
+                                    border-bottom: 1px solid #e1e5e9;
+                                    background: #f8f9fa;
+                                    border-radius: 8px 8px 0 0;
+                                    display: flex;
+                                    justify-content: space-between;
+                                    align-items: center;
+                                ">
+                                    <div>
+                                        <h2 style="margin: 0; font-size: 18px; color: #1d2327;">${activityHeader}</h2>
+                                        <p style="margin: 4px 0 0; color: #646970; font-size: 14px;">${activityDate}</p>
+                                    </div>
+                                    <button id="close-activity-modal" style="
+                                        background: none;
+                                        border: none;
+                                        font-size: 24px;
+                                        cursor: pointer;
+                                        color: #646970;
+                                        padding: 4px;
+                                        border-radius: 4px;
+                                        transition: all 0.2s ease;
+                                    ">&times;</button>
+                                </div>
+                                <div style="padding: 24px;">
+                                    <div style="
+                                        color: #1d2327;
+                                        line-height: 1.6;
+                                        font-size: 15px;
+                                        margin-bottom: ${relatedInfo || attachments ? '24px' : '0'};
+                                    ">
+                                        ${activityContent}
+                                    </div>
+                                    ${relatedInfo ? `
+                                        <div style="
+                                            padding: 16px;
+                                            background: #f8f9fa;
+                                            border-radius: 6px;
+                                            border-left: 4px solid #2271b1;
+                                            margin-bottom: ${attachments ? '20px' : '0'};
+                                        ">
+                                            ${relatedInfo}
+                                        </div>
+                                    ` : ''}
+                                    ${attachments ? `
+                                        <div style="
+                                            border-top: 1px solid #e1e5e9;
+                                            padding-top: 20px;
+                                        ">
+                                            <h4 style="margin: 0 0 12px; color: #1d2327; font-size: 14px; font-weight: 600;">Załączniki:</h4>
+                                            ${attachments}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Dodaj modal do strony
+                    document.body.insertAdjacentHTML('beforeend', modalHtml);
+                    
+                    // Obsługa zamykania modala
+                    const modal = document.getElementById('activity-details-modal');
+                    const closeBtn = document.getElementById('close-activity-modal');
+                    
+                    function closeModal() {
+                        if (modal) {
+                            modal.remove();
+                        }
+                    }
+                    
+                    // Kliknięcie na tło zamyka modal
+                    modal.addEventListener('click', function(e) {
+                        if (e.target === modal) {
+                            closeModal();
+                        }
+                    });
+                    
+                    // Przycisk zamknij
+                    closeBtn.addEventListener('click', closeModal);
+                    
+                    // Hover effects dla przycisku zamknij
+                    closeBtn.addEventListener('mouseenter', function() {
+                        this.style.background = '#f0f0f1';
+                        this.style.color = '#d63638';
+                    });
+                    
+                    closeBtn.addEventListener('mouseleave', function() {
+                        this.style.background = 'none';
+                        this.style.color = '#646970';
+                    });
+                    
+                    // Zapobiegaj zamykaniu modala przy kliknięciu na zawartość
+                    const modalContent = modal.querySelector('div');
+                    modalContent.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                    });
+                    
+                    // Escape key zamyka modal
+                    function handleEscape(e) {
+                        if (e.key === 'Escape') {
+                            closeModal();
+                            document.removeEventListener('keydown', handleEscape);
+                        }
+                    }
+                    document.addEventListener('keydown', handleEscape);
+                };
+            }
+            
+            // Dodaj hover effects dla timeline actions
+            const timelineActions = document.querySelectorAll('.timeline-actions .dashicons');
+            timelineActions.forEach(function(action) {
+                action.addEventListener('mouseenter', function() {
+                    this.style.color = '#2271b1';
+                    this.style.background = '#f0f6fc';
+                });
+                
+                action.addEventListener('mouseleave', function() {
+                    this.style.color = '#646970';
+                    this.style.background = 'transparent';
+                });
+            });
+        });
+        </script>
+        <?php
     }
 
     /**
@@ -296,6 +1275,30 @@ class WPMZF_Admin_Pages
 
     public function render_persons_page()
     {
+        // Renderuj nawigację i header
+        WPMZF_View_Helper::render_complete_header(array(
+            'title' => 'Osoby',
+            'subtitle' => 'Zarządzaj kontaktami osobowymi w swoim systemie CRM',
+            'breadcrumbs' => array(
+                array('label' => 'Dashboard', 'url' => admin_url('admin.php?page=wpmzf_dashboard')),
+                array('label' => 'Osoby', 'url' => '')
+            ),
+            'actions' => array(
+                array(
+                    'label' => 'Dodaj osobę',
+                    'url' => admin_url('post-new.php?post_type=person'),
+                    'icon' => '➕',
+                    'class' => 'button button-primary'
+                ),
+                array(
+                    'label' => 'Import osób',
+                    'url' => '#',
+                    'icon' => '📥',
+                    'class' => 'button'
+                )
+            )
+        ));
+
         // Stwórz instancję i przygotuj dane tabeli
         $persons_table = new WPMZF_persons_List_Table();
         $persons_table->prepare_items();
@@ -1138,13 +2141,14 @@ class WPMZF_Admin_Pages
                 window.location.href = newProjectUrl;
             });
             
-            // Obsługa linków do projektów (przyszły widok szczegółowy)
+            // Obsługa linków do projektów - przekierowanie do widoku projektu
             $('.project-link').on('click', function(e) {
                 e.preventDefault();
                 
                 const projectId = $(this).data('project-id');
-                // TODO: Implementacja widoku szczegółowego projektu
-                alert('Widok szczegółowy projektu #' + projectId + ' zostanie wkrótce zaimplementowany.');
+                const projectUrl = '<?php echo admin_url('admin.php?page=wpmzf_view_project'); ?>' + '&project_id=' + projectId;
+                
+                window.location.href = projectUrl;
             });
         });
         </script>
@@ -1210,6 +2214,31 @@ class WPMZF_Admin_Pages
         $person_title = get_the_title($person_id);
         $title = 'Widok Osoby: ' . $person_title; // Ustawiamy globalny tytuł strony
         $person_fields = get_fields($person_id);
+
+        // Renderuj nawigację i header
+        WPMZF_View_Helper::render_complete_header(array(
+            'title' => $person_title,
+            'subtitle' => 'Szczegółowe informacje o osobie',
+            'breadcrumbs' => array(
+                array('label' => 'Dashboard', 'url' => admin_url('admin.php?page=wpmzf_dashboard')),
+                array('label' => 'Osoby', 'url' => admin_url('admin.php?page=wpmzf_persons')),
+                array('label' => $person_title, 'url' => '')
+            ),
+            'actions' => array(
+                array(
+                    'label' => 'Edytuj osobę',
+                    'url' => admin_url('post.php?post=' . $person_id . '&action=edit'),
+                    'icon' => '✏️',
+                    'class' => 'button button-primary'
+                ),
+                array(
+                    'label' => 'Dodaj aktywność',
+                    'url' => admin_url('post-new.php?post_type=activity'),
+                    'icon' => '📝',
+                    'class' => 'button'
+                )
+            )
+        ));
 
         // Inicjalizujemy zmienne firmy, aby uniknąć błędów
         $company_id = null;
@@ -2107,6 +3136,156 @@ class WPMZF_Admin_Pages
                     font-size: 12px;
                 }
             }
+            
+            /* Important Links Styles */
+            #important-links-container {
+                min-height: 60px;
+            }
+            
+            .important-link-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 12px;
+                border: 1px solid #e1e5e9;
+                border-radius: 6px;
+                margin-bottom: 8px;
+                background: #fff;
+                transition: all 0.2s ease;
+                position: relative;
+            }
+            
+            .important-link-item:hover {
+                border-color: #2271b1;
+                box-shadow: 0 2px 8px rgba(34, 113, 177, 0.15);
+            }
+            
+            .important-link-favicon {
+                flex-shrink: 0;
+                width: 20px;
+                height: 20px;
+                background: #f0f0f1;
+                border-radius: 3px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .important-link-favicon img {
+                width: 16px;
+                height: 16px;
+                border-radius: 2px;
+            }
+            
+            .important-link-content {
+                flex: 1;
+                min-width: 0;
+            }
+            
+            .important-link-title {
+                font-weight: 500;
+                color: #1d2327;
+                margin: 0 0 4px 0;
+                font-size: 14px;
+                line-height: 1.3;
+                display: block;
+                text-decoration: none;
+                word-break: break-word;
+            }
+            
+            .important-link-title:hover {
+                color: #2271b1;
+                text-decoration: underline;
+            }
+            
+            .important-link-url {
+                font-size: 12px;
+                color: #646970;
+                margin: 0;
+                word-break: break-all;
+            }
+            
+            .important-link-actions {
+                display: flex;
+                gap: 4px;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+            }
+            
+            .important-link-item:hover .important-link-actions {
+                opacity: 1;
+            }
+            
+            .important-link-action {
+                padding: 4px 6px;
+                border: 1px solid #c3c4c7;
+                background: #fff;
+                color: #646970;
+                text-decoration: none;
+                border-radius: 3px;
+                font-size: 12px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            
+            .important-link-action:hover {
+                border-color: #2271b1;
+                color: #2271b1;
+            }
+            
+            .important-link-action.delete:hover {
+                border-color: #d63638;
+                color: #d63638;
+                background: #fef7f7;
+            }
+            
+            #important-link-form {
+                background: #f8f9fa;
+                border: 1px solid #e1e5e9;
+                border-radius: 6px;
+                padding: 16px;
+                margin-top: 12px;
+            }
+            
+            #important-link-form .form-group {
+                margin-bottom: 12px;
+            }
+            
+            #important-link-form label {
+                display: block;
+                margin-bottom: 4px;
+                font-weight: 500;
+                color: #1d2327;
+            }
+            
+            #important-link-form input[type="url"],
+            #important-link-form input[type="text"] {
+                width: 100%;
+                padding: 8px 12px;
+                border: 1px solid #c3c4c7;
+                border-radius: 4px;
+                font-size: 14px;
+                background: #fff;
+            }
+            
+            #important-link-form input:focus {
+                outline: none;
+                border-color: #2271b1;
+                box-shadow: 0 0 0 1px #2271b1;
+            }
+            
+            .no-important-links {
+                text-align: center;
+                color: #646970;
+                font-style: italic;
+                padding: 20px;
+            }
+            
+            .important-links-loading {
+                text-align: center;
+                color: #646970;
+                padding: 16px;
+            }
         </style>
 
         <div class="wrap">
@@ -2221,6 +3400,22 @@ class WPMZF_Admin_Pages
                                     echo esc_html($display_status ?: 'Aktywny');
                                     ?>
                                 </span></p>
+                                <p><strong>Polecający:</strong> <span data-field="person_referrer">
+                                    <?php
+                                    $referrer = get_field('person_referrer', $person_id);
+                                    if ($referrer && is_array($referrer) && !empty($referrer)) {
+                                        $referrer_post = get_post($referrer[0]);
+                                        if ($referrer_post) {
+                                            $referrer_type = get_post_type($referrer_post->ID) === 'company' ? '🏢' : '👤';
+                                            echo $referrer_type . ' ' . esc_html($referrer_post->post_title);
+                                        } else {
+                                            echo 'Brak';
+                                        }
+                                    } else {
+                                        echo 'Brak';
+                                    }
+                                    ?>
+                                </span></p>
                             </div>
                             <div class="edit-form">
                                 <form>
@@ -2250,6 +3445,27 @@ class WPMZF_Admin_Pages
                                             <input type="text" id="person_city" name="person_city" value="<?php echo esc_attr((string)($person_fields['person_city'] ?? '')); ?>">
                                         </div>
                                     </div>
+
+                                    <label for="person_referrer_select">Polecający:</label>
+                                    <select id="person_referrer_select" name="person_referrer" style="width: 100%;">
+                                        <?php 
+                                        $current_referrer = get_field('person_referrer', $person_id);
+                                        $referrer_id = '';
+                                        $referrer_title = '';
+                                        if ($current_referrer && is_array($current_referrer) && !empty($current_referrer)) {
+                                            $referrer_post = get_post($current_referrer[0]);
+                                            if ($referrer_post) {
+                                                $referrer_id = $referrer_post->ID;
+                                                $referrer_type = get_post_type($referrer_post->ID) === 'company' ? '🏢' : '👤';
+                                                $referrer_title = $referrer_type . ' ' . $referrer_post->post_title;
+                                            }
+                                        }
+                                        ?>
+                                        <option value="">Brak polecającego</option>
+                                        <?php if ($referrer_id && $referrer_title) : ?>
+                                            <option value="<?php echo esc_attr($referrer_id); ?>" selected="selected"><?php echo esc_html($referrer_title); ?></option>
+                                        <?php endif; ?>
+                                    </select>
 
                                     <label for="person_status">Status:</label>
                                     <select id="person_status" name="person_status">
@@ -2328,6 +3544,48 @@ class WPMZF_Admin_Pages
                             ?>
                         </div>
                     </div>
+                    
+                    <!-- Sekcja Ważnych Linków -->
+                    <div class="dossier-box" id="important-links-section">
+                        <h2 class="dossier-title">
+                            Ważne linki
+                            <button type="button" id="add-important-link-btn" class="edit-data-button">Dodaj link</button>
+                        </h2>
+                        <div class="dossier-content">
+                            <div id="important-links-container">
+                                <p><em>Ładowanie linków...</em></p>
+                            </div>
+                            
+                            <!-- Formularz dodawania/edycji linku -->
+                            <div id="important-link-form" style="display: none;">
+                                <form id="wpmzf-important-link-form">
+                                    <?php wp_nonce_field('wpmzf_person_view_nonce', 'wpmzf_link_security'); ?>
+                                    <input type="hidden" name="person_id" value="<?php echo esc_attr($person_id); ?>">
+                                    <input type="hidden" name="object_id" value="<?php echo esc_attr($person_id); ?>">
+                                    <input type="hidden" name="object_type" value="person">
+                                    <input type="hidden" name="link_id" id="edit-link-id" value="">
+                                    
+                                    <div class="form-group">
+                                        <label for="link-url">URL linku:</label>
+                                        <input type="url" id="link-url" name="url" placeholder="https://example.com" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    </div>
+                                    
+                                    <div class="form-group" style="margin-top: 10px;">
+                                        <label for="link-custom-title">Niestandardowy opis (opcjonalnie):</label>
+                                        <input type="text" id="link-custom-title" name="custom_title" placeholder="Jeśli pozostawisz puste, pobierzemy automatycznie tytuł strony" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <small style="color: #666;">Jeśli nie wpiszesz opisu, automatycznie pobierzemy tytuł strony</small>
+                                    </div>
+                                    
+                                    <div class="form-actions" style="margin-top: 15px; display: flex; gap: 10px;">
+                                        <button type="submit" class="button button-primary">
+                                            <span id="link-submit-text">Dodaj link</span>
+                                        </button>
+                                        <button type="button" id="cancel-link-form" class="button">Anuluj</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Środkowa kolumna - Aktywności -->
@@ -2351,8 +3609,20 @@ class WPMZF_Admin_Pages
                                     // Kontener na edytor TinyMCE (początkowo ukryty)
                                     echo '<div id="wpmzf-editor-container" style="display: none;">';
                                     
-                                    // Generujemy tylko textarea - TinyMCE zostanie zainicjalizowany przez JavaScript
-                                    echo '<textarea id="wpmzf-activity-content" name="content" rows="6" style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; font-size: 14px; line-height: 1.5; resize: vertical;"></textarea>';
+                                    // Używamy wp_editor zamiast zwykłego textarea
+                                    wp_editor('', 'wpmzf-activity-content', array(
+                                        'textarea_name' => 'content',
+                                        'textarea_rows' => 6,
+                                        'media_buttons' => false,
+                                        'teeny' => true,
+                                        'quicktags' => true,
+                                        'tinymce' => array(
+                                            'toolbar1' => 'bold,italic,underline,forecolor,bullist,numlist,link,unlink,removeformat,undo,redo',
+                                            'toolbar2' => '',
+                                            'height' => 120,
+                                            'plugins' => 'lists,link,paste,textcolor'
+                                        )
+                                    ));
                                     
                                     echo '</div>';
                                     ?>
@@ -2399,6 +3669,19 @@ class WPMZF_Admin_Pages
                                 <div class="task-input-wrapper">
                                     <input type="text" id="wpmzf-task-title" name="task_title" placeholder="Wpisz treść zadania..." required>
                                 </div>
+                                <div class="task-assigned-user-wrapper" style="margin-top: 10px;">
+                                    <label for="wpmzf-task-assigned-user" style="display: block; margin-bottom: 5px; font-weight: 600;">Odpowiedzialny pracownik:</label>
+                                    <?php
+                                    echo WPMZF_Employee_Helper::render_employee_select(
+                                        'assigned_user',
+                                        0,
+                                        [
+                                            'id' => 'wpmzf-task-assigned-user',
+                                            'style' => 'width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;'
+                                        ]
+                                    );
+                                    ?>
+                                </div>
                                 <div class="task-due-date-wrapper" style="margin-top: 10px;">
                                     <label for="wpmzf-task-due-date" style="display: block; margin-bottom: 5px; font-weight: 600;">Termin wykonania:</label>
                                     <input type="datetime-local" id="wpmzf-task-due-date" name="task_due_date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
@@ -2433,6 +3716,12 @@ class WPMZF_Admin_Pages
             </div>
         </div>
 
+        <!-- JavaScript został przeniesiony do assets/js/admin/person-view.js -->
+        <!-- Skrypt jest ładowany przez enqueue_person_view_scripts() w class-wpmzf-admin-pages.php -->
+        <input type="hidden" name="person_id" value="<?php echo esc_attr($person_id); ?>" />
+        <input type="hidden" id="wpmzf_security" value="<?php echo wp_create_nonce('wpmzf_person_view_nonce'); ?>" />
+        <input type="hidden" id="wpmzf_task_security" value="<?php echo wp_create_nonce('wpmzf_task_nonce'); ?>" />
+
 <?php
     }
 
@@ -2441,6 +3730,30 @@ class WPMZF_Admin_Pages
      */
     public function render_companies_page()
     {
+        // Renderuj nawigację i header
+        WPMZF_View_Helper::render_complete_header(array(
+            'title' => 'Firmy',
+            'subtitle' => 'Zarządzaj firmami w swoim systemie CRM',
+            'breadcrumbs' => array(
+                array('label' => 'Dashboard', 'url' => admin_url('admin.php?page=wpmzf_dashboard')),
+                array('label' => 'Firmy', 'url' => '')
+            ),
+            'actions' => array(
+                array(
+                    'label' => 'Dodaj firmę',
+                    'url' => admin_url('post-new.php?post_type=company'),
+                    'icon' => '➕',
+                    'class' => 'button button-primary'
+                ),
+                array(
+                    'label' => 'Import firm',
+                    'url' => '#',
+                    'icon' => '📥',
+                    'class' => 'button'
+                )
+            )
+        ));
+
         // Usunięto obsługę widoku pojedynczej firmy - teraz jest obsługiwane przez dedykowane submenu
         
         // Stwórz instancję i przygotuj dane tabeli
@@ -2643,8 +3956,31 @@ class WPMZF_Admin_Pages
      */
     public function render_projects_page()
     {
+        // Renderuj nawigację i header
+        WPMZF_View_Helper::render_complete_header(array(
+            'title' => 'Projekty',
+            'subtitle' => 'Zarządzaj projektami i śledź ich postęp',
+            'breadcrumbs' => array(
+                array('label' => 'Dashboard', 'url' => admin_url('admin.php?page=wpmzf_dashboard')),
+                array('label' => 'Projekty', 'url' => '')
+            ),
+            'actions' => array(
+                array(
+                    'label' => 'Dodaj projekt',
+                    'url' => admin_url('post-new.php?post_type=project'),
+                    'icon' => '➕',
+                    'class' => 'button button-primary'
+                ),
+                array(
+                    'label' => 'Zarządzaj zadaniami',
+                    'url' => admin_url('edit.php?post_type=task'),
+                    'icon' => '✅',
+                    'class' => 'button'
+                )
+            )
+        ));
+
         echo '<div class="wrap">';
-        echo '<h1>Projekty</h1>';
         echo '<p>Zarządzanie projektami - strona w budowie.</p>';
         echo '</div>';
     }
@@ -2676,6 +4012,35 @@ class WPMZF_Admin_Pages
         
         // Renderuj widok pojedynczej firmy
         include_once plugin_dir_path(__FILE__) . 'views/companies/company-view.php';
+    }
+
+    /**
+     * Renderuje widok pojedynczego zlecenia/projektu
+     */
+    public function render_single_project_page()
+    {
+        $project_id = isset($_GET['project_id']) ? intval($_GET['project_id']) : 0;
+        
+        if ($project_id <= 0) {
+            echo '<div class="wrap">';
+            echo '<h1>Błąd</h1>';
+            echo '<p>Nieprawidłowe ID projektu.</p>';
+            echo '</div>';
+            return;
+        }
+        
+        // Sprawdź czy projekt istnieje
+        $project = get_post($project_id);
+        if (!$project || $project->post_type !== 'project') {
+            echo '<div class="wrap">';
+            echo '<h1>Błąd</h1>';
+            echo '<p>Projekt nie został znaleziony.</p>';
+            echo '</div>';
+            return;
+        }
+        
+        // Renderuj widok pojedynczego projektu
+        include_once plugin_dir_path(__FILE__) . 'views/projects/project-view.php';
     }
 
     /**

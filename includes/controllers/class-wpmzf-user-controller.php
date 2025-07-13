@@ -142,26 +142,56 @@ class WPMZF_User_Controller extends WP_REST_Controller {
      * @return WP_REST_Response|WP_Error
      */
     public function create_item($request) {
-        $data = [
-            'name' => $request->get_param('name'),
-            'email' => $request->get_param('email'),
-            'phone' => $request->get_param('phone'),
-            'position' => $request->get_param('position'),
-        ];
+        try {
+            // Rate limiting
+            if (WPMZF_Rate_Limiter::is_rate_limited('user_create')) {
+                WPMZF_Logger::log_security_violation('Rate limit exceeded for user creation');
+                return new WP_Error('rest_too_many_requests', 'Za dużo żądań. Spróbuj ponownie za chwilę.', ['status' => 429]);
+            }
+            
+            WPMZF_Rate_Limiter::increment_counter('user_create');
+            
+            $data = [
+                'name' => sanitize_text_field($request->get_param('name')),
+                'email' => sanitize_email($request->get_param('email')),
+                'phone' => sanitize_text_field($request->get_param('phone')),
+                'position' => sanitize_text_field($request->get_param('position')),
+            ];
 
-        $result = $this->service->create_user($data);
+            // Dodatkowa walidacja
+            if (empty($data['name']) || strlen($data['name']) < 2) {
+                return new WP_Error('rest_invalid_param', 'Imię musi mieć co najmniej 2 znaki.', ['status' => 400]);
+            }
+            
+            if (empty($data['email']) || !is_email($data['email'])) {
+                return new WP_Error('rest_invalid_param', 'Niepoprawny adres email.', ['status' => 400]);
+            }
 
-        if (!$result['success']) {
-            return new WP_Error('rest_user_create_failed', 'Nie udało się utworzyć użytkownika.', [
-                'status' => 400,
-                'errors' => $result['errors']
-            ]);
+            $result = $this->service->create_user($data);
+
+            if (!$result['success']) {
+                WPMZF_Logger::error('Failed to create user via REST API', [
+                    'data' => $data,
+                    'errors' => $result['errors'] ?? 'Unknown error'
+                ]);
+                
+                return new WP_Error('rest_user_create_failed', 'Nie udało się utworzyć użytkownika.', [
+                    'status' => 400,
+                    'errors' => $result['errors']
+                ]);
+            }
+
+            $user = $this->service->get_user($result['user_id']);
+            $response = $this->prepare_item_for_response($user, $request);
+            
+            WPMZF_Logger::info('User created via REST API', ['user_id' => $result['user_id']]);
+
+            return rest_ensure_response($response);
+            
+        } catch (Exception $e) {
+            WPMZF_Logger::error('Exception in create_item', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return new WP_Error('rest_server_error', 'Wystąpił błąd serwera.', ['status' => 500]);
         }
-
-        $user = $this->service->get_user($result['user_id']);
-        $response = $this->prepare_item_for_response($user, $request);
-
-        return rest_ensure_response($response);
     }
 
     /**
@@ -171,34 +201,71 @@ class WPMZF_User_Controller extends WP_REST_Controller {
      * @return WP_REST_Response|WP_Error
      */
     public function update_item($request) {
-        $data = [];
-        
-        if ($request->has_param('name')) {
-            $data['name'] = $request->get_param('name');
-        }
-        if ($request->has_param('email')) {
-            $data['email'] = $request->get_param('email');
-        }
-        if ($request->has_param('phone')) {
-            $data['phone'] = $request->get_param('phone');
-        }
-        if ($request->has_param('position')) {
-            $data['position'] = $request->get_param('position');
-        }
+        try {
+            // Rate limiting
+            if (WPMZF_Rate_Limiter::is_rate_limited('user_update')) {
+                WPMZF_Logger::log_security_violation('Rate limit exceeded for user update');
+                return new WP_Error('rest_too_many_requests', 'Za dużo żądań. Spróbuj ponownie za chwilę.', ['status' => 429]);
+            }
+            
+            WPMZF_Rate_Limiter::increment_counter('user_update');
+            
+            $data = [];
+            
+            if ($request->has_param('name')) {
+                $name = sanitize_text_field($request->get_param('name'));
+                if (strlen($name) < 2) {
+                    return new WP_Error('rest_invalid_param', 'Imię musi mieć co najmniej 2 znaki.', ['status' => 400]);
+                }
+                $data['name'] = $name;
+            }
+            
+            if ($request->has_param('email')) {
+                $email = sanitize_email($request->get_param('email'));
+                if (!is_email($email)) {
+                    return new WP_Error('rest_invalid_param', 'Niepoprawny adres email.', ['status' => 400]);
+                }
+                $data['email'] = $email;
+            }
+            
+            if ($request->has_param('phone')) {
+                $data['phone'] = sanitize_text_field($request->get_param('phone'));
+            }
+            
+            if ($request->has_param('position')) {
+                $data['position'] = sanitize_text_field($request->get_param('position'));
+            }
 
-        $result = $this->service->update_user($request['id'], $data);
+            if (empty($data)) {
+                return new WP_Error('rest_no_data', 'Brak danych do aktualizacji.', ['status' => 400]);
+            }
 
-        if (!$result['success']) {
-            return new WP_Error('rest_user_update_failed', 'Nie udało się zaktualizować użytkownika.', [
-                'status' => 400,
-                'errors' => $result['errors']
-            ]);
+            $result = $this->service->update_user($request['id'], $data);
+
+            if (!$result['success']) {
+                WPMZF_Logger::error('Failed to update user via REST API', [
+                    'user_id' => $request['id'],
+                    'data' => $data,
+                    'errors' => $result['errors'] ?? 'Unknown error'
+                ]);
+                
+                return new WP_Error('rest_user_update_failed', 'Nie udało się zaktualizować użytkownika.', [
+                    'status' => 400,
+                    'errors' => $result['errors']
+                ]);
+            }
+
+            $user = $this->service->get_user($request['id']);
+            $response = $this->prepare_item_for_response($user, $request);
+            
+            WPMZF_Logger::info('User updated via REST API', ['user_id' => $request['id']]);
+
+            return rest_ensure_response($response);
+            
+        } catch (Exception $e) {
+            WPMZF_Logger::error('Exception in update_item', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return new WP_Error('rest_server_error', 'Wystąpił błąd serwera.', ['status' => 500]);
         }
-
-        $user = $this->service->get_user($request['id']);
-        $response = $this->prepare_item_for_response($user, $request);
-
-        return rest_ensure_response($response);
     }
 
     /**
