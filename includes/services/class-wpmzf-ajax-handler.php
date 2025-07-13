@@ -231,8 +231,21 @@ class WPMZF_Ajax_Handler
      */
     public function add_activity()
     {
-        // 1. Bezpieczeństwo
-        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+        // 1. Bezpieczeństwo - sprawdź różne nonce names
+        $nonce_verified = false;
+        
+        if (isset($_POST['wpmzf_note_security']) && wp_verify_nonce($_POST['wpmzf_note_security'], 'wpmzf_person_view_nonce')) {
+            $nonce_verified = true;
+        } elseif (isset($_POST['wpmzf_email_security']) && wp_verify_nonce($_POST['wpmzf_email_security'], 'wpmzf_person_view_nonce')) {
+            $nonce_verified = true;
+        } elseif (isset($_POST['security']) && wp_verify_nonce($_POST['security'], 'wpmzf_person_view_nonce')) {
+            $nonce_verified = true;
+        }
+        
+        if (!$nonce_verified) {
+            wp_send_json_error(array('message' => 'Błąd autoryzacji.'));
+            return;
+        }
 
         // Debugowanie - sprawdźmy wszystkie dane które przychodzą
         error_log('WPMZF add_activity: POST data: ' . print_r($_POST, true));

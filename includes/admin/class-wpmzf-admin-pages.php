@@ -2889,59 +2889,101 @@ class WPMZF_Admin_Pages
                     <div class="dossier-box">
                         <h2 class="dossier-title">Nowa Aktywność</h2>
                         <div class="dossier-content">
-                            <form id="wpmzf-add-activity-form" method="post" enctype="multipart/form-data">
-                                <?php wp_nonce_field('wpmzf_person_view_nonce', 'wpmzf_security'); ?>
-                                <input type="hidden" name="person_id" value="<?php echo esc_attr($person_id); ?>">
-
-                                <input type="file" id="wpmzf-activity-files-input" name="activity_files[]" multiple style="display: none;">
-
-                                <div id="wpmzf-activity-main-editor">
-                                    <?php
-                                    // Wstawiamy placeholder zamiast edytora
-                                    echo '<div id="wpmzf-editor-placeholder" class="wpmzf-editor-placeholder">';
-                                    echo '<div class="placeholder-text">Wpisz treść notatki...</div>';
-                                    echo '</div>';
-                                    
-                                    // Kontener na edytor TinyMCE (początkowo ukryty)
-                                    echo '<div id="wpmzf-editor-container" style="display: none;">';
-                                    
-                                    // Używamy wp_editor zamiast zwykłego textarea
-                                    wp_editor('', 'wpmzf-activity-content', array(
-                                        'textarea_name' => 'content',
-                                        'textarea_rows' => 6,
-                                        'media_buttons' => false,
-                                        'teeny' => true,
-                                        'quicktags' => true,
-                                        'tinymce' => array(
-                                            'toolbar1' => 'bold,italic,underline,forecolor,bullist,numlist,link,unlink,removeformat,undo,redo',
-                                            'toolbar2' => '',
-                                            'height' => 120,
-                                            'plugins' => 'lists,link,paste,textcolor'
-                                        )
-                                    ));
-                                    
-                                    echo '</div>';
-                                    ?>
+                            <div id="wpmzf-activity-box">
+                                <div class="activity-tabs">
+                                    <button class="tab-link active" data-tab="note">📝 Dodaj notatkę</button>
+                                    <button class="tab-link" data-tab="email">✉️ Wyślij e-mail</button>
                                 </div>
 
-                                <div id="wpmzf-activity-meta-controls">
-                                    <div class="activity-options">
-                                        <select name="activity_type" id="wpmzf-activity-type">
-                                            <option value="note">Notatka</option>
-                                            <option value="email">E-mail</option>
-                                            <option value="phone">Telefon</option>
-                                            <option value="meeting">Spotkanie</option>
-                                            <option value="meeting_online">Spotkanie online</option>
-                                        </select>
-                                        <input type="datetime-local" name="activity_date" id="wpmzf-activity-date" required>
-                                    </div>
-                                    <div class="activity-actions">
-                                        <button type="button" id="wpmzf-attach-file-btn" class="button"><span class="dashicons dashicons-paperclip"></span> Dodaj załącznik</button>
-                                        <button type="submit" id="wpmzf-submit-activity-btn" class="button button-primary">Dodaj aktywność</button>
-                                    </div>
+                                <div id="note-tab-content" class="tab-content active">
+                                    <form id="wpmzf-add-note-form" method="post" enctype="multipart/form-data">
+                                        <?php wp_nonce_field('wpmzf_person_view_nonce', 'wpmzf_note_security'); ?>
+                                        <input type="hidden" name="person_id" value="<?php echo esc_attr($person_id); ?>">
+                                        
+                                        <input type="file" id="wpmzf-note-files-input" name="activity_files[]" multiple style="display: none;">
+
+                                        <div id="wpmzf-note-main-editor">
+                                            <div id="wpmzf-note-editor-placeholder" class="wpmzf-editor-placeholder">
+                                                <div class="placeholder-text">Opisz co się wydarzyło... (np. odbyłem spotkanie, wysłałem ofertę z prywatnej skrzynki, itp.)</div>
+                                            </div>
+                                            
+                                            <div id="wpmzf-note-editor-container" style="display: none;">
+                                                <?php
+                                                wp_editor('', 'wpmzf-note-content', array(
+                                                    'textarea_name' => 'content',
+                                                    'textarea_rows' => 4,
+                                                    'media_buttons' => false,
+                                                    'teeny' => true,
+                                                    'quicktags' => true,
+                                                    'tinymce' => array(
+                                                        'toolbar1' => 'bold,italic,underline,forecolor,bullist,numlist,link,unlink,removeformat,undo,redo',
+                                                        'toolbar2' => '',
+                                                        'height' => 120,
+                                                        'plugins' => 'lists,link,paste,textcolor'
+                                                    )
+                                                ));
+                                                ?>
+                                            </div>
+                                        </div>
+
+                                        <div class="activity-meta-controls">
+                                            <div class="activity-options">
+                                                <label for="note-type">Typ zdarzenia:</label>
+                                                <select id="note-type" name="activity_type">
+                                                    <option value="notatka">Notatka</option>
+                                                    <option value="email">E-mail (wysłany poza systemem)</option>
+                                                    <option value="telefon">Telefon</option>
+                                                    <option value="spotkanie">Spotkanie</option>
+                                                    <option value="spotkanie-online">Spotkanie online</option>
+                                                </select>
+                                                
+                                                <label for="wpmzf-note-date">Data aktywności:</label>
+                                                <input type="datetime-local" id="wpmzf-note-date" name="activity_date" value="<?php echo date('Y-m-d\TH:i'); ?>">
+                                            </div>
+                                            <div class="activity-actions">
+                                                <button type="button" id="wpmzf-note-attach-files-btn" class="button">
+                                                    <span class="dashicons dashicons-paperclip"></span> Dodaj załączniki
+                                                </button>
+                                                <button type="submit" class="button button-primary">Dodaj notatkę</button>
+                                            </div>
+                                        </div>
+                                        <div id="wpmzf-note-attachments-preview-container"></div>
+                                    </form>
                                 </div>
-                                <div id="wpmzf-attachments-preview-container"></div>
-                            </form>
+
+                                <div id="email-tab-content" class="tab-content">
+                                    <form id="wpmzf-send-email-form" method="post">
+                                        <?php wp_nonce_field('wpmzf_person_view_nonce', 'wpmzf_email_security'); ?>
+                                        <input type="hidden" name="person_id" value="<?php echo esc_attr($person_id); ?>">
+                                        
+                                        <div class="email-fields-grid">
+                                            <input type="email" name="email_to" placeholder="Do:" required>
+                                            <input type="email" name="email_cc" placeholder="DW:">
+                                            <input type="email" name="email_bcc" placeholder="UDW:">
+                                            <input type="text" name="email_subject" placeholder="Temat wiadomości" required>
+                                        </div>
+                                        
+                                        <?php
+                                        wp_editor('', 'email-content', array(
+                                            'textarea_name' => 'content',
+                                            'textarea_rows' => 6,
+                                            'media_buttons' => true,
+                                            'tinymce' => array(
+                                                'toolbar1' => 'bold,italic,underline,forecolor,bullist,numlist,link,unlink,removeformat,undo,redo',
+                                                'toolbar2' => '',
+                                                'height' => 150,
+                                                'plugins' => 'lists,link,paste,textcolor'
+                                            )
+                                        ));
+                                        ?>
+                                        
+                                        <div class="activity-meta-controls">
+                                            <div></div>
+                                            <button type="submit" class="button button-primary">Wyślij e-mail</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

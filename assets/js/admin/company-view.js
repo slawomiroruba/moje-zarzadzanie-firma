@@ -151,13 +151,50 @@ jQuery(document).ready(function ($) {
 		return;
 	}
 
-	const form = $('#wpmzf-add-activity-form');
-	const timelineContainer = $('#wpmzf-activity-timeline');
-	const submitButton = $('#wpmzf-add-activity-btn');
-	const dateField = $('#wpmzf-activity-date');
-	const attachFileBtn = $('#wpmzf-attach-file-btn');
-	const attachmentInput = $('#wpmzf-activity-files-input');
-	const attachmentsPreviewContainer = $('#wpmzf-attachments-preview-container');
+	// === OBSŁUGA ZAKŁADEK AKTYWNOŚCI ===
+	
+	// Przełączanie zakładek
+	$('.activity-tabs .tab-link').on('click', function() {
+		const tabId = $(this).data('tab');
+		
+		// Zaktualizuj przyciski
+		$('.activity-tabs .tab-link').removeClass('active');
+		$(this).addClass('active');
+		
+		// Pokaż odpowiednią treść
+		$('.tab-content').removeClass('active');
+		$('#' + tabId + '-tab-content').addClass('active');
+
+		// Automatyczne wypełnienie pola "Do" po przełączeniu na e-mail
+		if (tabId === 'email') {
+			const primaryEmail = $('[data-field="company_emails"] .contact-item.is-primary a').attr('href')?.replace('mailto:', '') || '';
+			if (primaryEmail) {
+				$('#email-tab-content input[name="email_to"]').val(primaryEmail);
+			}
+		}
+	});
+
+	// === OBSŁUGA FORMULARZA NOTATKI ===
+	const noteForm = $('#wpmzf-add-note-form');
+	const noteTimelineContainer = $('#wpmzf-activity-timeline');
+	const noteSubmitButton = noteForm.find('button[type="submit"]');
+	const noteDateField = $('#wpmzf-note-date');
+	const noteAttachFileBtn = $('#wpmzf-note-attach-files-btn');
+	const noteAttachmentInput = $('#wpmzf-note-files-input');
+	const noteAttachmentsPreviewContainer = $('#wpmzf-note-attachments-preview-container');
+
+	// === OBSŁUGA FORMULARZA E-MAIL ===
+	const emailForm = $('#wpmzf-send-email-form');
+	const emailSubmitButton = emailForm.find('button[type="submit"]');
+
+	// Stare zmienne dla kompatybilności (będą stopniowo usuwane)
+	const form = noteForm; // Backwards compatibility
+	const timelineContainer = noteTimelineContainer;
+	const submitButton = noteSubmitButton;
+	const dateField = noteDateField;
+	const attachFileBtn = noteAttachFileBtn;
+	const attachmentInput = noteAttachmentInput;
+	const attachmentsPreviewContainer = noteAttachmentsPreviewContainer;
 
 	// Zmienne dla zadań
 	const taskForm = $('#wpmzf-add-task-form');
@@ -187,42 +224,15 @@ jQuery(document).ready(function ($) {
 	function setDefaultActivityDateTime() {
 		const now = new Date();
 		now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-		dateField.val(now.toISOString().slice(0, 16));
+		noteDateField.val(now.toISOString().slice(0, 16));
 	}
 
 	setDefaultActivityDateTime();
 	loadActivities();
 
-	// --- Dynamiczne pola dla typu aktywności "E-mail" ---
-	const activityTypeSelect = $('#wpmzf-activity-type');
-	const activityEditorContainer = $('#wpmzf-activity-main-editor');
-
-	// Stwórz kontener na pola e-mail (początkowo ukryty)
-	const emailFieldsContainer = $(`
-		<div id="wpmzf-email-fields" style="display: none; margin-top: 15px; display: flex; flex-direction: column; gap: 10px;">
-			<input type="text" name="email_to" placeholder="Do:" class="large-text" required>
-			<input type="text" name="email_cc" placeholder="DW:" class="large-text">
-			<input type="text" name="email_bcc" placeholder="UDW:" class="large-text">
-			<input type="text" name="email_subject" placeholder="Temat wiadomości" class="large-text" required>
-		</div>
-	`).insertAfter(activityEditorContainer);
-
-	activityTypeSelect.on('change', function() {
-		if ($(this).val() === 'email') {
-			emailFieldsContainer.slideDown(200);
-			// Spróbuj automatycznie wypełnić pole "Do" adresem e-mail firmy
-			const primaryEmail = $('[data-field="company_emails"] .contact-item.is-primary a').attr('href')?.replace('mailto:', '') || '';
-			if(primaryEmail) {
-				emailFieldsContainer.find('input[name="email_to"]').val(primaryEmail);
-			}
-		} else {
-			emailFieldsContainer.slideUp(200);
-		}
-	});
-
 	// --- Obsługa edytora z placeholderem ---
-	const editorPlaceholder = $('#wpmzf-editor-placeholder');
-	const editorContainer = $('#wpmzf-editor-container');
+	const editorPlaceholder = $('#wpmzf-note-editor-placeholder');
+	const editorContainer = $('#wpmzf-note-editor-container');
 	let editorInitialized = false;
 	let editorVisible = false;
 
@@ -452,19 +462,26 @@ jQuery(document).ready(function ($) {
 	// Funkcja reset edytora po dodaniu aktywności
 	function resetEditor() {
 		try {
-			if (window.tinyMCE && window.tinyMCE.get('wpmzf-activity-content')) {
-				const editor = window.tinyMCE.get('wpmzf-activity-content');
-				editor.setContent('');
-				// Ukryj edytor po wyczyszczeniu
-				editor.hide();
+			// Reset edytora notatki
+			if (window.tinyMCE && window.tinyMCE.get('wpmzf-note-content')) {
+				const noteEditor = window.tinyMCE.get('wpmzf-note-content');
+				noteEditor.setContent('');
+				noteEditor.hide();
+			}
+			
+			// Reset edytora e-mail
+			if (window.tinyMCE && window.tinyMCE.get('email-content')) {
+				const emailEditor = window.tinyMCE.get('email-content');
+				emailEditor.setContent('');
 			}
 		} catch (error) {
 			console.warn('Błąd podczas resetowania edytora:', error);
 			// Fallback - reset textarey
-			$('#wpmzf-activity-content').val('');
+			$('#wpmzf-note-content').val('');
+			$('#email-content').val('');
 		}
 
-		// Reset stanu edytora
+		// Reset stanu edytora notatki
 		editorVisible = false;
 		editorContainer.removeClass('visible').hide();
 		editorPlaceholder.show();
@@ -921,6 +938,116 @@ jQuery(document).ready(function ($) {
 				submitButton.text(originalButtonText).prop('disabled', false);
 				attachFileBtn.prop('disabled', false);
 				isSubmitting = false; // Reset flagi
+			}
+		});
+	});
+
+	// === NOWE HANDLERY DLA FORMULARZY ZAKŁADEK ===
+	
+	// Handler dla formularza "Dodaj notatkę"
+	noteForm.on('submit', function(e) {
+		e.preventDefault();
+		
+		// Pobierz treść z edytora TinyMCE
+		let content = '';
+		if (window.tinyMCE && window.tinyMCE.get('wpmzf-note-content')) {
+			content = window.tinyMCE.get('wpmzf-note-content').getContent();
+		} else {
+			content = $('#wpmzf-note-content').val();
+		}
+		
+		if (!content.trim()) {
+			showNotification('Proszę wpisać treść notatki.', 'error');
+			return;
+		}
+		
+		const formData = new FormData(this);
+		formData.append('action', 'add_wpmzf_activity');
+		formData.append('security', securityNonce);
+		formData.append('content', content);
+		
+		noteSubmitButton.prop('disabled', true).text('Dodawanie...');
+		
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: formData,
+			processData: false,
+			contentType: false,
+			success: function(response) {
+				if (response.success) {
+					noteForm[0].reset();
+					resetEditor();
+					setDefaultActivityDateTime();
+					loadActivities();
+					showNotification('Notatka została dodana pomyślnie!', 'success');
+				} else {
+					showNotification('Błąd: ' + (response.data ? response.data.message : 'Nieznany błąd'), 'error');
+				}
+			},
+			error: function(xhr, status, error) {
+				console.error('Note AJAX error:', status, error, xhr);
+				showNotification('Wystąpił błąd przy dodawaniu notatki.', 'error');
+			},
+			complete: function() {
+				noteSubmitButton.prop('disabled', false).text('Dodaj notatkę');
+			}
+		});
+	});
+
+	// Handler dla formularza "Wyślij e-mail"
+	emailForm.on('submit', function(e) {
+		e.preventDefault();
+		
+		// Pobierz treść z edytora TinyMCE
+		let emailContent = '';
+		if (window.tinyMCE && window.tinyMCE.get('email-content')) {
+			emailContent = window.tinyMCE.get('email-content').getContent();
+		} else {
+			emailContent = $('#email-content').val();
+		}
+		
+		const emailTo = $('input[name="email_to"]', this).val();
+		const emailSubject = $('input[name="email_subject"]', this).val();
+		
+		if (!emailTo || !emailSubject) {
+			showNotification('Pola "Do" i "Temat" są wymagane.', 'error');
+			return;
+		}
+		
+		const formData = new FormData(this);
+		formData.append('action', 'add_wpmzf_activity');
+		formData.append('security', securityNonce);
+		formData.append('content', emailContent);
+		formData.append('activity_type', 'email');
+		
+		emailSubmitButton.prop('disabled', true).text('Wysyłanie...');
+		
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: formData,
+			processData: false,
+			contentType: false,
+			success: function(response) {
+				if (response.success) {
+					emailForm[0].reset();
+					// Reset edytora e-mail
+					if (window.tinyMCE && window.tinyMCE.get('email-content')) {
+						window.tinyMCE.get('email-content').setContent('');
+					}
+					loadActivities();
+					showNotification('E-mail został dodany do kolejki wysyłania!', 'success');
+				} else {
+					showNotification('Błąd: ' + (response.data ? response.data.message : 'Nieznany błąd'), 'error');
+				}
+			},
+			error: function(xhr, status, error) {
+				console.error('Email AJAX error:', status, error, xhr);
+				showNotification('Wystąpił błąd przy wysyłaniu e-maila.', 'error');
+			},
+			complete: function() {
+				emailSubmitButton.prop('disabled', false).text('Wyślij e-mail');
 			}
 		});
 	});

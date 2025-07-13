@@ -57,6 +57,7 @@ class WPMZF_Cron_Manager {
         add_action('wpmzf_performance_check', array($this, 'performance_check'));
         
         // Email system - hook jest obsługiwany bezpośrednio przez WPMZF_Email_Service
+        // UWAGA: wpmzf_fetch_incoming_emails będzie dodany w przyszłej wersji
     }
 
     /**
@@ -67,6 +68,12 @@ class WPMZF_Cron_Manager {
             'interval' => 300, // 5 minut w sekundach
             'display'  => esc_html__('Co pięć minut'),
         );
+        
+        $schedules['every_fifteen_minutes'] = array(
+            'interval' => 900, // 15 minut w sekundach
+            'display'  => esc_html__('Co piętnaście minut'),
+        );
+        
         return $schedules;
     }
 
@@ -107,6 +114,11 @@ class WPMZF_Cron_Manager {
         // Przetwarzanie kolejki e-maili (co 5 minut)
         if (!wp_next_scheduled('wpmzf_process_email_queue_hook')) {
             wp_schedule_event(time(), 'every_five_minutes', 'wpmzf_process_email_queue_hook');
+        }
+        
+        // Pobieranie przychodzących e-maili (co 15 minut)
+        if (!wp_next_scheduled('wpmzf_fetch_incoming_emails')) {
+            wp_schedule_event(time(), 'every_fifteen_minutes', 'wpmzf_fetch_incoming_emails');
         }
     }
 
@@ -565,7 +577,8 @@ class WPMZF_Cron_Manager {
             'wpmzf_backup_database',
             'wpmzf_optimize_database',
             'wpmzf_performance_check',
-            'wpmzf_process_email_queue_hook'
+            'wpmzf_process_email_queue_hook',
+            'wpmzf_fetch_incoming_emails'
         ];
         
         foreach ($cron_jobs as $job) {
