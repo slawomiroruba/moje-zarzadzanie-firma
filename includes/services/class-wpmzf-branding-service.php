@@ -22,6 +22,15 @@ class WPMZF_Branding_Service
         
         // Dodaj meta tag viewport do logowania
         add_action('login_head', array(__CLASS__, 'add_login_viewport'));
+        
+        // Dodaj custom branding i ukryj WordPress elementy
+        add_action('login_head', array(__CLASS__, 'add_custom_login_branding'));
+        add_filter('login_message', array(__CLASS__, 'custom_login_message'));
+        add_action('login_footer', array(__CLASS__, 'add_custom_login_footer'));
+        
+        // Usuń domyślne WordPress linki z logowania
+        add_filter('login_headerurl', array(__CLASS__, 'login_logo_url'));
+        add_action('login_head', array(__CLASS__, 'remove_wp_branding'));
     }
 
     /**
@@ -87,5 +96,126 @@ class WPMZF_Branding_Service
     public static function add_login_viewport()
     {
         echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">' . "\n";
+    }
+
+    /**
+     * Dodaje custom branding do strony logowania
+     */
+    public static function add_custom_login_branding()
+    {
+        echo '<style type="text/css">
+            body.login {
+                --brand-primary: #667eea;
+                --brand-secondary: #764ba2;
+                --brand-accent: #ffffff;
+            }
+            
+            /* Ukryj domyślne WordPress elementy */
+            .login #nav a[href*="wp-login.php?action=register"] { display: none !important; }
+            .login #nav a[href*="lostpassword"] { display: none !important; }
+            .login #backtoblog { display: none !important; }
+            
+            /* Dodaj branding watermark */
+            body.login::after {
+                content: "Powered by LunaApp" !important;
+                position: fixed !important;
+                bottom: 20px !important;
+                right: 20px !important;
+                color: rgba(255, 255, 255, 0.5) !important;
+                font-size: 11px !important;
+                font-weight: 500 !important;
+                z-index: 1000 !important;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+            }
+        </style>' . "\n";
+    }
+
+    /**
+     * Ukrywa WordPress branding
+     */
+    public static function remove_wp_branding()
+    {
+        echo '<style type="text/css">
+            .login #nav a[href$="/wp-login.php?action=lostpassword"] { display: none !important; }
+            .login #nav a[href$="/wp-login.php?action=register"] { display: none !important; }
+            .login .privacy-policy-page-link { display: none !important; }
+        </style>' . "\n";
+    }
+
+    /**
+     * Dodaje custom wiadomość powitalną
+     */
+    public static function custom_login_message($message)
+    {
+        if (empty($message)) {
+            return '<div class="custom-login-welcome" style="
+                background: rgba(255, 255, 255, 0.15);
+                backdrop-filter: blur(15px);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                border-radius: 12px;
+                padding: 20px;
+                margin-bottom: 24px;
+                text-align: center;
+                color: #ffffff;
+                font-weight: 500;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            ">
+                <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">Witaj w LunaApp</h3>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9;">Zaloguj się, aby uzyskać dostęp do swojego panelu zarządzania.</p>
+            </div>';
+        }
+        return $message;
+    }
+
+    /**
+     * Dodaje custom footer do strony logowania
+     */
+    public static function add_custom_login_footer()
+    {
+        echo '<script type="text/javascript">
+            document.addEventListener("DOMContentLoaded", function() {
+                // Ukryj domyślne linki WordPress
+                var nav = document.getElementById("nav");
+                if (nav) {
+                    var links = nav.querySelectorAll("a");
+                    links.forEach(function(link) {
+                        if (link.href.includes("lostpassword") || link.href.includes("register")) {
+                            link.style.display = "none";
+                        }
+                    });
+                }
+                
+                // Dodaj focus effects
+                var inputs = document.querySelectorAll(".login input[type=\"text\"], .login input[type=\"password\"], .login input[type=\"email\"]");
+                inputs.forEach(function(input) {
+                    input.addEventListener("focus", function() {
+                        this.parentElement.style.transform = "scale(1.02)";
+                        this.parentElement.style.transition = "transform 0.3s ease";
+                    });
+                    input.addEventListener("blur", function() {
+                        this.parentElement.style.transform = "scale(1)";
+                    });
+                });
+                
+                // Dodaj loading state do przycisku
+                var submitBtn = document.getElementById("wp-submit");
+                if (submitBtn) {
+                    submitBtn.addEventListener("click", function() {
+                        var originalText = this.value;
+                        this.value = "Logowanie...";
+                        this.disabled = true;
+                        this.style.opacity = "0.8";
+                        
+                        setTimeout(function() {
+                            if (submitBtn) {
+                                submitBtn.value = originalText;
+                                submitBtn.disabled = false;
+                                submitBtn.style.opacity = "1";
+                            }
+                        }, 3000);
+                    });
+                }
+            });
+        </script>' . "\n";
     }
 }
