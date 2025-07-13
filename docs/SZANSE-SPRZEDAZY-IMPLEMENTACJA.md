@@ -2,7 +2,7 @@
 
 ## Podsumowanie implementacji
 
-Pomyślnie zaimplementowałem kompletny system szans sprzedaży w Twojej wtyczce WordPress "Moje Zarządzanie Firmą". Oto co zostało dodane:
+Pomyślnie zaimplementowałem kompletny system szans sprzedaży w Twojej wtyczce WordPress "Moje Zarządzanie Firmą" z zaawansowaną funkcjonalnością Kanban board i automatyczną konwersją na projekty.
 
 ## 🚀 Nowe funkcjonalności
 
@@ -29,12 +29,14 @@ Pomyślnie zaimplementowałem kompletny system szans sprzedaży w Twojej wtyczce
 - **Osoba kontaktowa** - główny kontakt
 - **Źródło** - skąd pochodzi szansa (strona, polecenie, itp.)
 
-### 4. **Tablica Kanban**
+### 4. **Tablica Kanban z modalem powodu**
 - Interaktywny widok drag & drop
 - Kolumny odpowiadające statusom
+- **NOWE**: Modal do wprowadzania powodu przy statusie "Wygrana"/"Przegrana"
 - Automatyczne aktualizowanie pozycji
 - Kolorowe wskaźniki dla różnych statusów
 - Przegląd statystyk w górnej części
+- Pełna responsywność mobilna
 
 ### 5. **Widget dashboardu**
 - Statystyki szans według statusów
@@ -47,6 +49,7 @@ Pomyślnie zaimplementowałem kompletny system szans sprzedaży w Twojej wtyczce
 - Przenoszenie danych firmy i opisu
 - Oznaczenie skonwertowanych szans
 - Bezpieczeństwo przed podwójną konwersją
+- **NOWE**: Wymuszenie wprowadzenia powodu przed konwersją
 
 ## 📁 Dodane pliki
 
@@ -89,8 +92,10 @@ assets/
 ### Zarządzanie na tablicy Kanban
 1. Przejdź do **Szanse Sprzedaży** → **Kanban**
 2. Przeciągnij karty między kolumnami aby zmienić status
-3. System automatycznie zapisuje zmiany
-4. Wygrane szanse automatycznie stają się projektami
+3. **NOWE**: Przy przenoszeniu do "Wygrana"/"Przegrana" pojawi się modal do wprowadzenia powodu
+4. System automatycznie zapisuje zmiany
+5. Wygrane szanse automatycznie stają się projektami (tylko po podaniu powodu)
+6. Responsywny interfejs działa na wszystkich urządzeniach
 
 ### Dashboard
 - Widget szans sprzedaży pokazuje aktualne statystyki
@@ -158,6 +163,29 @@ System jest gotowy do użycia! Możesz:
 2. **Skonfigurować dodatkowe statusy** jeśli potrzebujesz
 3. **Dostosować pola ACF** do swoich potrzeb
 4. **Rozszerzyć raportowanie** o dodatkowe metryki
+5. **Przetestować modal powodów** przy przenoszeniu szans do statusów końcowych
+
+## 🎉 Nowe funkcjonalności w tej aktualizacji
+
+### Modal Powodów
+- Automatyczne wyświetlanie przy przenoszeniu do "Wygrana" lub "Przegrana"
+- Wymagane wprowadzenie powodu przed zapisaniem
+- Estetyczny interfejs z animacjami
+- Pełna responsywność mobilna
+- Obsługa klawiatury (ESC do zamknięcia)
+
+### Ulepszona logika konwersji
+- Konwersja na projekt tylko po podaniu powodu wygranej
+- Automatyczne zapisywanie powodu w polu ACF
+- Lepsze komunikaty dla użytkownika
+
+## 📱 Responsywność
+
+- Pełna responsywność na urządzeniach mobilnych
+- Adaptacyjna siatka kolumn
+- Touch-friendly drag & drop
+- Zoptymalizowane dla tabletów
+- Responsive modal dialog
 
 ## 🐛 Rozwiązywanie problemów
 

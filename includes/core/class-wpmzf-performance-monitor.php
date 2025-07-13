@@ -280,7 +280,8 @@ class WPMZF_Performance_Monitor {
                 'total_operations' => 0,
                 'average_duration' => 0,
                 'slowest_operation' => null,
-                'memory_usage' => self::format_bytes(memory_get_usage(true))
+                'current_memory' => self::format_bytes(memory_get_usage(true)),
+                'peak_memory' => self::format_bytes(memory_get_peak_usage(true))
             ];
         }
         

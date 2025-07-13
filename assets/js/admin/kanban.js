@@ -103,19 +103,105 @@ jQuery(document).ready(function($) {
                 return;
             }
 
+            // Sprawdź czy to status "Wygrana" lub "Przegrana" - wtedy wymagaj powodu
+            if (statusName === 'Wygrana' || statusName === 'Przegrana') {
+                this.showReasonModal($item, opportunityId, newStatusId, statusName);
+                return;
+            }
+
+            // Standardowa aktualizacja bez powodu
+            this.performStatusUpdate($item, opportunityId, newStatusId);
+        },
+
+        /**
+         * Pokazuje modal do wprowadzenia powodu dla wygranej/przegranej szansy
+         */
+        showReasonModal: function($item, opportunityId, newStatusId, statusName) {
+            const self = this;
+            
+            // Utwórz modal
+            const modalHtml = `
+                <div id="kanban-reason-modal" class="kanban-modal-overlay">
+                    <div class="kanban-modal">
+                        <div class="kanban-modal-header">
+                            <h3>Powód - ${statusName}</h3>
+                            <button class="kanban-modal-close">&times;</button>
+                        </div>
+                        <div class="kanban-modal-body">
+                            <p>Opisz powód dla statusu "${statusName}":</p>
+                            <textarea id="kanban-reason-text" rows="4" style="width: 100%; margin: 10px 0;" 
+                                     placeholder="Wprowadź powód..."></textarea>
+                        </div>
+                        <div class="kanban-modal-footer">
+                            <button class="button button-secondary kanban-modal-cancel">Anuluj</button>
+                            <button class="button button-primary kanban-modal-save">Zapisz</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            $('body').append(modalHtml);
+            
+            // Obsługa przycisków modala
+            $('#kanban-reason-modal .kanban-modal-close, #kanban-reason-modal .kanban-modal-cancel').on('click', function() {
+                self.closeReasonModal();
+                self.revertCardPosition($item);
+            });
+            
+            $('#kanban-reason-modal .kanban-modal-save').on('click', function() {
+                const reason = $('#kanban-reason-text').val().trim();
+                if (!reason) {
+                    alert('Powód jest wymagany dla statusu ' + statusName);
+                    return;
+                }
+                
+                self.performStatusUpdate($item, opportunityId, newStatusId, reason);
+                self.closeReasonModal();
+            });
+            
+            // Obsługa ESC
+            $(document).on('keydown.kanban-modal', function(e) {
+                if (e.keyCode === 27) {
+                    self.closeReasonModal();
+                    self.revertCardPosition($item);
+                }
+            });
+            
+            // Focus na textarea
+            setTimeout(() => $('#kanban-reason-text').focus(), 100);
+        },
+
+        /**
+         * Zamyka modal powodu
+         */
+        closeReasonModal: function() {
+            $('#kanban-reason-modal').remove();
+            $(document).off('keydown.kanban-modal');
+        },
+
+        /**
+         * Wykonuje aktualizację statusu
+         */
+        performStatusUpdate: function($item, opportunityId, newStatusId, reason) {
             // Pokaż loader
             $item.addClass('kanban-updating');
+            
+            const data = {
+                action: 'wpmzf_update_opportunity_status',
+                nonce: wpmzf_kanban.nonce,
+                post_id: opportunityId,
+                status_id: newStatusId
+            };
+            
+            if (reason) {
+                data.reason = reason;
+            }
             
             // Wyślijy żądanie AJAX
             $.ajax({
                 url: wpmzf_kanban.ajax_url,
                 type: 'POST',
-                data: {
-                    action: 'wpmzf_update_opportunity_status',
-                    nonce: wpmzf_kanban.nonce,
-                    post_id: opportunityId,
-                    status_id: newStatusId
-                },
+                data: data,
                 success: function(response) {
                     $item.removeClass('kanban-updating');
                     

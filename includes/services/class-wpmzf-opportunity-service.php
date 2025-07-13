@@ -39,6 +39,7 @@ class WPMZF_Opportunity_Service {
 
         $post_id = intval($_POST['post_id']);
         $status_id = intval($_POST['status_id']);
+        $reason = isset($_POST['reason']) ? sanitize_textarea_field($_POST['reason']) : '';
 
         if (!$post_id || !$status_id) {
             wp_send_json_error('Nieprawidłowe parametry.');
@@ -56,6 +57,12 @@ class WPMZF_Opportunity_Service {
         
         if (is_wp_error($result)) {
             wp_send_json_error('Błąd podczas aktualizacji statusu.');
+        }
+
+        // Zapisz powód jeśli został podany
+        if (!empty($reason)) {
+            $opportunity = new WPMZF_Opportunity($post_id);
+            $opportunity->set_reason($reason);
         }
 
         // Sprawdź czy to status "Wygrana" i czy można skonwertować

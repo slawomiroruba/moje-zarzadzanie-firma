@@ -1176,50 +1176,7 @@ class WPMZF_Admin_Pages
                     </div>
                 </div>
 
-                <!-- Prawa kolumna - Nawigacja -->
-                <div class="dashboard-right-column">
-                    <div class="dashboard-box">
-                        <h2 class="dashboard-title">Szybka nawigacja</h2>
-                        <div class="dashboard-content">
-                            <a href="<?php echo esc_url(admin_url('admin.php?page=wpmzf_persons')); ?>" class="nav-button">
-                                <span class="dashicons dashicons-groups"></span>
-                                Wszystkie osoby
-                            </a>
-                            <a href="<?php echo esc_url(admin_url('admin.php?page=wpmzf_companies')); ?>" class="nav-button">
-                                <span class="dashicons dashicons-building"></span>
-                                Wszystkie firmy
-                            </a>
-                            <a href="<?php echo esc_url(admin_url('admin.php?page=wpmzf_projects')); ?>" class="nav-button">
-                                <span class="dashicons dashicons-portfolio"></span>
-                                Wszystkie projekty
-                            </a>
-                            <a href="<?php echo esc_url(admin_url('edit.php?post_type=opportunity')); ?>" class="nav-button">
-                                <span class="dashicons dashicons-chart-line"></span>
-                                Szanse sprzedaży
-                            </a>
-                            <a href="<?php echo esc_url(admin_url('edit.php?post_type=opportunity&page=wpmzf_kanban_view')); ?>" class="nav-button">
-                                <span class="dashicons dashicons-grid-view"></span>
-                                Kanban szans
-                            </a>
-                            <a href="<?php echo esc_url(admin_url('post-new.php?post_type=person')); ?>" class="nav-button">
-                                <span class="dashicons dashicons-plus"></span>
-                                Dodaj osobę
-                            </a>
-                            <a href="<?php echo esc_url(admin_url('post-new.php?post_type=company')); ?>" class="nav-button">
-                                <span class="dashicons dashicons-plus"></span>
-                                Dodaj firmę
-                            </a>
-                            <a href="<?php echo esc_url(admin_url('post-new.php?post_type=project')); ?>" class="nav-button">
-                                <span class="dashicons dashicons-plus"></span>
-                                Dodaj projekt
-                            </a>
-                            <a href="<?php echo esc_url(admin_url('post-new.php?post_type=opportunity')); ?>" class="nav-button">
-                                <span class="dashicons dashicons-plus"></span>
-                                Dodaj szansę
-                            </a>
-                        </div>
-                    </div>
-                </div>
+                
             </div>
         </div>
         
