@@ -731,6 +731,7 @@ jQuery(document).ready(function ($) {
 
 		if (filesToUpload.length > 0) {
 			submitButton.text('Wysyłanie plików...');
+			// Update uploadPromises to return objects with id and transcribe flag
 			const uploadPromises = filesToUpload.map((file, index) => {
 				const formData = new FormData();
 				formData.append('file', file);
@@ -765,7 +766,9 @@ jQuery(document).ready(function ($) {
 					if (response.success) {
 						previewItem.find('.attachment-progress-fill').css('width', '100%');
 						previewItem.find('.attachment-progress-text').text('100%');
-						return response.data.attachment_id;
+						const attId = response.data.attachment_id;
+						const shouldTranscribe = previewItem.find('.transcribe-checkbox').is(':checked');
+						return { id: attId, transcribe: shouldTranscribe };
 					} else {
 						throw new Error(response.data.message || 'Upload failed');
 					}
@@ -811,6 +814,7 @@ jQuery(document).ready(function ($) {
 		}
 
 		submitButton.text('Dodawanie aktywności...');
+		// Build activityData with transcription_ids
 		const activityData = {
 			action: 'add_wpmzf_activity',
 			security: securityNonce,
@@ -818,7 +822,8 @@ jQuery(document).ready(function ($) {
 			content: editorContent,
 			activity_type: $('#wpmzf-activity-type').val(),
 			activity_date: dateField.val(),
-			attachment_ids: uploadedAttachmentIds
+			attachment_ids: uploadedAttachmentIds.map(item => item.id),
+			transcription_ids: uploadedAttachmentIds.filter(item => item.transcribe).map(item => item.id)
 		};
 
 		console.log('Company activity data to submit:', activityData);
