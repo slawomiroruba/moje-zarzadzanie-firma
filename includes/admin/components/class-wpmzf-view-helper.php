@@ -70,71 +70,83 @@ class WPMZF_View_Helper {
      * Obsługuje globalne wyszukiwanie AJAX
      */
     public static function handle_global_search() {
+        error_log('WPMZF: handle_global_search wywołane');
+        
         // Sprawdź nonce
         if (!wp_verify_nonce($_POST['nonce'], 'wpmzf_navbar_nonce')) {
+            error_log('WPMZF: Nieprawidłowy nonce');
             wp_die('Nieprawidłowy nonce');
         }
 
-        $query = sanitize_text_field($_POST['query']);
-        $results = array();
-
-        if (strlen($query) < 2) {
-            wp_send_json_success($results);
+        $search_term = sanitize_text_field($_POST['search_term']);
+        error_log('WPMZF: Wyszukiwanie dla: ' . $search_term);
+        
+        if (strlen($search_term) < 2) {
+            wp_send_json_success([]);
             return;
         }
 
-        // Wyszukaj firmy
-        $companies = get_posts(array(
-            'post_type' => 'company',
-            'posts_per_page' => 5,
-            's' => $query,
-            'post_status' => 'publish'
-        ));
+        // Definicja przeszukiwanych typów postów
+        $post_types = [
+            'company'     => 'Firmy',
+            'person'      => 'Osoby',
+            'project'     => 'Projekty',
+            'task'        => 'Zadania',
+            'employee'    => 'Pracownicy',
+            'opportunity' => 'Szanse Sprzedaży',
+            'activity'    => 'Aktywności'
+        ];
 
-        foreach ($companies as $company) {
-            $results['companies'][] = array(
-                'id' => $company->ID,
-                'title' => $company->post_title,
-                'url' => admin_url('admin.php?page=wpmzf_view_company&company_id=' . $company->ID),
-                'excerpt' => wp_trim_words(get_post_field('post_content', $company->ID), 15)
-            );
+        $grouped_results = [];
+
+        foreach ($post_types as $post_type => $label) {
+            $query = new WP_Query([
+                'post_type'      => $post_type,
+                'post_status'    => 'publish',
+                's'              => $search_term,
+                'posts_per_page' => 5,
+                'orderby'        => 'relevance'
+            ]);
+
+            if ($query->have_posts()) {
+                $items = [];
+                while ($query->have_posts()) {
+                    $query->the_post();
+                    $items[] = [
+                        'id'      => get_the_ID(),
+                        'title'   => get_the_title(),
+                        'url'     => self::get_entity_url($post_type, get_the_ID()),
+                        'excerpt' => wp_trim_words(get_the_excerpt(), 15, '...')
+                    ];
+                }
+                wp_reset_postdata();
+
+                $grouped_results[] = [
+                    'label' => $label,
+                    'items' => $items,
+                    'count' => $query->found_posts
+                ];
+            }
         }
 
-        // Wyszukaj osoby
-        $persons = get_posts(array(
-            'post_type' => 'person',
-            'posts_per_page' => 5,
-            's' => $query,
-            'post_status' => 'publish'
-        ));
+        error_log('WPMZF: Znaleziono grup wyników: ' . count($grouped_results));
+        wp_send_json_success($grouped_results);
+    }
 
-        foreach ($persons as $person) {
-            $results['persons'][] = array(
-                'id' => $person->ID,
-                'title' => $person->post_title,
-                'url' => admin_url('admin.php?page=luna-crm-person-view&person_id=' . $person->ID),
-                'excerpt' => wp_trim_words(get_post_field('post_content', $person->ID), 15)
-            );
+    /**
+     * Pomocnicza funkcja do generowania URL-i dla wyników wyszukiwania
+     */
+    private static function get_entity_url($post_type, $post_id) {
+        switch ($post_type) {
+            case 'company':
+                return admin_url('admin.php?page=wpmzf_view_company&company_id=' . $post_id);
+            case 'person':
+                return admin_url('admin.php?page=wpmzf_view_person&person_id=' . $post_id);
+            case 'project':
+                return admin_url('admin.php?page=wpmzf_view_project&project_id=' . $post_id);
+            default:
+                return admin_url('post.php?post=' . $post_id . '&action=edit');
         }
-
-        // Wyszukaj projekty
-        $projects = get_posts(array(
-            'post_type' => 'project',
-            'posts_per_page' => 5,
-            's' => $query,
-            'post_status' => 'publish'
-        ));
-
-        foreach ($projects as $project) {
-            $results['projects'][] = array(
-                'id' => $project->ID,
-                'title' => $project->post_title,
-                'url' => admin_url('admin.php?page=wpmzf_view_project&project_id=' . $project->ID),
-                'excerpt' => wp_trim_words(get_post_field('post_content', $project->ID), 15)
-            );
-        }
-
-        wp_send_json_success($results);
     }
 
     /**
@@ -152,14 +164,14 @@ class WPMZF_View_Helper {
             'wpmzf-navbar',
             $plugin_url . 'assets/css/navbar.css',
             array(),
-            filemtime($plugin_path . 'assets/css/navbar.css')
+            filemtime($plugin_path . 'assets/css/navbar.css') . '_v2'
         );
 
         wp_enqueue_script(
             'wpmzf-navbar',
             $plugin_url . 'assets/js/admin/navbar.js',
             array('jquery'),
-            filemtime($plugin_path . 'assets/js/admin/navbar.js'),
+            filemtime($plugin_path . 'assets/js/admin/navbar.js') . '_v2',
             true
         );
 

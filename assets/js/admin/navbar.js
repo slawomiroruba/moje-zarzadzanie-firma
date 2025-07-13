@@ -9,6 +9,7 @@
     const searchDelay = 300; // ms
 
     $(document).ready(function() {
+        console.log('WPMZF Navbar: Inicjalizacja navbar');
         initNavbar();
         showNavbar(); // Pokaż nawigację po załadowaniu
     });
@@ -99,6 +100,7 @@
      * Wykonuje wyszukiwanie AJAX
      */
     function performSearch(searchTerm) {
+        console.log('WPMZF Navbar: Wykonuje wyszukiwanie dla:', searchTerm);
         const searchResults = $('#wpmzf-search-results');
         const searchContent = searchResults.find('.wpmzf-search-content');
         const searchLoading = searchResults.find('.wpmzf-search-loading');
@@ -117,6 +119,7 @@
                 nonce: wpmzfNavbar.nonce
             },
             success: function(response) {
+                console.log('WPMZF Navbar: Odpowiedź AJAX:', response);
                 searchLoading.hide();
                 
                 if (response.success && response.data.length > 0) {
@@ -127,7 +130,8 @@
                 
                 searchContent.show();
             },
-            error: function() {
+            error: function(xhr, status, error) {
+                console.error('WPMZF Navbar: Błąd AJAX:', error, xhr);
                 searchLoading.hide();
                 displayError();
                 searchContent.show();

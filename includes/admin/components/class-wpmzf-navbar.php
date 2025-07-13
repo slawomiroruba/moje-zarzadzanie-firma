@@ -219,8 +219,19 @@ class WPMZF_Navbar {
 
                 <!-- Wyszukiwarka -->
                 <div class="wpmzf-navbar-search">
-                    <input type="text" id="wpmzf-global-search" placeholder="Wyszukaj..." class="wpmzf-search-input">
-                    <div id="wpmzf-search-results" class="wpmzf-search-results"></div>
+                    <div class="wpmzf-search-container">
+                        <input type="text" id="wpmzf-global-search" placeholder="Wyszukaj..." class="wpmzf-search-input" autocomplete="off">
+                        <button class="wpmzf-search-button" type="button">
+                            <span class="dashicons dashicons-search"></span>
+                        </button>
+                        <div id="wpmzf-search-results" class="wpmzf-search-results">
+                            <div class="wpmzf-search-loading" style="display: none;">
+                                <span class="dashicons dashicons-update spin"></span>
+                                Wyszukiwanie...
+                            </div>
+                            <div class="wpmzf-search-content"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
