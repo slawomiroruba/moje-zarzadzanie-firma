@@ -1075,7 +1075,7 @@ jQuery(document).ready(function ($) {
 			success: function (response) {
 				console.log('Person activities response:', response);
 				if (response.success) {
-					renderTimeline(response.data);
+					renderTimeline(response.data.activities);
 				} else {
 					console.error('Error loading person activities:', response.data);
 					const errorMsg = response.data && response.data.message ? response.data.message : 'Nieznany błąd';
@@ -1091,6 +1091,13 @@ jQuery(document).ready(function ($) {
 
 	// --- Renderowanie osi czasu ---
 	async function renderTimeline(activities) {
+		// Sprawdź czy activities jest tablicą
+		if (!Array.isArray(activities)) {
+			console.error('Activities is not an array:', activities);
+			timelineContainer.html('<p style="color:red;">Błąd: nieprawidłowy format danych aktywności.</p>');
+			return;
+		}
+		
 		if (activities.length === 0) {
 			timelineContainer.html('<p><em>Brak zarejestrowanych aktywności. Dodaj pierwszą!</em></p>');
 			return;
@@ -1152,10 +1159,13 @@ jQuery(document).ready(function ($) {
 			const contentClass = isLongContent ? 'collapsed' : '';
 			const expandButton = isLongContent ? '<button class="timeline-expand-btn" data-action="expand">Rozwiń treść</button>' : '';
 
+			// Zabezpieczenie na wypadek braku avatara
+			const avatarUrl = activity.avatar || '/wp-includes/images/media/default.png';
+
 			html += `
 				<div class="timeline-item" data-activity-id="${activity.id}">
 					<div class="timeline-avatar">
-						<img src="${activity.avatar}" alt="${activity.author}">
+						<img src="${avatarUrl}" alt="${activity.author}" onerror="this.style.display='none';">
 					</div>
 					<div class="timeline-content">
 						<div class="timeline-header">

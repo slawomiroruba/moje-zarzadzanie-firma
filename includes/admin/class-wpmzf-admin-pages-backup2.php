@@ -37,7 +37,7 @@ class WPMZF_Admin_Pages
                 'wpmzf-person-view',
                 plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/js/admin/person-view.js',
                 array('jquery'),
-                '1.0.3',
+                '1.0.1',
                 true
             );
             
@@ -74,7 +74,7 @@ class WPMZF_Admin_Pages
                 'wpmzf-company-view',
                 plugin_dir_url(dirname(dirname(__FILE__))) . 'assets/js/admin/company-view.js',
                 array('jquery'),
-                '1.0.3',
+                '1.0.1',
                 true
             );
             
@@ -1310,6 +1310,902 @@ class WPMZF_Admin_Pages
         <?php
     }
 
+    public function render_single_person_page()
+    {
+        $all_persons_query = new WP_Query([
+            'post_type'      => 'person',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            'meta_query'     => [
+                'relation' => 'OR',
+                [
+                    'relation' => 'AND',
+                    ['key' => 'person_status', 'value' => ['archived', 'Zarchiwizowany'], 'compare' => 'NOT IN']
+                ],
+                ['key' => 'person_status', 'compare' => 'NOT EXISTS']
+            ]
+        ]);
+        $all_count = $all_persons_query->found_posts;
+
+        // --- Statystyka dzienna ---
+        $current_day_str = $_GET['stat_day'] ?? current_time('Y-m-d');
+        $current_day_dt = new DateTime($current_day_str);
+        $prev_day_url = add_query_arg('stat_day', (clone $current_day_dt)->modify('-1 day')->format('Y-m-d'), $base_url);
+        $next_day_url = add_query_arg('stat_day', (clone $current_day_dt)->modify('+1 day')->format('Y-m-d'), $base_url);
+
+        $daily_query = new WP_Query([
+            'post_type' => 'person',
+            'posts_per_page' => -1,
+            'fields' => 'ids',
+            'date_query' => [['year'  => $current_day_dt->format('Y'), 'month' => $current_day_dt->format('m'), 'day'   => $current_day_dt->format('d')]]
+        ]);
+        $daily_count = $daily_query->found_posts;
+
+        // --- Statystyka tygodniowa ---
+        $current_year_w = $_GET['stat_year_w'] ?? current_time('Y');
+        $current_week = $_GET['stat_week'] ?? current_time('W');
+        $week_dt = new DateTime();
+        $week_dt->setISODate($current_year_w, $current_week);
+        $prev_week_dt = (clone $week_dt)->modify('-1 week');
+        $next_week_dt = (clone $week_dt)->modify('+1 week');
+        $prev_week_url = add_query_arg(['stat_week' => $prev_week_dt->format('W'), 'stat_year_w' => $prev_week_dt->format('Y')], $base_url);
+        $next_week_url = add_query_arg(['stat_week' => $next_week_dt->format('W'), 'stat_year_w' => $next_week_dt->format('Y')], $base_url);
+
+        $weekly_query = new WP_Query([
+            'post_type' => 'person',
+            'posts_per_page' => -1,
+            'fields' => 'ids',
+            'date_query' => [['year' => $current_year_w, 'week' => $current_week]]
+        ]);
+        $weekly_count = $weekly_query->found_posts;
+
+        // --- Statystyka miesięczna ---
+        $current_year_m = $_GET['stat_year_m'] ?? current_time('Y');
+        $current_month = $_GET['stat_month'] ?? current_time('m');
+        $month_dt = new DateTime("$current_year_m-$current_month-01");
+        $prev_month_dt = (clone $month_dt)->modify('first day of last month');
+        $next_month_dt = (clone $month_dt)->modify('first day of next month');
+        $prev_month_url = add_query_arg(['stat_month' => $prev_month_dt->format('m'), 'stat_year_m' => $prev_month_dt->format('Y')], $base_url);
+        $next_month_url = add_query_arg(['stat_month' => $next_month_dt->format('m'), 'stat_year_m' => $next_month_dt->format('Y')], $base_url);
+
+        $monthly_query = new WP_Query([
+            'post_type' => 'person',
+            'posts_per_page' => -1,
+            'fields' => 'ids',
+            'date_query' => [['year' => $current_year_m, 'month' => $current_month]]
+        ]);
+        $monthly_count = $monthly_query->found_posts;
+
+        // Helper do polskich nazw miesięcy
+        $polish_months = ['Stycznia', 'Lutego', 'Marca', 'Kwietnia', 'Maja', 'Czerwca', 'Lipca', 'Sierpnia', 'Września', 'Października', 'Listopada', 'Grudnia'];
+        $polish_months_mianownik = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+    ?>
+        <style>
+            /* General page styles */
+            .wrap #wpmzf-stats-panel+form {
+                margin-top: 20px;
+            }
+
+            /* Stats Panel Styles */
+            #wpmzf-stats-panel {
+                margin: 20px 0;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 15px;
+            }
+
+            .stat-box {
+                background: #fff;
+                border: 1px solid #ccd0d4;
+                border-radius: 4px;
+                padding: 16px;
+                box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+            }
+
+            .stat-box h3 {
+                margin: 0 0 10px;
+                padding: 0;
+                font-size: 14px;
+                color: #50575e;
+            }
+
+            .stat-box .stat-navigator {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+            }
+
+            .stat-box .stat-navigator a {
+                text-decoration: none;
+                font-size: 20px;
+                line-height: 1;
+                padding: 0 5px;
+                color: #0071a1;
+            }
+
+            .stat-box .stat-navigator a:hover {
+                color: #135e96;
+            }
+
+            .stat-box .stat-navigator .period {
+                font-weight: 600;
+                color: #1d2327;
+            }
+
+            .stat-box .stat-count {
+                font-size: 2.5em;
+                font-weight: 400;
+                text-align: center;
+                color: #1d2327;
+                line-height: 1.2;
+            }
+
+            .stat-box.total .stat-count {
+                font-size: 2em;
+                padding-top: 15px;
+            }
+
+            /* Task styles */
+            .task-input-wrapper {
+                margin-bottom: 10px;
+            }
+
+            .task-input-wrapper input[type="text"] {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #8c8f94;
+                border-radius: 3px;
+            }
+
+            .task-due-date-wrapper label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 600;
+            }
+
+            .task-due-date-wrapper input[type="datetime-local"] {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #8c8f94;
+                border-radius: 3px;
+            }
+
+            .task-submit-wrapper {
+                margin-top: 15px;
+            }
+
+            .task-item {
+                background: #f9f9f9;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 8px 10px;
+                margin-bottom: 6px;
+                position: relative;
+            }
+
+            .task-item.overdue {
+                border-left: 4px solid #dc3232;
+                background: #fdf2f2;
+            }
+
+            .task-item.today {
+                border-left: 4px solid #ffb900;
+                background: #fffbf0;
+            }
+
+            .task-item.upcoming {
+                border-left: 4px solid #2271b1;
+                background: #f0f6fc;
+            }
+
+            .task-item.completed {
+                background: #f0f0f1;
+                opacity: 0.7;
+            }
+
+            .task-content {
+                width: 100%;
+            }
+
+            .task-title-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 4px;
+            }
+
+            .task-title {
+                font-weight: 600;
+                color: #23282d;
+                margin: 0;
+                font-size: 14px;
+                flex: 1;
+                line-height: 1.2;
+                margin-right: 8px;
+            }
+
+            .task-meta-row {
+                display: flex;
+                justify-content: flex-start;
+                align-items: center;
+                font-size: 11px;
+            }
+
+            .task-meta-left {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+
+            .task-meta-right {
+                display: flex;
+                align-items: center;
+            }
+
+            .task-meta {
+                font-size: 12px;
+                color: #646970;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 2px;
+            }
+
+            .task-status {
+                display: inline-block;
+                padding: 2px 6px;
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+            }
+
+            .task-status.do-zrobienia {
+                background: #fff2cc;
+                color: #996f00;
+            }
+
+            .task-status.w-toku {
+                background: #cce5ff;
+                color: #0073aa;
+            }
+
+            .task-status.zrobione {
+                background: #d4edda;
+                color: #155724;
+            }
+
+            .task-date {
+                display: inline-block;
+                padding: 2px 6px;
+                background: #f0f0f1;
+                border-radius: 3px;
+                font-size: 11px;
+                font-weight: 500;
+                color: #646970;
+            }
+
+            .task-date.overdue {
+                background: #dc3232;
+                color: white;
+            }
+
+            .task-date.today {
+                background: #ffb900;
+                color: white;
+            }
+
+            .task-date.upcoming {
+                background: #2271b1;
+                color: white;
+            }
+
+            .task-priority-indicator {
+                display: inline-block;
+                padding: 2px 5px;
+                border-radius: 3px;
+                font-size: 9px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .task-priority-indicator.overdue {
+                background: #dc3232;
+                color: white;
+            }
+
+            .task-priority-indicator.today {
+                background: #ffb900;
+                color: white;
+            }
+
+            .task-priority-indicator.upcoming {
+                background: #2271b1;
+                color: white;
+            }
+
+            .task-actions {
+                display: flex;
+                gap: 2px;
+                align-items: center;
+                flex-shrink: 0;
+            }
+
+            .task-actions .dashicons {
+                cursor: pointer;
+                color: #787c82;
+                font-size: 12px;
+                padding: 1px;
+                border-radius: 2px;
+                transition: all 0.2s ease;
+            }
+
+            .task-actions .dashicons:hover {
+                color: #2271b1;
+                background: rgba(34, 113, 177, 0.1);
+            }
+
+            #wpmzf-toggle-closed-tasks {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                cursor: pointer;
+                color: #646970;
+                transition: color 0.2s;
+            }
+
+            #wpmzf-toggle-closed-tasks:hover {
+                color: #2271b1;
+            }
+
+            #wpmzf-toggle-closed-tasks .dashicons {
+                transition: transform 0.2s;
+            }
+
+            #wpmzf-toggle-closed-tasks.expanded .dashicons {
+                transform: rotate(90deg);
+            }
+
+            .task-edit-input {
+                width: 100%;
+                padding: 5px;
+                border: 1px solid #ddd;
+                border-radius: 3px;
+                font-size: 14px;
+                font-weight: 600;
+            }
+
+            #task-date-edit-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #task-date-edit-modal > div {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                width: 400px;
+                max-width: 90%;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+
+            #task-date-edit-modal h3 {
+                margin-top: 0;
+                color: #23282d;
+            }
+
+            #task-date-edit-input {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                margin-bottom: 15px;
+                font-size: 14px;
+            }
+
+            .task-message {
+                margin: 10px 0;
+                padding: 8px 12px;
+                border-radius: 4px;
+                border-left: 4px solid transparent;
+            }
+
+            .task-message.notice-success {
+                background: #d4edda;
+                border-left-color: #155724;
+                color: #155724;
+            }
+
+            .task-message.notice-error {
+                background: #f8d7da;
+                border-left-color: #721c24;
+                color: #721c24;
+            }
+
+            @media screen and (max-width: 1200px) {
+                .dossier-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            /* Projects/Orders styles */
+            .projects-section {
+                margin-bottom: 16px;
+            }
+            
+            .projects-list {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+            
+            .project-item {
+                background: #f8f9fa;
+                border: 1px solid #e1e5e9;
+                border-radius: 6px;
+                margin-bottom: 8px;
+                padding: 12px;
+                transition: all 0.2s ease;
+            }
+            
+            .project-item:hover {
+                border-color: #2271b1;
+                background: #f6f7f7;
+            }
+            
+            .project-item.active-project {
+                border-left: 4px solid #2271b1;
+            }
+            
+            .project-item.completed-project {
+                border-left: 4px solid #8c8f94;
+                opacity: 0.8;
+            }
+            
+            .project-info {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+            
+            .project-link {
+                color: #2271b1;
+                text-decoration: none;
+                font-weight: 600;
+                font-size: 14px;
+                transition: color 0.2s ease;
+            }
+            
+            .project-link:hover {
+                color: #135e96;
+                text-decoration: underline;
+            }
+            
+            .project-deadline {
+                color: #646970;
+                font-size: 12px;
+                font-weight: 500;
+            }
+            
+            #toggle-completed-projects {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                cursor: pointer;
+                color: #646970;
+                transition: color 0.2s;
+                border: none;
+                background: none;
+                padding: 0;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            
+            #toggle-completed-projects:hover {
+                color: #2271b1;
+            }
+            
+            #toggle-completed-projects .dashicons {
+                transition: transform 0.2s;
+                font-size: 16px;
+            }
+            
+            #toggle-completed-projects.expanded .dashicons {
+                transform: rotate(90deg);
+            }
+            
+            #add-new-project-btn {
+                background: #2271b1;
+                color: #fff;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                text-decoration: none;
+                font-size: 12px;
+                font-weight: 500;
+                transition: all 0.2s ease;
+            }
+            
+            #add-new-project-btn:hover {
+                background: #135e96;
+                color: #fff;
+                transform: translateY(-1px);
+            }
+            /* End of Projects/Orders styles */
+            /* Task styles */
+            .task-input-wrapper {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+
+            .task-input-wrapper input[type="text"] {
+                flex: 1;
+                padding: 8px;
+                border: 1px solid #8c8f94;
+                border-radius: 3px;
+            }
+
+            .task-item {
+                background: #f9f9f9;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 8px 10px;
+                margin-bottom: 6px;
+                position: relative;
+            }
+
+            .task-item.overdue {
+                border-left: 4px solid #dc3232;
+                background: #fdf2f2;
+            }
+
+            .task-item.today {
+                border-left: 4px solid #ffb900;
+                background: #fffbf0;
+            }
+
+            .task-item.upcoming {
+                border-left: 4px solid #2271b1;
+                background: #f0f6fc;
+            }
+
+            .task-item.completed {
+                background: #f0f0f1;
+                opacity: 0.7;
+            }
+
+            .task-content {
+                width: 100%;
+            }
+
+            .task-title-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 4px;
+            }
+
+            .task-title {
+                font-weight: 600;
+                color: #23282d;
+                margin: 0;
+                font-size: 14px;
+                flex: 1;
+                line-height: 1.2;
+                margin-right: 8px;
+            }
+
+            .task-meta-row {
+                display: flex;
+                justify-content: flex-start;
+                align-items: center;
+                font-size: 11px;
+            }
+
+            .task-meta-left {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+
+            .task-meta-right {
+                display: flex;
+                align-items: center;
+            }
+
+            .task-meta {
+                font-size: 12px;
+                color: #646970;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 2px;
+            }
+
+            .task-status {
+                display: inline-block;
+                padding: 2px 6px;
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+            }
+
+            .task-status.do-zrobienia {
+                background: #fff2cc;
+                color: #996f00;
+            }
+
+            .task-status.w-toku {
+                background: #cce5ff;
+                color: #0073aa;
+            }
+
+            .task-status.zrobione {
+                background: #d4edda;
+                color: #155724;
+            }
+
+            .task-date {
+                display: inline-block;
+                padding: 2px 6px;
+                background: #f0f0f1;
+                border-radius: 3px;
+                font-size: 11px;
+                font-weight: 500;
+                color: #646970;
+            }
+
+            .task-date.overdue {
+                background: #dc3232;
+                color: white;
+            }
+
+            .task-date.today {
+                background: #ffb900;
+                color: white;
+            }
+
+            .task-date.upcoming {
+                background: #2271b1;
+                color: white;
+            }
+
+            .task-priority-indicator {
+                display: inline-block;
+                padding: 2px 5px;
+                border-radius: 3px;
+                font-size: 9px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .task-priority-indicator.overdue {
+                background: #dc3232;
+                color: white;
+            }
+
+            .task-priority-indicator.today {
+                background: #ffb900;
+                color: white;
+            }
+
+            .task-priority-indicator.upcoming {
+                background: #2271b1;
+                color: white;
+            }
+
+            .task-actions {
+                display: flex;
+                gap: 2px;
+                align-items: center;
+                flex-shrink: 0;
+            }
+
+            .task-actions .dashicons {
+                cursor: pointer;
+                color: #787c82;
+                font-size: 12px;
+                padding: 1px;
+                border-radius: 2px;
+                transition: all 0.2s ease;
+            }
+
+            .task-actions .dashicons:hover {
+                color: #2271b1;
+                background: rgba(34, 113, 177, 0.1);
+            }
+
+            #wpmzf-toggle-closed-tasks {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                cursor: pointer;
+                color: #646970;
+                transition: color 0.2s;
+            }
+
+            #wpmzf-toggle-closed-tasks:hover {
+                color: #2271b1;
+            }
+
+            #wpmzf-toggle-closed-tasks .dashicons {
+                transition: transform 0.2s;
+            }
+
+            #wpmzf-toggle-closed-tasks.expanded .dashicons {
+                transform: rotate(90deg);
+            }
+
+            .task-edit-input {
+                width: 100%;
+                padding: 5px;
+                border: 1px solid #ddd;
+                border-radius: 3px;
+                font-size: 14px;
+                font-weight: 600;
+            }
+
+            #task-date-edit-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #task-date-edit-modal > div {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                width: 400px;
+                max-width: 90%;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+
+            #task-date-edit-modal h3 {
+                margin-top: 0;
+                color: #23282d;
+            }
+
+            #task-date-edit-input {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                margin-bottom: 15px;
+                font-size: 14px;
+            }
+
+            .task-message {
+                margin: 10px 0;
+                padding: 8px 12px;
+                border-radius: 4px;
+                border-left: 4px solid transparent;
+            }
+
+            .task-message.notice-success {
+                background: #d4edda;
+                border-left-color: #155724;
+                color: #155724;
+            }
+
+            .task-message.notice-error {
+                background: #f8d7da;
+                border-left-color: #721c24;
+                color: #721c24;
+            }
+        </style>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            // Obsługa rozwijania/zwijania zakończonych projektów
+            $('#toggle-completed-projects').on('click', function() {
+                const $this = $(this);
+                const $list = $('#completed-projects-list');
+                
+                if ($list.is(':visible')) {
+                    $list.slideUp(200);
+                    $this.removeClass('expanded');
+                } else {
+                    $list.slideDown(200);
+                    $this.addClass('expanded');
+                }
+            });
+            
+            // Obsługa przycisku "Nowe zlecenie"
+            $('#add-new-project-btn').on('click', function(e) {
+                e.preventDefault();
+                
+                // Przekierowanie do strony dodawania nowego projektu z przypisaniem do osoby
+                const personId = <?php echo json_encode($person_id); ?>;
+                const newProjectUrl = '<?php echo admin_url('post-new.php?post_type=project'); ?>' + '&person_id=' + personId;
+                
+                window.location.href = newProjectUrl;
+            });
+            
+            // Obsługa linków do projektów - przekierowanie do widoku projektu
+            $('.project-link').on('click', function(e) {
+                e.preventDefault();
+                
+                const projectId = $(this).data('project-id');
+                const projectUrl = '<?php echo admin_url('admin.php?page=wpmzf_view_project'); ?>' + '&project_id=' + projectId;
+                
+                window.location.href = projectUrl;
+            });
+        });
+        </script>
+
+        <div class="wrap">
+            <h1 class="wp-heading-inline">Osoby</h1>
+            <a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=person' ) ); ?>"
+            class="page-title-action">
+                Dodaj nową osobę
+            </a>
+            <div id="wpmzf-stats-panel">
+                <div class="stat-box total">
+                    <h3>Wszystkie aktywne</h3>
+                    <div class="stat-count"><?php echo esc_html($all_count); ?></div>
+                </div>
+                <div class="stat-box">
+                    <h3>Dziennie</h3>
+                    <div class="stat-navigator">
+                        <a href="<?php echo esc_url($prev_day_url); ?>">&larr;</a>
+                        <span class="period"><?php echo esc_html($current_day_dt->format('j') . ' ' . $polish_months[$current_day_dt->format('n') - 1] . ' ' . $current_day_dt->format('Y')); ?></span>
+                        <a href="<?php echo esc_url($next_day_url); ?>">&rarr;</a>
+                    </div>
+                    <div class="stat-count"><?php echo esc_html($daily_count); ?></div>
+                </div>
+                <div class="stat-box">
+                    <h3>Tygodniowo</h3>
+                    <div class="stat-navigator">
+                        <a href="<?php echo esc_url($prev_week_url); ?>">&larr;</a>
+                        <span class="period">Tydzień <?php echo esc_html($current_week); ?></span>
+                        <a href="<?php echo esc_url($next_week_url); ?>">&rarr;</a>
+                    </div>
+                    <div class="stat-count"><?php echo esc_html($weekly_count); ?></div>
+                </div>
+                <div class="stat-box">
+                    <h3>Miesięcznie</h3>
+                    <div class="stat-navigator">
+                        <a href="<?php echo esc_url($prev_month_url); ?>">&larr;</a>
+                        <span class="period"><?php echo esc_html($polish_months_mianownik[$month_dt->format('n') - 1] . ' ' . $month_dt->format('Y')); ?></span>
+                        <a href="<?php echo esc_url($next_month_url); ?>">&rarr;</a>
+                    </div>
+                    <div class="stat-count"><?php echo esc_html($monthly_count); ?></div>
+                </div>
+            </div>
+
+            <form method="post">
+                <?php
+                // Wyświetl tabelę
+                $persons_table->display();
+                ?>
+            </form>
+        </div>
+    <?php
+    }
     public function render_single_person_page()
     {
         global $title;

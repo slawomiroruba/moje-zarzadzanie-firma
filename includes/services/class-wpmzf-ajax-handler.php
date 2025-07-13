@@ -319,7 +319,19 @@ class WPMZF_Ajax_Handler
         $timer_id = WPMZF_Performance_Monitor::start_timer('get_activities');
         
         try {
-            check_ajax_referer('wpmzf_person_view_nonce', 'security');
+            // Sprawdź najpierw jakie ID jest podane, żeby wybrać odpowiedni nonce
+            $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
+            $company_id = isset($_POST['company_id']) ? intval($_POST['company_id']) : 0;
+            
+            // Wybierz odpowiedni nonce w zależności od typu encji
+            if ($person_id) {
+                check_ajax_referer('wpmzf_person_view_nonce', 'security');
+            } elseif ($company_id) {
+                check_ajax_referer('wpmzf_company_view_nonce', 'security');
+            } else {
+                wp_send_json_error(['message' => 'Nieprawidłowe ID osoby lub firmy.']);
+                return;
+            }
 
             // Sprawdź uprawnienia
             if (!current_user_can('edit_posts')) {
@@ -330,18 +342,9 @@ class WPMZF_Ajax_Handler
 
             // Debug - sprawdź wszystkie dane POST
             WPMZF_Logger::debug('get_activities called', $_POST);
-        
-            $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
-            $company_id = isset($_POST['company_id']) ? intval($_POST['company_id']) : 0;
             
             // Debug logging
             error_log('WPMZF get_activities: person_id=' . $person_id . ', company_id=' . $company_id);
-            
-            if (!$person_id && !$company_id) {
-                error_log('WPMZF get_activities: No person_id or company_id provided');
-                wp_send_json_error(['message' => 'Nieprawidłowe ID osoby lub firmy.' . "personid = " . $person_id . "company_id=" . $company_id]);
-                return;
-            }
 
             // Sprawdzenie cache
             $entity_type = $person_id ? 'person' : 'company';
@@ -389,6 +392,8 @@ class WPMZF_Ajax_Handler
                     
                     $activity_id = get_the_ID();
                     $attachments = get_field('activity_attachments', $activity_id) ?: [];
+                    $author_id = get_the_author_meta('ID');
+                    $avatar_url = get_avatar_url($author_id, ['size' => 64]);
                     
                     $activities[] = [
                         'id' => $activity_id,
@@ -396,6 +401,7 @@ class WPMZF_Ajax_Handler
                         'content' => get_the_content(),
                         'date' => get_the_date('Y-m-d H:i:s'),
                         'author' => get_the_author(),
+                        'avatar' => $avatar_url,
                         'type' => get_field('activity_type', $activity_id),
                         'attachments' => $this->format_attachments($attachments)
                     ];
@@ -452,12 +458,23 @@ class WPMZF_Ajax_Handler
                 if ($attachment_id > 0) {
                     $attachment_post = get_post($attachment_id);
                     if ($attachment_post) {
+                        $file_path = get_attached_file($attachment_id);
+                        $mime_type = get_post_mime_type($attachment_id);
+                        $thumbnail_url = null;
+                        
+                        // Generuj thumbnail dla obrazów
+                        if (strpos($mime_type, 'image/') === 0) {
+                            $thumbnail_url = wp_get_attachment_image_url($attachment_id, 'thumbnail');
+                        }
+                        
                         $formatted[] = [
                             'id' => $attachment_id,
+                            'filename' => basename(get_attached_file($attachment_id)),
                             'title' => $attachment_post->post_title,
                             'url' => wp_get_attachment_url($attachment_id),
-                            'type' => get_post_mime_type($attachment_id),
-                            'size' => size_format(filesize(get_attached_file($attachment_id)))
+                            'mime_type' => $mime_type,
+                            'thumbnail_url' => $thumbnail_url,
+                            'size' => $file_path ? size_format(filesize($file_path)) : 'Nieznany'
                         ];
                     }
                 }
