@@ -14,6 +14,7 @@ if (! defined('WPINC')) {
 
 // Definicja stałej ze ścieżką do pluginu.
 define('WPMZF_PLUGIN_PATH', plugin_dir_path(__FILE__));
+define('WPMZF_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 /**
  * Funkcja uruchamiana podczas aktywacji pluginu.

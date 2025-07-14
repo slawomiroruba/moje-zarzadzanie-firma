@@ -554,7 +554,7 @@ if (class_exists('WPMZF_Opportunity')) {
                 <div class="stats-grid">
                     <div class="stat-item">
                         <span class="stat-number"><?php echo esc_html($companies_count); ?></span>
-                        <span class="stat-label">Firmy</span>
+                        <span class="stat-label">Firmy123</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-number"><?php echo esc_html($persons_count); ?></span>

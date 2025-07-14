@@ -3215,20 +3215,4 @@ class WPMZF_Admin_Pages
         // Renderuj widok pojedynczego projektu
         include_once plugin_dir_path(__FILE__) . 'views/projects/project-view.php';
     }
-
-    /**
-     * Renderuje stronę migracji aktywności
-     */
-    public function render_migration_activities_page()
-    {
-        include_once plugin_dir_path(__FILE__) . 'pages/migration-activities.php';
-    }
-
-    /**
-     * Obsługuje akcje admin (AJAX, itp.)
-     */
-    public function handle_actions()
-    {
-        // Tutaj będą obsługiwane akcje admin
-    }
 }

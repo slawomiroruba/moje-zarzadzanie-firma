@@ -5,11 +5,7 @@
  * @version 2.0 (Corrected and improved)
  */
 jQuery(document).ready(function ($) {
-    console.log('=== VOICE DICTATION START ===');
-    console.log('Voice dictation: skrypt ładuje się...');
-    
-    // --- BROWSER AND ENVIRONMENT CHECKS ---
-    
+
     // Check for Web Speech API support
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -23,7 +19,7 @@ jQuery(document).ready(function ($) {
         }
         return;
     }
-    
+
     // Check for HTTPS connection (required for microphone access)
     const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     if (!isSecure) {
@@ -36,22 +32,20 @@ jQuery(document).ready(function ($) {
             );
         }
     }
-    
+
     // Check for microphone access API
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.warn('Dostęp do mikrofonu nie jest dostępny w tym środowisku.');
         return;
     }
-    
-    console.log('Voice dictation: Środowisko jest gotowe.');
 
     // --- GLOBAL VARIABLES ---
-    
+
     let recognition;
     let isListening = false;
     let activeElement = null; // Currently focused text field (jQuery object)
     let microphoneButton = null;
-    let lastInsertedText = ''; 
+    let lastInsertedText = '';
     let insertTimeout = null;
     let isPageChanging = false; // Flag to prevent errors on page unload
     let restartTimeout = null; // Timeout for restarting recognition
@@ -93,14 +87,14 @@ jQuery(document).ready(function ($) {
             lineHeight: '32px'
         });
 
-        microphoneButton.on('click', function(e) {
+        microphoneButton.on('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
             toggleListening();
         });
 
         $('body').append(microphoneButton);
-        
+
         // Add CSS for pulse animation
         if (!$('#wpmzf-voice-styles').length) {
             $('<style id="wpmzf-voice-styles">')
@@ -124,8 +118,7 @@ jQuery(document).ready(function ($) {
                 `)
                 .appendTo('head');
         }
-        
-        console.log('Voice dictation: Przycisk mikrofonu został utworzony.');
+
     }
 
     /**
@@ -139,7 +132,7 @@ jQuery(document).ready(function ($) {
         // Enhanced settings for better recognition
         recognition.interimResults = true;
         recognition.continuous = true;
-        
+
         // Mobile-specific adjustments
         if (isMobile) {
             recognition.continuous = false;
@@ -153,17 +146,17 @@ jQuery(document).ready(function ($) {
 
         recognition.onend = function () {
             console.log('Voice dictation: Nasłuchiwanie zakończone');
-            
+
             // Clear any existing timeouts
             clearTimeout(restartTimeout);
             clearTimeout(silenceTimeout);
-            
+
             // Only restart if we're still supposed to be listening and not changing pages
             if (isListening && !isPageChanging) {
                 restartTimeout = setTimeout(() => {
                     if (isListening && !isPageChanging) {
-                        try { 
-                            recognition.start(); 
+                        try {
+                            recognition.start();
                             console.log('Voice dictation: Wznowiono nasłuchiwanie');
                         } catch (e) {
                             console.error('Nie można wznowić nasłuchiwania:', e);
@@ -188,7 +181,7 @@ jQuery(document).ready(function ($) {
             if (event.error === 'not-allowed') errorMessage = 'Dostęp do mikrofonu został zablokowany.';
             if (event.error === 'network') errorMessage = 'Błąd sieci. Sprawdź połączenie.';
             if (event.error === 'aborted') return; // Ignore aborted errors
-            
+
             showErrorMessage(errorMessage);
             stopListening();
         };
@@ -196,7 +189,7 @@ jQuery(document).ready(function ($) {
         recognition.onresult = function (event) {
             clearTimeout(insertTimeout);
             clearTimeout(silenceTimeout);
-            
+
             let finalTranscript = '';
             let interimTranscript = '';
 
@@ -208,7 +201,7 @@ jQuery(document).ready(function ($) {
                     interimTranscript += transcript;
                 }
             }
-            
+
             // Insert final transcript
             if (finalTranscript && finalTranscript.trim() !== lastInsertedText.trim()) {
                 lastInsertedText = finalTranscript.trim();
@@ -217,7 +210,7 @@ jQuery(document).ready(function ($) {
                     insertText(formattedText + ' ');
                 }, 300);
             }
-            
+
             // Reset silence timeout when we get any result
             if (finalTranscript || interimTranscript) {
                 silenceTimeout = setTimeout(() => {
@@ -227,10 +220,9 @@ jQuery(document).ready(function ($) {
                 }, 8000); // 8 seconds of silence before any action
             }
         };
-        
-        console.log('Voice dictation: Inicjalizacja SpeechRecognition zakończona.');
+
     }
-    
+
     /**
      * Starts the listening process after checking for consent.
      */
@@ -243,19 +235,19 @@ jQuery(document).ready(function ($) {
                 if (granted) {
                     localStorage.setItem('wpmzf_voice_consent', 'granted');
                     // Initialize only after getting consent
-                    initializeRecognition(); 
+                    initializeRecognition();
                     initiateRecognition();
                 } else {
                     showErrorMessage('Zgoda na dostęp do mikrofonu jest wymagana.');
                 }
             });
         } else {
-             // If consent already exists, initialize and start
-            if(!recognition) initializeRecognition();
+            // If consent already exists, initialize and start
+            if (!recognition) initializeRecognition();
             initiateRecognition();
         }
     }
-    
+
     /**
      * [FIXED] Stops the listening process and resets the UI.
      */
@@ -264,18 +256,18 @@ jQuery(document).ready(function ($) {
             recognition.stop();
         }
         isListening = false;
-        
+
         // Clear all timeouts
         clearTimeout(restartTimeout);
         clearTimeout(silenceTimeout);
         clearTimeout(insertTimeout);
-        
+
         if (microphoneButton) {
             microphoneButton.removeClass('is-listening').attr('title', 'Rozpocznij dyktowanie');
         }
         console.log('Voice dictation: Nasłuchiwanie zatrzymane.');
     }
-    
+
     /**
      * Toggles the listening state.
      */
@@ -286,7 +278,7 @@ jQuery(document).ready(function ($) {
             startListening();
         }
     }
-    
+
     /**
      * Actually starts the recognition engine.
      */
@@ -307,10 +299,10 @@ jQuery(document).ready(function ($) {
      */
     function insertText(text) {
         if (!activeElement || !text) return;
-        
+
         const el = activeElement[0];
         console.log('Voice dictation: Próba wstawienia tekstu do:', el.tagName, el.className, el.id);
-        
+
         // Gutenberg Block Editor
         if (activeElement.is('[data-block]') && typeof wp !== 'undefined' && wp.data && wp.data.dispatch('core/block-editor')) {
             try {
@@ -324,7 +316,7 @@ jQuery(document).ready(function ($) {
 
         // TinyMCE (Classic Editor) - Enhanced detection
         let editor = null;
-        
+
         // Method 1: Direct TinyMCE editor reference
         if (typeof tinymce !== 'undefined') {
             // Check if element is TinyMCE editor
@@ -346,7 +338,7 @@ jQuery(document).ready(function ($) {
                 }
             }
         }
-        
+
         if (editor && editor.insertContent) {
             try {
                 editor.insertContent(text);
@@ -398,19 +390,17 @@ jQuery(document).ready(function ($) {
                     range.collapse(true);
                     selection.removeAllRanges();
                     selection.addRange(range);
-                    console.log('Voice dictation: Wstawiono tekst do contentEditable.');
                     return;
                 } else {
                     // If no selection, append to end
                     el.appendChild(document.createTextNode(text));
-                    console.log('Voice dictation: Dodano tekst na koniec contentEditable.');
                     return;
                 }
             } catch (e) {
                 console.error('Błąd podczas wstawiania tekstu do contentEditable:', e);
             }
         }
-        
+
         // Standard <input> and <textarea>
         if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
             try {
@@ -419,7 +409,7 @@ jQuery(document).ready(function ($) {
                 const currentValue = el.value || '';
                 el.value = currentValue.substring(0, start) + text + currentValue.substring(end);
                 el.selectionStart = el.selectionEnd = start + text.length;
-                
+
                 // Trigger events for frameworks
                 $(el).trigger('input').trigger('change').trigger('keyup');
                 console.log('Voice dictation: Wstawiono tekst do standardowego pola.');
@@ -428,41 +418,41 @@ jQuery(document).ready(function ($) {
                 console.error('Błąd podczas wstawiania tekstu do input/textarea:', e);
             }
         }
-        
+
         console.warn('Voice dictation: Nie udało się wstawić tekstu - nierozpoznany typ elementu:', el);
     }
-    
+
     // --- UTILITY AND UI FUNCTIONS ---
-    
+
     /**
      * Positions the microphone button next to the active element.
      */
     function positionMicrophoneButton() {
         if (!activeElement || !microphoneButton) return;
-        
+
         try {
             let targetElement = activeElement;
             let offset, width, height;
-            
+
             // Special handling for different element types
             const el = activeElement[0];
-            
+
             // Handle TinyMCE WYSIWYG editors
             if (typeof tinymce !== 'undefined') {
                 let editor = null;
-                
+
                 // Find TinyMCE editor
                 if (el.id && tinymce.get(el.id)) {
                     editor = tinymce.get(el.id);
                 } else if (tinymce.activeEditor && tinymce.activeEditor.getBody) {
                     editor = tinymce.activeEditor;
                 }
-                
+
                 if (editor && editor.getContainer) {
                     // Position relative to TinyMCE container/toolbar
                     const container = $(editor.getContainer());
                     const toolbar = container.find('.mce-toolbar, .wp-editor-tools');
-                    
+
                     if (toolbar.length) {
                         targetElement = toolbar;
                     } else {
@@ -470,19 +460,19 @@ jQuery(document).ready(function ($) {
                     }
                 }
             }
-            
+
             // Handle WordPress Classic Editor wrapper
             if (activeElement.closest('.wp-editor-wrap').length) {
                 const editorWrap = activeElement.closest('.wp-editor-wrap');
                 const toolbar = editorWrap.find('.wp-editor-tools, .quicktags-toolbar');
-                
+
                 if (toolbar.length) {
                     targetElement = toolbar;
                 } else {
                     targetElement = editorWrap;
                 }
             }
-            
+
             // Handle iframe editors
             if (el.tagName === 'IFRAME') {
                 // Look for parent editor container
@@ -491,20 +481,20 @@ jQuery(document).ready(function ($) {
                     targetElement = editorContainer;
                 }
             }
-            
+
             // Get positioning data
             offset = targetElement.offset();
             width = targetElement.outerWidth();
             height = targetElement.outerHeight();
-            
+
             if (!offset || !width || !height) {
                 console.warn('Voice dictation: Nie można uzyskać wymiarów elementu');
                 return;
             }
-            
+
             // Calculate optimal position based on element type
             let top, left;
-            
+
             if (el.tagName === 'TEXTAREA') {
                 // For textarea - position in top-right corner
                 top = offset.top + 8;
@@ -519,12 +509,12 @@ jQuery(document).ready(function ($) {
                 top = offset.top + 8;
                 left = offset.left + width - 40;
             }
-            
+
             // Ensure button doesn't go outside viewport
             const viewportWidth = $(window).width();
             const viewportHeight = $(window).height();
             const scrollTop = $(window).scrollTop();
-            
+
             // Adjust horizontal position if needed
             if (left + 32 > viewportWidth) {
                 left = viewportWidth - 50;
@@ -532,7 +522,7 @@ jQuery(document).ready(function ($) {
             if (left < 10) {
                 left = 10;
             }
-            
+
             // Adjust vertical position if needed
             if (top - scrollTop < 10) {
                 top = scrollTop + 10;
@@ -540,15 +530,14 @@ jQuery(document).ready(function ($) {
             if (top + 32 - scrollTop > viewportHeight) {
                 top = scrollTop + viewportHeight - 50;
             }
-            
+
             microphoneButton.css({
                 top: top,
                 left: left,
                 display: 'block'
             });
-            
-            console.log('Voice dictation: Przycisk ustawiony na pozycji:', top, left, 'dla elementu:', el.tagName, el.className);
-            
+
+
         } catch (e) {
             console.error('Błąd pozycjonowania przycisku:', e);
             // Fallback positioning
@@ -561,7 +550,7 @@ jQuery(document).ready(function ($) {
             }
         }
     }
-    
+
     /**
      * Applies basic formatting to the transcribed text.
      * @param {string} text Raw text from speech API.
@@ -573,7 +562,7 @@ jQuery(document).ready(function ($) {
         // Capitalize the first letter
         return formatted.charAt(0).toUpperCase() + formatted.slice(1);
     }
-    
+
     /**
      * Displays a non-intrusive error message to the user.
      * @param {string} message The error message to display.
@@ -591,7 +580,7 @@ jQuery(document).ready(function ($) {
         errorDiv.text(message).fadeIn();
         setTimeout(() => errorDiv.fadeOut(), duration);
     }
-    
+
     /**
      * Requests user consent via a GDPR-friendly modal.
      * @returns {Promise<boolean>} A promise that resolves with true (granted) or false (denied).
@@ -620,7 +609,7 @@ jQuery(document).ready(function ($) {
     const editableSelectors = 'textarea, input[type="text"], input[type="search"], input[type="email"], input[type="url"], input[type="password"], .wp-editor-area, [contenteditable="true"], iframe[id*="content"], #content_ifr, .mce-content-body';
 
     // Show microphone button when focusing editable elements
-    $(document).on('focusin', editableSelectors, function() {
+    $(document).on('focusin', editableSelectors, function () {
         activeElement = $(this);
         setTimeout(() => {
             positionMicrophoneButton();
@@ -629,18 +618,17 @@ jQuery(document).ready(function ($) {
     });
 
     // Also handle click events for better detection
-    $(document).on('click', editableSelectors, function() {
+    $(document).on('click', editableSelectors, function () {
         if (!activeElement || activeElement[0] !== this) {
             activeElement = $(this);
             setTimeout(() => {
                 positionMicrophoneButton();
             }, 100);
-            console.log('Voice dictation: Element clicked:', this.tagName, this.className, this.id);
         }
     });
 
     // Hide microphone button on blur, unless focus moves to the button itself
-    $(document).on('focusout', editableSelectors, function(e) {
+    $(document).on('focusout', editableSelectors, function (e) {
         setTimeout(() => {
             const focusedElement = document.activeElement;
             if (focusedElement !== microphoneButton[0] && !isListening) {
@@ -648,7 +636,6 @@ jQuery(document).ready(function ($) {
                 if (!$(focusedElement).is(editableSelectors)) {
                     microphoneButton.hide();
                     activeElement = null;
-                    console.log('Voice dictation: Przycisk ukryty - brak focus na editable element');
                 }
             }
         }, 300); // Increased delay for better stability
@@ -656,7 +643,7 @@ jQuery(document).ready(function ($) {
 
     // Handle scroll to reposition button with throttling
     let scrollTimeout;
-    $(window).on('scroll resize', function() {
+    $(window).on('scroll resize', function () {
         if (activeElement && microphoneButton.is(':visible')) {
             clearTimeout(scrollTimeout);
             scrollTimeout = setTimeout(() => {
@@ -669,12 +656,12 @@ jQuery(document).ready(function ($) {
     if (isMobile) {
         // Listen for viewport changes that indicate virtual keyboard
         let initialViewportHeight = window.innerHeight;
-        
-        $(window).on('resize orientationchange', function() {
+
+        $(window).on('resize orientationchange', function () {
             setTimeout(() => {
                 const currentHeight = window.innerHeight;
                 const heightDifference = initialViewportHeight - currentHeight;
-                
+
                 // If height decreased significantly, virtual keyboard is probably open
                 if (heightDifference > 150) {
                     if (activeElement) {
@@ -695,7 +682,7 @@ jQuery(document).ready(function ($) {
         });
 
         // Additional mobile focus detection
-        $(document).on('touchstart', editableSelectors, function() {
+        $(document).on('touchstart', editableSelectors, function () {
             setTimeout(() => {
                 activeElement = $(this);
                 positionMicrophoneButton();
@@ -706,20 +693,20 @@ jQuery(document).ready(function ($) {
     // Enhanced TinyMCE editor handling
     if (typeof tinymce !== 'undefined') {
         // Hook into existing TinyMCE editors
-        $(document).ready(function() {
+        $(document).ready(function () {
             setTimeout(() => {
                 if (tinymce.editors) {
                     tinymce.editors.forEach(editor => {
                         if (editor.on) {
-                            editor.on('focus', function() {
+                            editor.on('focus', function () {
                                 activeElement = $(editor.getElement());
                                 setTimeout(() => {
                                     positionMicrophoneButton();
                                 }, 150);
                                 console.log('Voice dictation: TinyMCE editor focused:', editor.id);
                             });
-                            
-                            editor.on('blur', function() {
+
+                            editor.on('blur', function () {
                                 setTimeout(() => {
                                     if (!isListening && document.activeElement !== microphoneButton[0]) {
                                         microphoneButton.hide();
@@ -729,7 +716,7 @@ jQuery(document).ready(function ($) {
                             });
 
                             // Handle editor content area clicks
-                            editor.on('click', function() {
+                            editor.on('click', function () {
                                 if (activeElement && activeElement[0] === editor.getElement()) {
                                     setTimeout(() => {
                                         positionMicrophoneButton();
@@ -744,18 +731,18 @@ jQuery(document).ready(function ($) {
     }
 
     // Global TinyMCE event listener for new editors
-    $(document).on('tinymce-editor-init', function(event, editor) {
+    $(document).on('tinymce-editor-init', function (event, editor) {
         console.log('Voice dictation: Nowy TinyMCE editor zainicjalizowany:', editor.id);
-        
-        editor.on('focus', function() {
+
+        editor.on('focus', function () {
             activeElement = $(editor.getElement());
             setTimeout(() => {
                 positionMicrophoneButton();
             }, 150);
             console.log('Voice dictation: TinyMCE editor focused via event:', editor.id);
         });
-        
-        editor.on('blur', function() {
+
+        editor.on('blur', function () {
             setTimeout(() => {
                 if (!isListening && document.activeElement !== microphoneButton[0]) {
                     microphoneButton.hide();
@@ -764,7 +751,7 @@ jQuery(document).ready(function ($) {
             }, 300);
         });
 
-        editor.on('click', function() {
+        editor.on('click', function () {
             if (activeElement && activeElement[0] === editor.getElement()) {
                 setTimeout(() => {
                     positionMicrophoneButton();
@@ -774,21 +761,20 @@ jQuery(document).ready(function ($) {
     });
 
     // Handle iframe editors (like WordPress visual editor)
-    $(document).on('load', 'iframe[id*="content"]', function() {
+    $(document).on('load', 'iframe[id*="content"]', function () {
         const iframe = this;
         console.log('Voice dictation: Iframe loaded:', iframe.id);
-        
+
         try {
             const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-            $(iframeDoc).on('focus click', 'body', function() {
+            $(iframeDoc).on('focus click', 'body', function () {
                 activeElement = $(iframe);
                 setTimeout(() => {
                     positionMicrophoneButton();
                 }, 150);
-                console.log('Voice dictation: Iframe editor focused');
             });
-            
-            $(iframeDoc).on('blur', 'body', function() {
+
+            $(iframeDoc).on('blur', 'body', function () {
                 setTimeout(() => {
                     if (!isListening && document.activeElement !== microphoneButton[0]) {
                         microphoneButton.hide();
@@ -802,11 +788,11 @@ jQuery(document).ready(function ($) {
     });
 
     // Handle dynamic content changes (for editors that load asynchronously)
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
+    const observer = new MutationObserver(function (mutations) {
+        mutations.forEach(function (mutation) {
             if (mutation.type === 'childList') {
                 // Check if new editor elements were added
-                $(mutation.addedNodes).find(editableSelectors).each(function() {
+                $(mutation.addedNodes).find(editableSelectors).each(function () {
                     const $this = $(this);
                     if ($this.is(':focus') && (!activeElement || activeElement[0] !== this)) {
                         activeElement = $this;
@@ -824,15 +810,15 @@ jQuery(document).ready(function ($) {
         childList: true,
         subtree: true
     });
-    
+
     // Set flag on page unload to prevent restart errors
-    $(window).on('beforeunload', function() {
+    $(window).on('beforeunload', function () {
         isPageChanging = true;
         stopListening();
         observer.disconnect();
     });
 
     // --- INITIALIZATION ---
-    
+
     createMicrophoneButton();
 });
