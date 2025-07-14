@@ -1,0 +1,169 @@
+/* Style specyficzne dla strony projektów */
+
+.wpmzf-projects-page {
+    .project-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        
+        h1 {
+            margin: 0;
+        }
+        
+        .project-actions {
+            .button {
+                margin-left: 10px;
+            }
+        }
+    }
+    
+    .projects-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+        
+        .project-card {
+            background: #fff;
+            border: 1px solid #ccd0d4;
+            border-radius: 4px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            
+            &:hover {
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+            }
+            
+            .project-title {
+                font-size: 16px;
+                font-weight: 600;
+                margin-bottom: 10px;
+                
+                a {
+                    text-decoration: none;
+                    color: #1d2327;
+                    
+                    &:hover {
+                        color: #2271b1;
+                    }
+                }
+            }
+            
+            .project-meta {
+                font-size: 13px;
+                color: #646970;
+                margin-bottom: 10px;
+                
+                .meta-item {
+                    display: block;
+                    margin-bottom: 5px;
+                }
+            }
+            
+            .project-status {
+                display: inline-block;
+                padding: 3px 8px;
+                border-radius: 3px;
+                font-size: 12px;
+                font-weight: 500;
+                
+                &.status-active {
+                    background: #d63384;
+                    color: white;
+                }
+                
+                &.status-completed {
+                    background: #198754;
+                    color: white;
+                }
+                
+                &.status-pending {
+                    background: #fd7e14;
+                    color: white;
+                }
+            }
+        }
+    }
+}
+
+/* Style dla widoku pojedynczego projektu */
+.wpmzf-project-view {
+    .project-info-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 20px;
+        margin-top: 20px;
+        
+        .project-main {
+            .project-description {
+                background: #fff;
+                border: 1px solid #ccd0d4;
+                border-radius: 4px;
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+            
+            .project-tasks {
+                background: #fff;
+                border: 1px solid #ccd0d4;
+                border-radius: 4px;
+                padding: 15px;
+            }
+        }
+        
+        .project-sidebar {
+            .project-details {
+                background: #fff;
+                border: 1px solid #ccd0d4;
+                border-radius: 4px;
+                padding: 15px;
+                margin-bottom: 20px;
+                
+                .detail-item {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 8px 0;
+                    border-bottom: 1px solid #f0f0f1;
+                    
+                    &:last-child {
+                        border-bottom: none;
+                    }
+                    
+                    .label {
+                        font-weight: 600;
+                        color: #646970;
+                    }
+                    
+                    .value {
+                        color: #1d2327;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+    .wpmzf-projects-page {
+        .projects-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .project-header {
+            flex-direction: column;
+            align-items: flex-start;
+            
+            .project-actions {
+                margin-top: 10px;
+            }
+        }
+    }
+    
+    .wpmzf-project-view {
+        .project-info-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+}

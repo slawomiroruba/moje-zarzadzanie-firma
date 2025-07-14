@@ -181,9 +181,11 @@ final class WPMZF_Plugin
         new WPMZF_Email_Service();
         WPMZF_Email_Database::create_tables(); // Tworzymy tabele przy inicjalizacji
 
-        // Admin
+        // Admin - nowa struktura z obsługą migracji
+        $this->init_admin_structure();
+
         // new WPMZF_Admin(); // WYŁĄCZONE - duplikuje funkcjonalność WPMZF_Admin_Pages
-        new WPMZF_Admin_Pages(); 
+        // new WPMZF_Admin_Pages(); // PRZENIESIONE do init_admin_structure() 
         WPMZF_Debug_Admin_Page::init();
         new WPMZF_Custom_Columns_Service();
         new WPMZF_Kanban_Page();
@@ -220,6 +222,34 @@ final class WPMZF_Plugin
         // Sprawdź czy potrzeba utworzyć tabele
         if (get_option('wpmzf_need_create_tables')) {
             WPMZF_Activator::create_tables();
+        }
+
+        // Admin - nowa struktura z obsługą migracji
+        $this->init_admin_structure();
+    }
+
+    /**
+     * Inicjalizuje strukturę administracyjną
+     */
+    private function init_admin_structure()
+    {
+        // Załaduj klasy migracji
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-admin-migration.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-admin-manager.php';
+        
+        // Inicjalizuj migrację
+        new WPMZF_Admin_Migration();
+        
+        // Sprawdź czy używać nowej czy starej struktury
+        $current_structure = get_option('wpmzf_admin_structure', 'legacy');
+        $migration_completed = get_option('wpmzf_migration_completed');
+        
+        if ($current_structure === 'modular' || $migration_completed) {
+            // Nowa modularna struktura
+            new WPMZF_Admin_Manager();
+        } else {
+            // Stara struktura (kompatybilność wsteczna)
+            new WPMZF_Admin_Pages();
         }
     }
 
