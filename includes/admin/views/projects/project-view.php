@@ -136,9 +136,9 @@ $activities_args = [
     'posts_per_page' => -1,
     'meta_query' => [
         [
-            'key' => 'related_project',
-            'value' => $project_id,
-            'compare' => '='
+            'key' => 'related_objects', // Nowe, ujednolicone pole
+            'value' => '"' . $project_id . '"', // ACF przechowuje ID w serializowanej tablicy
+            'compare' => 'LIKE'
         ]
     ],
     'orderby' => 'date',
@@ -1162,8 +1162,21 @@ $activities_query = new WP_Query($activities_args);
                                 $activity_post = get_post($activity_id);
                                 $activity_type = get_field('activity_type', $activity_id) ?: 'note';
                                 $activity_date = get_field('activity_date', $activity_id);
-                                $related_person = get_field('related_person', $activity_id);
-                                $related_company = get_field('related_company', $activity_id);
+                                // Pobierz powiązane obiekty
+                                $related_objects = get_field('related_objects', $activity_id) ?: [];
+                                
+                                // Znajdź powiązane osoby i firmy
+                                $related_persons = [];
+                                $related_companies = [];
+                                
+                                foreach ($related_objects as $object_id) {
+                                    $post_type = get_post_type($object_id);
+                                    if ($post_type === 'person') {
+                                        $related_persons[] = $object_id;
+                                    } elseif ($post_type === 'company') {
+                                        $related_companies[] = $object_id;
+                                    }
+                                }
                                 $activity_content = $activity_post->post_content;
                                 $activity_author = get_the_author_meta('display_name', $activity_post->post_author);
                                 $activity_author_id = $activity_post->post_author;
@@ -1217,19 +1230,19 @@ $activities_query = new WP_Query($activities_args);
                                                 <?php echo wp_kses_post(wp_trim_words($activity_content, 30)); ?>
                                             </div>
                                             
-                                            <?php if ($related_person || $related_company): ?>
+                                            <?php if (!empty($related_persons) || !empty($related_companies)): ?>
                                                 <div class="activity-related">
                                                     <strong>Dotycząca:</strong> 
-                                                    <?php if ($related_person): ?>
-                                                        <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_person', 'person_id' => $related_person], admin_url('admin.php'))); ?>">
-                                                            <?php echo esc_html(get_the_title($related_person)); ?>
-                                                        </a>
-                                                    <?php endif; ?>
-                                                    <?php if ($related_company): ?>
-                                                        <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_company', 'company_id' => $related_company], admin_url('admin.php'))); ?>">
-                                                            <?php echo esc_html(get_the_title($related_company)); ?>
-                                                        </a>
-                                                    <?php endif; ?>
+                                                    <?php foreach ($related_persons as $person_id): ?>
+                                                        <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_person', 'person_id' => $person_id], admin_url('admin.php'))); ?>">
+                                                            <?php echo esc_html(get_the_title($person_id)); ?>
+                                                        </a><?php if (!empty($related_companies) || (array_search($person_id, $related_persons) !== array_key_last($related_persons))): ?>, <?php endif; ?>
+                                                    <?php endforeach; ?>
+                                                    <?php foreach ($related_companies as $company_id): ?>
+                                                        <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_company', 'company_id' => $company_id], admin_url('admin.php'))); ?>">
+                                                            <?php echo esc_html(get_the_title($company_id)); ?>
+                                                        </a><?php if (array_search($company_id, $related_companies) !== array_key_last($related_companies)): ?>, <?php endif; ?>
+                                                    <?php endforeach; ?>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
@@ -1605,11 +1618,10 @@ $activities_args = [
     'post_type' => 'activity',
     'posts_per_page' => 50,
     'meta_query' => [
-        'relation' => 'OR',
         [
-            'key' => 'related_project',
-            'value' => $project_id,
-            'compare' => '='
+            'key' => 'related_objects', // Nowe, ujednolicone pole
+            'value' => '"' . $project_id . '"', // ACF przechowuje ID w serializowanej tablicy
+            'compare' => 'LIKE'
         ]
     ],
     'orderby' => 'date',

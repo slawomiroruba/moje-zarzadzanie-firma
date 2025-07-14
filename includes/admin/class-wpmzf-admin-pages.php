@@ -262,6 +262,16 @@ class WPMZF_Admin_Pages
             'wpmzf_view_project',        // slug dla widoku zlecenia
             array($this, 'render_single_project_page') // callback renderujący
         );
+
+        // Dodajemy stronę migracji aktywności
+        add_submenu_page(
+            'wpmzf_dashboard',           // rodzic - dashboard
+            'Migracja Aktywności',       // page_title
+            'Migracja Aktywności',       // menu_title
+            'manage_options',            // wymagane uprawnienia
+            'wpmzf_migration_activities', // slug
+            array($this, 'render_migration_activities_page') // callback
+        );
     }
 
     /**
@@ -367,7 +377,7 @@ class WPMZF_Admin_Pages
         // 10 ostatnio dodanych osób
         $recent_persons_query = new WP_Query([
             'post_type' => 'person',
-            'posts_per_page' => 10,
+            'posts_per_page' => 5,
             'orderby' => 'date',
             'order' => 'DESC',
             'meta_query' => [
@@ -387,7 +397,7 @@ class WPMZF_Admin_Pages
         // 10 ostatnio dodanych firm
         $recent_companies_query = new WP_Query([
             'post_type' => 'company',
-            'posts_per_page' => 10,
+            'posts_per_page' => 5,
             'orderby' => 'date',
             'order' => 'DESC',
             'meta_query' => [
@@ -961,142 +971,22 @@ class WPMZF_Admin_Pages
                     <div class="dashboard-box">
                         <h2 class="dashboard-title">Ostatnie aktywności</h2>
                         <div class="dashboard-content">
-                            <div id="dashboard-activity-timeline">
-                                <?php if ($activities_query->have_posts()) : ?>
-                                    <?php while ($activities_query->have_posts()) : $activities_query->the_post(); ?>
-                                        <?php 
-                                        $activity_id = get_the_ID();
-                                        $activity_post = get_post($activity_id);
-                                        $activity_type = get_field('activity_type', $activity_id) ?: 'note';
-                                        $activity_date = get_field('activity_date', $activity_id);
-                                        $related_person = get_field('related_person', $activity_id);
-                                        $related_company = get_field('related_company', $activity_id);
-                                        $activity_content = $activity_post->post_content;
-                                        $activity_author = get_the_author_meta('display_name', $activity_post->post_author);
-                                        $activity_author_id = $activity_post->post_author;
-                                        $activity_avatar = get_avatar_url($activity_author_id, ['size' => 50]);
-
-                                        // Pobierz załączniki
-                                        $attachments = get_field('activity_attachments', $activity_id) ?: [];
-                                        
-                                        // Ikony dla typów aktywności
-                                        $activity_icons = [
-                                            'note' => 'dashicons-edit',
-                                            'email' => 'dashicons-email-alt',
-                                            'phone' => 'dashicons-phone',
-                                            'meeting' => 'dashicons-groups',
-                                            'meeting_online' => 'dashicons-video-alt3'
-                                        ];
-                                        $icon_class = $activity_icons[$activity_type] ?? 'dashicons-edit';
-                                        
-                                        // Etykiety typów
-                                        $type_labels = [
-                                            'note' => 'Notatka',
-                                            'email' => 'E-mail',
-                                            'phone' => 'Telefon',
-                                            'meeting' => 'Spotkanie',
-                                            'meeting_online' => 'Spotkanie online'
-                                        ];
-                                        $type_label = $type_labels[$activity_type] ?? $activity_type;
-                                        
-                                        // Formatuj datę
-                                        $formatted_date = $activity_date ? date_i18n('j.m.Y o H:i', strtotime($activity_date)) : get_the_date('j.m.Y o H:i', $activity_id);
-                                        ?>
-                                        <div class="timeline-item" data-activity-id="<?php echo esc_attr($activity_id); ?>">
-                                            <div class="timeline-avatar">
-                                                <img src="<?php echo esc_url($activity_avatar); ?>" alt="<?php echo esc_attr($activity_author); ?>">
-                                            </div>
-                                            <div class="timeline-content">
-                                                <div class="timeline-header">
-                                                    <div class="timeline-header-left">
-                                                        <div class="timeline-header-meta">
-                                                            <span class="dashicons <?php echo esc_attr($icon_class); ?>"></span>
-                                                            <span><strong><?php echo esc_html($activity_author); ?></strong> dodał(a) <strong><?php echo esc_html($type_label); ?></strong></span>
-                                                        </div>
-                                                        <span class="timeline-header-date"><?php echo esc_html($formatted_date); ?></span>
-                                                    </div>
-                                                    <div class="timeline-actions">
-                                                        <span class="dashicons dashicons-visibility view-activity" title="Zobacz szczegóły" onclick="viewActivityDetails(<?php echo esc_attr($activity_id); ?>)"></span>
-                                                    </div>
-                                                </div>
-                                                <div class="timeline-body">
-                                                    <div class="activity-content-display">
-                                                        <?php echo wp_kses_post(wp_trim_words($activity_content, 30)); ?>
-                                                    </div>
-                                                    
-                                                    <?php if ($related_person || $related_company) : ?>
-                                                        <div class="activity-related" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e3e5e8; font-size: 13px; color: #646970;">
-                                                            <strong>Dotycząca:</strong> 
-                                                            <?php if ($related_person) : ?>
-                                                                <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_person', 'person_id' => $related_person], admin_url('admin.php'))); ?>" style="color: #2271b1; text-decoration: none;">
-                                                                    <?php echo esc_html(get_the_title($related_person)); ?>
-                                                                </a>
-                                                            <?php endif; ?>
-                                                            <?php if ($related_company) : ?>
-                                                                <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_company', 'company_id' => $related_company], admin_url('admin.php'))); ?>" style="color: #2271b1; text-decoration: none;">
-                                                                    <?php echo esc_html(get_the_title($related_company)); ?>
-                                                                </a>
-                                                            <?php endif; ?>
-                                                        </div>
-                                                    <?php endif; ?>
-                                                                     <?php if (!empty($attachments) && is_array($attachments)) : ?>
-                                        <div class="timeline-attachments">
-                                            <ul>
-                                                <?php foreach ($attachments as $attachment) : ?>
-                                                    <?php 
-                                                    // Obsługa różnych struktur attachmentów
-                                                    $attachment_id = '';
-                                                    if (is_array($attachment) && isset($attachment['ID'])) {
-                                                        $attachment_id = $attachment['ID'];
-                                                    } elseif (is_object($attachment) && isset($attachment->ID)) {
-                                                        $attachment_id = $attachment->ID;
-                                                    } elseif (is_numeric($attachment)) {
-                                                        $attachment_id = $attachment;
-                                                    }
-                                                    
-                                                    if (!$attachment_id) continue;
-                                                    
-                                                    $file_url = wp_get_attachment_url($attachment_id);
-                                                    if (!$file_url) continue;
-                                                    
-                                                    $file_name = get_the_title($attachment_id) ?: basename($file_url);
-                                                    $mime_type = get_post_mime_type($attachment_id);
-                                                    $is_image = strpos($mime_type, 'image/') === 0;
-                                                    ?>
-                                                    <li>
-                                                        <a href="<?php echo esc_url($file_url); ?>" target="_blank">
-                                                            <?php if ($is_image) : ?>
-                                                                <?php $thumb_url = wp_get_attachment_image_url($attachment_id, 'thumbnail'); ?>
-                                                                <img src="<?php echo esc_url($thumb_url ?: $file_url); ?>" alt="Podgląd załącznika">
-                                                            <?php else : ?>
-                                                                <?php
-                                                                $icon_map = [
-                                                                    'application/pdf' => 'dashicons-pdf',
-                                                                    'application/msword' => 'dashicons-media-document',
-                                                                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'dashicons-media-document',
-                                                                    'application/vnd.ms-excel' => 'dashicons-media-spreadsheet',
-                                                                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'dashicons-media-spreadsheet',
-                                                                    'text/plain' => 'dashicons-media-text'
-                                                                ];
-                                                                $icon_class = $icon_map[$mime_type] ?? 'dashicons-media-default';
-                                                                ?>
-                                                                <span class="dashicons <?php echo esc_attr($icon_class); ?>"></span>
-                                                            <?php endif; ?>
-                                                            <span><?php echo esc_html($file_name); ?></span>
-                                                        </a>
-                                                    </li>
-                                                <?php endforeach; ?>
-                                            </ul>
-                                        </div>
-                                    <?php endif; ?>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    <?php endwhile; wp_reset_postdata(); ?>
-                                <?php else : ?>
-                                    <p style="color: #8c8f94; font-style: italic; text-align: center; padding: 40px 20px;">Brak aktywności.</p>
-                                <?php endif; ?>
-                            </div>
+                            <?php
+                            // Include komponentu Timeline jeśli nie jest już załadowany
+                            if (!class_exists('WPMZF_Timeline')) {
+                                require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/timeline/class-wpmzf-timeline.php';
+                            }
+                            
+                            // Renderuj uniwersalny komponent Timeline dla dashboardu
+                            $dashboard_timeline = new WPMZF_Timeline([
+                                'context' => 'dashboard',
+                                'id' => 0,
+                                'limit' => 10,
+                                'show_add_button' => false
+                            ]);
+                            
+                            $dashboard_timeline->render();
+                            ?>
                         </div>
                     </div>
                 </div>
@@ -1506,6 +1396,9 @@ class WPMZF_Admin_Pages
         if (!$person_id || get_post_type($person_id) !== 'person') {
             wp_die('Nieprawidłowa osoba.');
         }
+
+        // Include komponentu Timeline
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/timeline/class-wpmzf-timeline.php';
 
         $person_title = get_the_title($person_id);
         $title = 'Widok Osoby: ' . $person_title; // Ustawiamy globalny tytuł strony
@@ -2920,7 +2813,17 @@ class WPMZF_Admin_Pages
                     <div id="wpmzf-activity-timeline-container" class="dossier-box">
                         <h2 class="dossier-title">Historia Aktywności</h2>
                         <div id="wpmzf-activity-timeline" class="dossier-content">
-                            <p><em>Ładowanie aktywności...</em></p>
+                            <?php
+                            // Renderuj uniwersalny komponent Timeline dla osoby
+                            $person_timeline = new WPMZF_Timeline([
+                                'context' => 'person',
+                                'id' => $person_id,
+                                'limit' => 30, // Więcej aktywności dla widoku osoby
+                                'show_add_button' => true // Pokazujemy przycisk dodaj aktywność
+                            ]);
+                            
+                            $person_timeline->render();
+                            ?>
                         </div>
                     </div>
                 </div>
@@ -3311,6 +3214,14 @@ class WPMZF_Admin_Pages
         
         // Renderuj widok pojedynczego projektu
         include_once plugin_dir_path(__FILE__) . 'views/projects/project-view.php';
+    }
+
+    /**
+     * Renderuje stronę migracji aktywności
+     */
+    public function render_migration_activities_page()
+    {
+        include_once plugin_dir_path(__FILE__) . 'pages/migration-activities.php';
     }
 
     /**

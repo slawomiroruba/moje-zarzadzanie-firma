@@ -29,14 +29,10 @@ class WPMZF_Activity {
     public $description;
 
     /**
-     * ID powiązanego obiektu
+     * Tablica ID powiązanych obiektów (osoby, firmy, projekty, zadania, etc.)
+     * @var array
      */
-    public $object_id;
-
-    /**
-     * Typ powiązanego obiektu
-     */
-    public $object_type;
+    public $related_objects;
 
     /**
      * ID użytkownika
@@ -75,8 +71,10 @@ class WPMZF_Activity {
             $this->id = $post->ID;
             $this->description = $post->post_content;
             $this->type = get_post_meta($id, 'type', true);
-            $this->object_id = get_post_meta($id, 'object_id', true);
-            $this->object_type = get_post_meta($id, 'object_type', true);
+            
+            // NOWA LOGIKA: Pobieramy pole relacji z ACF
+            $this->related_objects = get_field('related_objects', $id) ?: [];
+            
             $this->user_id = get_post_meta($id, 'user_id', true);
             $this->date = get_post_meta($id, 'date', true);
             $this->meta = get_post_meta($id, 'meta', true);
@@ -117,8 +115,10 @@ class WPMZF_Activity {
     private function save_meta() {
         if ($this->id > 0) {
             update_post_meta($this->id, 'type', $this->type);
-            update_post_meta($this->id, 'object_id', $this->object_id);
-            update_post_meta($this->id, 'object_type', $this->object_type);
+            
+            // NOWA LOGIKA: Zapisujemy pole relacji
+            update_field('related_objects', $this->related_objects, $this->id);
+            
             update_post_meta($this->id, 'user_id', $this->user_id);
             update_post_meta($this->id, 'date', $this->date);
             update_post_meta($this->id, 'meta', $this->meta);
@@ -188,21 +188,16 @@ class WPMZF_Activity {
      * Pobiera aktywności dla obiektu
      *
      * @param int $object_id ID obiektu
-     * @param string $object_type Typ obiektu
+     * @param string $object_type Typ obiektu (opcjonalny, dla kompatybilności wstecznej)
      * @return array
      */
-    public static function get_activities_by_object($object_id, $object_type) {
+    public static function get_activities_by_object($object_id, $object_type = null) {
         $args = array(
             'meta_query' => array(
                 array(
-                    'key' => 'object_id',
-                    'value' => $object_id,
-                    'compare' => '='
-                ),
-                array(
-                    'key' => 'object_type',
-                    'value' => $object_type,
-                    'compare' => '='
+                    'key' => 'related_objects',
+                    'value' => '"' . $object_id . '"', // ACF przechowuje ID w serializowanej tablicy
+                    'compare' => 'LIKE'
                 )
             )
         );
@@ -215,17 +210,15 @@ class WPMZF_Activity {
      *
      * @param string $type Typ aktywności
      * @param string $description Opis aktywności
-     * @param int $object_id ID obiektu
-     * @param string $object_type Typ obiektu
-     * @param array $meta Meta dane
+     * @param array  $related_ids Tablica ID powiązanych obiektów
+     * @param array  $meta Meta dane
      * @return int|WP_Error
      */
-    public static function log($type, $description, $object_id = 0, $object_type = '', $meta = array()) {
+    public static function log($type, $description, $related_ids = [], $meta = array()) {
         $activity = new self();
         $activity->type = $type;
         $activity->description = $description;
-        $activity->object_id = $object_id;
-        $activity->object_type = $object_type;
+        $activity->related_objects = is_array($related_ids) ? $related_ids : [$related_ids]; // Zapewniamy tablicę
         $activity->user_id = get_current_user_id();
         $activity->date = current_time('mysql');
         $activity->meta = $meta;

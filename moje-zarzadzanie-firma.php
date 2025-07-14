@@ -144,6 +144,9 @@ final class WPMZF_Plugin
         // Data
         require_once WPMZF_PLUGIN_PATH . 'includes/data/class-wpmzf-acf-fields.php';
 
+        // Utils
+        require_once WPMZF_PLUGIN_PATH . 'includes/utils/class-wpmzf-activity-migration.php';
+
         // Security and access control
         require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-access-control.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-frontend-blocker.php';

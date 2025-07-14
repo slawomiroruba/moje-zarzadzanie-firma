@@ -361,8 +361,7 @@ class WPMZF_Cache_Manager {
                 'title' => $activity->post_title,
                 'content' => wp_trim_words($activity->post_content, 20),
                 'date' => $activity->post_date,
-                'related_person' => get_field('related_person', $activity->ID),
-                'related_company' => get_field('related_company', $activity->ID)
+                'related_objects' => get_field('related_objects', $activity->ID) ?: []
             ];
         }
 

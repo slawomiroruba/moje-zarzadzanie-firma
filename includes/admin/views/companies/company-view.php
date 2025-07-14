@@ -74,6 +74,155 @@ $company_address = $company_fields['company_address'] ?? [];
         <style>
             /* Single Company View Styles - identyczne z osobą */
             
+            /* Header styles */
+            .person-header {
+                background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+                border: 1px solid #e1e5e9;
+                border-radius: 12px;
+                padding: 24px 28px;
+                margin: 20px 0 28px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .person-header::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 4px;
+                background: linear-gradient(90deg, #2271b1 0%, #1e90ff 50%, #00bcd4 100%);
+            }
+
+            .person-header-left {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .person-header h1 {
+                margin: 0;
+                font-size: 28px;
+                font-weight: 700;
+                color: #1d2327;
+                line-height: 1.2;
+                padding: 0 !important;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            }
+
+            .person-status-badge {
+                display: inline-flex;
+                align-items: center;
+                padding: 4px 12px;
+                border-radius: 16px;
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                width: fit-content;
+            }
+
+            .person-status-badge.status-active,
+            .person-status-badge.status-aktywny {
+                background: #d4edda;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+            }
+
+            .person-status-badge.status-inactive,
+            .person-status-badge.status-nieaktywny {
+                background: #fff3cd;
+                color: #856404;
+                border: 1px solid #ffeaa7;
+            }
+
+            .person-status-badge.status-archived,
+            .person-status-badge.status-zarchiwizowany {
+                background: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+            }
+
+            .person-header-actions {
+                display: flex;
+                gap: 12px;
+                align-items: center;
+            }
+
+            .person-header-actions .button {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 500;
+                padding: 10px 18px;
+                border-radius: 6px;
+                transition: all 0.3s ease;
+                border: 1px solid transparent;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            }
+
+            .person-header-actions .button:not(.button-secondary) {
+                background: #f8f9fa;
+                color: #50575e;
+                border-color: #e1e5e9;
+            }
+
+            .person-header-actions .button:not(.button-secondary):hover {
+                background: #fff;
+                border-color: #2271b1;
+                color: #2271b1;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(34, 113, 177, 0.15);
+            }
+
+            .person-header-actions .button-secondary {
+                background: #2271b1;
+                color: #fff;
+                border-color: #2271b1;
+            }
+
+            .person-header-actions .button-secondary:hover {
+                background: #1e5a8a;
+                border-color: #1e5a8a;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(34, 113, 177, 0.25);
+            }
+
+            .person-header-actions .archive-company-btn {
+                background: #dc3545;
+                border-color: #dc3545;
+                color: #fff;
+            }
+
+            .person-header-actions .archive-company-btn:hover {
+                background: #c82333;
+                border-color: #c82333;
+                box-shadow: 0 4px 12px rgba(220, 53, 69, 0.25);
+            }
+
+            .person-header-actions .unarchive-company-btn {
+                background: #28a745;
+                border-color: #28a745;
+                color: #fff;
+            }
+
+            .person-header-actions .unarchive-company-btn:hover {
+                background: #218838;
+                border-color: #218838;
+                box-shadow: 0 4px 12px rgba(40, 167, 69, 0.25);
+            }
+
+            .person-header-actions .button .dashicons {
+                line-height: 1;
+                font-size: 16px;
+            }
 
             .dossier-grid {
                 display: grid;
@@ -988,6 +1137,51 @@ $company_address = $company_fields['company_address'] ?? [];
         </style>
 
         <div class="wrap">
+            <div class="person-header">
+                <div class="person-header-left">
+                    <h1><?php echo esc_html($company_title); ?></h1>
+                    <?php 
+                    // Pobieramy status firmy
+                    $current_status = $company_fields['company_status'] ?? 'Aktywny';
+                    
+                    // Ustalamy CSS class na podstawie statusu
+                    $css_class = 'status-aktywny'; // domyślna
+                    if (in_array($current_status, ['Nieaktywny'])) {
+                        $css_class = 'status-nieaktywny';
+                    } elseif (in_array($current_status, ['Zarchiwizowany'])) {
+                        $css_class = 'status-zarchiwizowany';
+                    }
+                    ?>
+                    <div class="person-status-badge <?php echo esc_attr($css_class); ?>">
+                        <?php echo esc_html($current_status); ?>
+                    </div>
+                </div>
+                <div class="person-header-actions">
+                    <?php 
+                    // Sprawdzamy czy firma jest zarchiwizowana
+                    $is_archived = ($current_status === 'Zarchiwizowany');
+                    ?>
+                    <?php if (!$is_archived): ?>
+                    <button id="archive-company-btn" class="button archive-company-btn" data-company-id="<?php echo $company_id; ?>">
+                        <span class="dashicons dashicons-archive"></span>
+                        Archiwizuj
+                    </button>
+                    <?php else: ?>
+                    <button id="unarchive-company-btn" class="button unarchive-company-btn" data-company-id="<?php echo $company_id; ?>">
+                        <span class="dashicons dashicons-backup"></span>
+                        Przywróć
+                    </button>
+                    <?php endif; ?>
+                    <a href="<?php echo admin_url('post.php?post=' . $company_id . '&action=edit'); ?>" class="button button-secondary">
+                        <span class="dashicons dashicons-edit"></span>
+                        Edytuj
+                    </a>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=wpmzf-companies')); ?>" class="button">
+                        <span class="dashicons dashicons-arrow-left-alt"></span>
+                        Powrót do listy
+                    </a>
+                </div>
+            </div>
 
             <div class="dossier-grid">
                 <!-- Lewa kolumna - Dane podstawowe -->

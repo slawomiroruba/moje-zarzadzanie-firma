@@ -720,34 +720,26 @@ class WPMZF_ACF_Fields
                         ),
                     ),
                 ),
-                // Kluczowe pole do powiązania aktywności z osobą
+                // NOWE, UJEDNOLICONE POLE RELACJI - zastępuje wszystkie poprzednie
                 array(
-                    'key' => 'field_wpmzf_activity_related_person',
-                    'label' => 'Powiązana osoba',
-                    'name' => 'related_person',
+                    'key' => 'field_wpmzf_activity_related_objects',
+                    'label' => 'Powiązane obiekty',
+                    'name' => 'related_objects',
                     'type' => 'relationship',
-                    'post_type' => array('person'),
-                    'max' => 1,
-                    'required' => 0,
-                ),
-                // Pole do powiązania aktywności z firmą
-                array(
-                    'key' => 'field_wpmzf_activity_related_company',
-                    'label' => 'Powiązana firma',
-                    'name' => 'related_company',
-                    'type' => 'relationship',
-                    'post_type' => array('company'),
-                    'max' => 1,
-                    'required' => 0,
-                ),
-                // Pole do powiązania aktywności z projektem
-                array(
-                    'key' => 'field_wpmzf_activity_related_project',
-                    'label' => 'Powiązany projekt',
-                    'name' => 'related_project',
-                    'type' => 'relationship',
-                    'post_type' => array('project'),
-                    'max' => 1,
+                    'instructions' => 'Powiąż tę aktywność z osobami, firmami, projektami lub zadaniami.',
+                    'post_type' => array(
+                        'person',
+                        'company', 
+                        'project',
+                        'task',
+                    ),
+                    'filters' => array(
+                        'search',
+                        'post_type',
+                    ),
+                    'return_format' => 'id',
+                    'multiple' => 1,
+                    'ui' => 1,
                     'required' => 0,
                 ),
             ),

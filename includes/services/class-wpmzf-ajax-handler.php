@@ -307,11 +307,17 @@ class WPMZF_Ajax_Handler
                 update_field('activity_type', 'email', $activity_id);
                 update_field('activity_date', $activity_date, $activity_id);
                 
-                // Zapisanie powiązania z odpowiednią encją
-                if ($entity_type === 'person') {
-                    update_field('related_person', $person_id, $activity_id);
-                } else {
-                    update_field('related_company', $company_id, $activity_id);
+                // NOWA LOGIKA: Zapisujemy wszystkie powiązania w jednym polu
+                $related_objects = [];
+                if ($person_id) {
+                    $related_objects[] = $person_id;
+                }
+                if ($company_id) {
+                    $related_objects[] = $company_id;
+                }
+                
+                if (!empty($related_objects)) {
+                    update_field('related_objects', $related_objects, $activity_id);
                 }
 
                 // 2. Dodaj e-mail do kolejki
@@ -372,11 +378,17 @@ class WPMZF_Ajax_Handler
             update_field('activity_type', $activity_type, $activity_id);
             update_field('activity_date', $activity_date, $activity_id);
             
-            // Zapisanie powiązania z odpowiednią encją
-            if ($entity_type === 'person') {
-                update_field('related_person', $person_id, $activity_id);
-            } else {
-                update_field('related_company', $company_id, $activity_id);
+            // NOWA LOGIKA: Zapisujemy wszystkie powiązania w jednym polu
+            $related_objects = [];
+            if ($person_id) {
+                $related_objects[] = $person_id;
+            }
+            if ($company_id) {
+                $related_objects[] = $company_id;
+            }
+            
+            if (!empty($related_objects)) {
+                update_field('related_objects', $related_objects, $activity_id);
             }
 
             // Pobieramy ID załączników przesłane przez AJAX z `$_POST['attachment_ids']`
@@ -470,15 +482,15 @@ class WPMZF_Ajax_Handler
             $meta_query = [];
             if ($person_id) {
                 $meta_query[] = [
-                    'key' => 'related_person',
-                    'value' => $person_id,
-                    'compare' => '='
+                    'key' => 'related_objects',
+                    'value' => '"' . $person_id . '"', // ACF przechowuje ID w serializowanej tablicy
+                    'compare' => 'LIKE'
                 ];
             } else {
                 $meta_query[] = [
-                    'key' => 'related_company',
-                    'value' => $company_id,
-                    'compare' => '='
+                    'key' => 'related_objects',
+                    'value' => '"' . $company_id . '"', // ACF przechowuje ID w serializowanej tablicy
+                    'compare' => 'LIKE'
                 ];
             }
 
@@ -2028,8 +2040,8 @@ class WPMZF_Ajax_Handler
         $activity_id = wp_insert_post($activity_data);
 
         if ($activity_id && !is_wp_error($activity_id)) {
-            // Przypisz aktywność do projektu
-            update_field('related_project', $project_id, $activity_id);
+            // NOWA LOGIKA: Przypisz aktywność do projektu
+            update_field('related_objects', [$project_id], $activity_id);
             
             // Ustaw typ aktywności
             update_field('activity_type', $activity_type, $activity_id);
