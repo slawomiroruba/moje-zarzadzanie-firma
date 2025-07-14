@@ -1621,37 +1621,6 @@ $activities_query = new WP_Query($activities_args);
 ?>
 
 <div class="wrap">
-    <!-- Header projektu -->
-    <div class="person-header">
-        <div class="person-header-content">
-            <div class="person-basic-info">
-                <h1 class="person-name"><?php echo esc_html($project_title); ?></h1>
-                <div class="person-meta">
-                    <span class="person-status status-<?php echo esc_attr(strtolower(str_replace(' ', '-', $project_status))); ?>">
-                        <?php echo esc_html($project_status); ?>
-                    </span>
-                    <span class="person-date">Utworzono: <?php echo esc_html($project_date); ?></span>
-                    <?php if ($start_date): ?>
-                        <span class="project-start-date">Rozpoczęto: <?php echo esc_html(date('j.m.Y', strtotime($start_date))); ?></span>
-                    <?php endif; ?>
-                    <?php if ($end_date): ?>
-                        <span class="project-end-date">Deadline: <?php echo esc_html(date('j.m.Y', strtotime($end_date))); ?></span>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <div class="person-actions">
-                <a href="<?php echo esc_url(get_edit_post_link($project_id)); ?>" class="button button-primary">
-                    <span class="dashicons dashicons-edit"></span>
-                    Edytuj projekt
-                </a>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=wpmzf_projects')); ?>" class="button">
-                    <span class="dashicons dashicons-arrow-left-alt"></span>
-                    Powrót do listy projektów
-                </a>
-            </div>
-        </div>
-    </div>
-
     <!-- Grid układu -->
     <div class="person-grid">
         <!-- Lewa kolumna -->

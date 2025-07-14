@@ -1557,152 +1557,6 @@ class WPMZF_Admin_Pages
     ?>
         <style>
             /* Single person View Styles */
-            
-            /* Header styles */
-            .person-header {
-                background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-                border: 1px solid #e1e5e9;
-                border-radius: 12px;
-                padding: 24px 28px;
-                margin: 20px 0 28px;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                position: relative;
-                overflow: hidden;
-            }
-
-            .person-header::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                height: 4px;
-                background: linear-gradient(90deg, #2271b1 0%, #1e90ff 50%, #00bcd4 100%);
-            }
-
-            .person-header-left {
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-            }
-
-            .person-header h1 {
-                margin: 0;
-                font-size: 28px;
-                font-weight: 700;
-                color: #1d2327;
-                line-height: 1.2;
-                padding: 0 !important;
-                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-            }
-
-            .person-status-badge {
-                display: inline-flex;
-                align-items: center;
-                padding: 4px 12px;
-                border-radius: 16px;
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-                width: fit-content;
-            }
-
-            .person-status-badge.status-active {
-                background: #d4edda;
-                color: #155724;
-                border: 1px solid #c3e6cb;
-            }
-
-            .person-status-badge.status-inactive {
-                background: #fff3cd;
-                color: #856404;
-                border: 1px solid #ffeaa7;
-            }
-
-            .person-status-badge.status-archived {
-                background: #f8d7da;
-                color: #721c24;
-                border: 1px solid #f5c6cb;
-            }
-
-            .person-header-actions {
-                display: flex;
-                gap: 12px;
-                align-items: center;
-            }
-
-            .person-header-actions .button {
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-                text-decoration: none;
-                font-size: 14px;
-                font-weight: 500;
-                padding: 10px 18px;
-                border-radius: 6px;
-                transition: all 0.3s ease;
-                border: 1px solid transparent;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-            }
-
-            .person-header-actions .button:not(.button-secondary) {
-                background: #f8f9fa;
-                color: #50575e;
-                border-color: #e1e5e9;
-            }
-
-            .person-header-actions .button:not(.button-secondary):hover {
-                background: #fff;
-                border-color: #2271b1;
-                color: #2271b1;
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(34, 113, 177, 0.15);
-            }
-
-            .person-header-actions .button-secondary {
-                background: #2271b1;
-                color: #fff;
-                border-color: #2271b1;
-            }
-
-            .person-header-actions .button-secondary:hover {
-                background: #1e5a8a;
-                border-color: #1e5a8a;
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(34, 113, 177, 0.25);
-            }
-
-            .person-header-actions .archive-person-btn {
-                background: #dc3545;
-                border-color: #dc3545;
-            }
-
-            .person-header-actions .archive-person-btn:hover {
-                background: #c82333;
-                border-color: #c82333;
-                box-shadow: 0 4px 12px rgba(220, 53, 69, 0.25);
-            }
-
-            .person-header-actions .unarchive-person-btn {
-                background: #28a745;
-                border-color: #28a745;
-            }
-
-            .person-header-actions .unarchive-person-btn:hover {
-                background: #218838;
-                border-color: #218838;
-                box-shadow: 0 4px 12px rgba(40, 167, 69, 0.25);
-            }
-
-            .person-header-actions .button .dashicons {
-                line-height: 1;
-                font-size: 16px;
-            }
-
             .dossier-grid {
                 display: grid;
                 grid-template-columns: 320px 1fr 360px;
@@ -2541,28 +2395,7 @@ class WPMZF_Admin_Pages
                 .dossier-right-column {
                     gap: 16px;
                 }
-                
-                .person-header {
-                    margin: 16px 0 20px;
-                    padding: 20px 24px;
-                    flex-direction: column;
-                    gap: 16px;
-                    align-items: flex-start;
-                }
-
-                .person-header-left {
-                    width: 100%;
-                }
-                
-                .person-header h1 {
-                    font-size: 24px;
-                }
-
-                .person-header-actions {
-                    width: 100%;
-                    justify-content: flex-end;
-                }
-            }
+                            }
 
             @media screen and (max-width: 768px) {
                 .dossier-box .dossier-content {
@@ -2578,46 +2411,7 @@ class WPMZF_Admin_Pages
                     font-size: 11px;
                     padding: 4px 8px;
                 }
-                
-                .person-header {
-                    flex-direction: column;
-                    align-items: flex-start;
-                    gap: 16px;
-                    padding: 16px;
-                }
-
-                .person-header h1 {
-                    font-size: 20px;
-                }
-
-                .person-header-actions {
-                    width: 100%;
-                    justify-content: stretch;
-                    flex-wrap: wrap;
-                }
-
-                .person-header-actions .button {
-                    flex: 1;
-                    justify-content: center;
-                    min-width: 120px;
-                }
-                
-                .person-header h1 {
-                    font-size: 20px;
-                }
-                
-                .person-header-actions {
-                    width: 100%;
-                    justify-content: flex-end;
-                }
-                
-                .person-header-actions .button {
-                    padding: 6px 12px;
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                    font-size: 12px;
-                }
+            
             }
             
             /* Important Links Styles */
@@ -2772,61 +2566,6 @@ class WPMZF_Admin_Pages
         </style>
 
         <div class="wrap">
-            <div class="person-header">
-                <div class="person-header-left">
-                    <h1><?php echo esc_html($person_title); ?></h1>
-                    <?php 
-                    // Pobieramy status osoby - może być po polsku lub angielsku
-                    $current_status = $person_fields['person_status'] ?? 'active';
-                    
-                    // Mapowanie statusów - obsługujemy polskie i angielskie wartości
-                    $status_labels = [
-                        'active' => 'Aktywny',
-                        'inactive' => 'Nieaktywny', 
-                        'archived' => 'Zarchiwizowany',
-                        'Aktywny' => 'Aktywny',
-                        'Nieaktywny' => 'Nieaktywny',
-                        'Zarchiwizowany' => 'Zarchiwizowany'
-                    ];
-                    
-                    // Ustalamy CSS class na podstawie statusu
-                    $css_class = 'status-active'; // domyślna
-                    if (in_array($current_status, ['inactive', 'Nieaktywny'])) {
-                        $css_class = 'status-inactive';
-                    } elseif (in_array($current_status, ['archived', 'Zarchiwizowany'])) {
-                        $css_class = 'status-archived';
-                    }
-                    
-                    // Pobieramy etykietę do wyświetlenia
-                    $display_status = $status_labels[$current_status] ?? $current_status;
-                    ?>
-                    <div class="person-status-badge <?php echo esc_attr($css_class); ?>">
-                        <?php echo esc_html($display_status ?: 'Aktywny'); ?>
-                    </div>
-                </div>
-                <div class="person-header-actions">
-                    <?php 
-                    // Sprawdzamy czy osoba jest zarchiwizowana
-                    $is_archived = in_array($current_status, ['archived', 'Zarchiwizowany']);
-                    ?>
-                    <?php if (!$is_archived): ?>
-                        <button type="button" class="button button-secondary archive-person-btn" data-person-id="<?php echo esc_attr($person_id); ?>">
-                            <span class="dashicons dashicons-archive"></span>
-                            Archiwizuj
-                        </button>
-                    <?php else: ?>
-                        <button type="button" class="button button-secondary unarchive-person-btn" data-person-id="<?php echo esc_attr($person_id); ?>">
-                            <span class="dashicons dashicons-undo"></span>
-                            Przywróć z archiwum
-                        </button>
-                    <?php endif; ?>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=wpmzf_persons')); ?>" class="button">
-                        <span class="dashicons dashicons-arrow-left-alt"></span>
-                        Powrót do listy
-                    </a>
-                </div>
-            </div>
-
             <div class="dossier-grid">
                 <!-- Lewa kolumna - Dane podstawowe -->
                 <div class="dossier-left-column">
