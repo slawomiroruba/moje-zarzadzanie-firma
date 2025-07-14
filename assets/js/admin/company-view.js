@@ -145,10 +145,10 @@ jQuery(document).ready(function ($) {
 	console.log('Security nonce:', securityNonce); // Debug
 	console.log('Task security nonce:', taskSecurityNonce); // Debug
 
-	// Sprawdź czy companyId jest prawidłowe
+	// Sprawdź czy companyId jest prawidłowe - ale nie przerywaj wykonania całego kodu
 	if (!companyId || companyId === '' || companyId === 'undefined') {
-		console.error('Company ID not found or invalid!');
-		return;
+		console.error('Company ID not found or invalid - some features may not work!');
+		// Nie używamy return - pozwalamy na działanie pozostałych funkcji
 	}
 
 	// === OBSŁUGA ZAKŁADEK AKTYWNOŚCI ===
@@ -1480,8 +1480,10 @@ jQuery(document).ready(function ($) {
 
 	// === FUNKCJONALNOŚĆ ZADAŃ ===
 
-	// Inicjalizacja zadań
-	loadTasks();
+	// Inicjalizacja zadań - tylko jeśli companyId jest dostępne
+	if (companyId && companyId !== '' && companyId !== 'undefined') {
+		loadTasks();
+	}
 
 	// === DODAWANIE ZADANIA ===
 	if (taskForm.length > 0) {
@@ -1744,8 +1746,10 @@ jQuery(document).ready(function ($) {
 
 	// === WAŻNE LINKI ===
 
-	// Ładowanie linków przy inicjalizacji
-	loadImportantLinks();
+	// Ładowanie linków przy inicjalizacji - tylko jeśli companyId jest dostępne
+	if (companyId && companyId !== '' && companyId !== 'undefined') {
+		loadImportantLinks();
+	}
 
 	// Obsługa formularza dodawania/edycji linku
 	const linkForm = $('#wpmzf-important-link-form');
@@ -1886,7 +1890,8 @@ jQuery(document).ready(function ($) {
 			data: {
 				action: 'wpmzf_delete_important_link',
 				security: securityNonce,
-				link_id: linkId
+				link_id: linkId,
+				object_type: 'company'
 			},
 			success: function(response) {
 				if (response.success) {

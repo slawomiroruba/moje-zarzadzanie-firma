@@ -111,7 +111,12 @@ function showNotification(message, type = 'info') {
 	`);
 
 	// Dodaj powiadomienie na górę formularza
-	jQuery('#wpmzf-add-activity-form').before(notification);
+	const activityBox = jQuery('#wpmzf-activity-box');
+	if (activityBox.length) {
+		activityBox.before(notification);
+	} else {
+		jQuery('#wpmzf-add-note-form').before(notification);
+	}
 
 	// Obsługa zamykania
 	notification.find('.notice-dismiss').on('click', function () {
@@ -145,10 +150,10 @@ jQuery(document).ready(function ($) {
 	console.log('Security nonce:', securityNonce); // Debug
 	console.log('Task security nonce:', taskSecurityNonce); // Debug
 
-	// Sprawdź czy personId jest prawidłowe
+	// Sprawdź czy personId jest prawidłowe - ale nie przerywaj wykonania całego kodu
 	if (!personId || personId === '' || personId === 'undefined') {
-		console.error('Person ID not found or invalid!');
-		return;
+		console.error('Person ID not found or invalid - some features may not work!');
+		// Nie używamy return - pozwalamy na działanie pozostałych funkcji
 	}
 
 	// === OBSŁUGA ZAKŁADEK AKTYWNOŚCI ===
@@ -195,6 +200,13 @@ jQuery(document).ready(function ($) {
 	const attachFileBtn = noteAttachFileBtn;
 	const attachmentInput = noteAttachmentInput;
 	const attachmentsPreviewContainer = noteAttachmentsPreviewContainer;
+
+	// Debug - sprawdź czy elementy formularza istnieją (po zdefiniowaniu zmiennych)
+	console.log('Form elements check:');
+	console.log('- noteForm:', noteForm.length);
+	console.log('- attachFileBtn:', attachFileBtn.length);
+	console.log('- attachmentInput:', attachmentInput.length);
+	console.log('- attachmentsPreviewContainer:', attachmentsPreviewContainer.length);
 
 	// Zmienne dla zadań
 	const taskForm = $('#wpmzf-add-task-form');
@@ -377,12 +389,12 @@ jQuery(document).ready(function ($) {
 	function renderAttachmentsPreview() {
 		// Jeśli nie ma plików, ukryj cały kontener podglądu
 		if (filesToUpload.length === 0) {
-			attachmentsPreviewContainer.hide().empty();
+			attachmentsPreviewContainer.removeClass('has-files').hide().empty();
 			return;
 		}
 
 		// Pokaż kontener i wyrenderuj załączniki
-		attachmentsPreviewContainer.show().css('display', 'flex');
+		attachmentsPreviewContainer.addClass('has-files').show();
 
 		let html = '';
 		filesToUpload.forEach((file, index) => {
@@ -436,272 +448,59 @@ jQuery(document).ready(function ($) {
 	initializeClipboardPaste();
 	initializeDragAndDrop();
 
-	// --- Obsługa edytora z placeholderem ---
-	const editorPlaceholder = $('#wpmzf-note-editor-placeholder');
-	const editorContainer = $('#wpmzf-note-editor-container');
-	let editorInitialized = false;
-	let editorVisible = false;
-
-	// Funkcja debugowania stanu edytora
-	function debugEditorState() {
-		if (!editorPlaceholder.is(':visible') && !editorContainer.is(':visible')) {
-			console.warn('=== Debug stanu edytora ===');
-			console.log('Placeholder exists:', editorPlaceholder.length > 0);
-			console.log('Container exists:', editorContainer.length > 0);
-			console.log('Placeholder visible:', editorPlaceholder.is(':visible'));
-			console.log('Container visible:', editorContainer.is(':visible'));
-			console.log('Editor visible flag:', editorVisible);
-
-			if (window.tinyMCE) {
-				const editor = window.tinyMCE.get('wpmzf-activity-content');
-				console.log('TinyMCE editor exists:', !!editor);
-				if (editor) {
-					console.log('Editor hidden:', editor.isHidden());
-					console.log('Editor removed:', editor.removed);
-				}
+	// Inicjalizuj edytor notatek - sprawdź czy WordPress TinyMCE jest dostępny
+	setTimeout(function() {
+		if (typeof window.tinyMCE !== 'undefined') {
+			const noteEditor = window.tinyMCE.get('wpmzf-note-content');
+			if (noteEditor) {
+				console.log('TinyMCE editor for notes already initialized');
+			} else {
+				console.log('TinyMCE editor for notes not found');
 			}
-			console.log('=========================');
+		} else {
+			console.log('TinyMCE not available - using standard textarea');
+		}
+	}, 1000);
+
+	// Usuń problematyczny kod placeholder edytora - użyj standardowego WordPress edytora
+	// const editorPlaceholder = $('#wpmzf-note-editor-placeholder');
+	// const editorContainer = $('#wpmzf-note-editor-container');
+	// let editorInitialized = false;
+	// let editorVisible = false;
+
+	// Funkcja debugowania - uproszczona
+	function debugTinyMCE() {
+		if (typeof window.tinyMCE !== 'undefined') {
+			const noteEditor = window.tinyMCE.get('wpmzf-note-content');
+			console.log('Note editor exists:', !!noteEditor);
+			if (noteEditor) {
+				console.log('Note editor initialized:', noteEditor.initialized);
+			}
 		}
 	}
 
 	// Debug na początku
-	debugEditorState();
+	debugTinyMCE();
 
-	// Funkcja pokazywania prawdziwego edytora
+	// Uproszczona funkcja obsługi edytora - używamy natywnego WordPress edytora
 	function showEditor() {
-		if (editorVisible) return;
-
-		editorVisible = true;
-		editorPlaceholder.hide();
-
-		// Usuń wszystkie inline style z display: none i dodaj klasę
-		editorContainer.css('display', '').addClass('visible').show();
-
-		// Daj czas na pokazanie się kontenera, potem zainicjalizuj edytor
-		setTimeout(function () {
-			try {
-				if (window.tinyMCE) {
-					// Sprawdź czy edytor już istnieje
-					let editor = window.tinyMCE.get('wpmzf-activity-content');
-
-					if (editor) {
-						// Edytor istnieje - sprawdź czy jest aktywny
-						if (editor.removed) {
-							// Edytor był usunięty, usuń go całkowicie z pamięci
-							window.tinyMCE.remove('#wpmzf-activity-content');
-							editor = null;
-						} else {
-							// Edytor istnieje i jest aktywny - pokaż go i ustaw focus
-							$(editor.getContainer()).show();
-							editor.show();
-							setTimeout(() => editor.focus(), 100);
-							return;
-						}
-					}
-
-					// Jeśli edytor nie istnieje lub był usunięty, zainicjalizuj go ponownie
-					if (!editor) {
-						// Usuń wszystkie poprzednie instancje
-						window.tinyMCE.remove('#wpmzf-activity-content');
-
-						// Upewnij się, że textarea jest widoczny przed inicjalizacją
-						$('#wpmzf-activity-content').show();
-
-						// Zainicjalizuj nowy edytor z rozszerzonym toolbarem
-						window.tinyMCE.init({
-							selector: '#wpmzf-activity-content',
-							plugins: 'lists link paste textcolor',
-							toolbar1: 'bold italic underline | forecolor | bullist numlist | link unlink | removeformat | undo redo',
-							toolbar2: '',
-							content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; padding: 12px; }',
-							height: 120,
-							max_height: 300,
-							resize: 'vertical',
-							menubar: false,
-							branding: false,
-							statusbar: false,
-							paste_as_text: false,
-							paste_auto_cleanup_on_paste: true,
-							paste_remove_styles: false,
-							paste_remove_spans: false,
-							paste_strip_class_attributes: 'none',
-							paste_retain_style_properties: 'font-weight,font-style,text-decoration,color',
-							paste_enable_default_filters: true,
-							paste_webkit_styles: 'font-weight font-style text-decoration color',
-							paste_postprocess: function (plugin, args) {
-								// Przetwarzanie Markdown po wklejeniu
-								let content = args.node.innerHTML;
-
-								// Konwersja podstawowych znaczników Markdown na HTML
-								content = content
-									// Bold **text** lub __text__
-									.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-									.replace(/__([^_]+)__/g, '<strong>$1</strong>')
-									// Italic *text* lub _text_
-									.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
-									.replace(/(?<!_)_([^_]+)_(?!_)/g, '<em>$1</em>')
-									// Code `text`
-									.replace(/`([^`]+)`/g, '<code>$1</code>')
-									// Links [text](url)
-									.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
-								args.node.innerHTML = content;
-								console.log('Paste postprocess - converted content:', content);
-							},
-							valid_elements: 'p,br,strong,em,u,b,i,a[href|title|target],ul,ol,li,blockquote,code,span[style|class],h1,h2,h3,h4,h5,h6,div[style|class]',
-							forced_root_block: 'p',
-							force_br_newlines: false,
-							force_p_newlines: true,
-							setup: function (editor) {
-								editor.on('init', function () {
-									console.log('TinyMCE editor initialized successfully');
-									// Upewnij się, że kontener edytora jest widoczny
-									$(editor.getContainer()).show();
-									setTimeout(() => {
-										editor.focus();
-									}, 100);
-									// Wywołaj event dla naszych listenerów
-									$(document).trigger('tinymce-editor-init', [editor]);
-								});
-
-								editor.on('LoadContent', function () {
-									console.log('TinyMCE content loaded');
-								});
-
-								// Obsługa pokazywania edytora po inicjalizacji
-								editor.on('show', function () {
-									$(editor.getContainer()).show();
-								});
-
-								// Dodatkowa obsługa wklejania z zachowaniem formatowania
-								editor.on('paste', function (e) {
-									setTimeout(function () {
-										// Pobierz zawartość i przetwórz dodatkowe formatowanie
-										let content = editor.getContent();
-
-										// Dodatkowe przetwarzanie dla lepszego zachowania formatowania
-										content = content
-											// Napraw pogrubione tekst, który mógł zostać źle skonwertowany
-											.replace(/<b\s*>/gi, '<strong>')
-											.replace(/<\/b>/gi, '</strong>')
-											// Napraw kursywę
-											.replace(/<i\s*>/gi, '<em>')
-											.replace(/<\/i>/gi, '</em>')
-											// Usuń zbędne atrybuty style, które mogą powodować problemy
-											.replace(/style\s*=\s*["'][^"']*["']/gi, '');
-
-										editor.setContent(content);
-									}, 10);
-								});
-							}
-						});
-					}
-				} else {
-					// TinyMCE nie jest załadowany - pokaż textarea jako fallback
-					console.warn('TinyMCE nie jest dostępny, używam textarea');
-					$('#wpmzf-activity-content').show().focus();
-				}
-			} catch (error) {
-				console.error('Błąd podczas inicjalizacji TinyMCE:', error);
-				// Fallback - pokaż textarea
-				$('#wpmzf-activity-content').show().focus();
-			}
-		}, 300); // Zwiększony timeout żeby dać więcej czasu na rendering kontenera
-
-		// Dodatkowy mechanizm sprawdzający czy edytor się rzeczywiście pokazał
-		setTimeout(function () {
-			debugEditorState();
-
-			// Jeśli kontener jest widoczny ale TinyMCE nie istnieje, spróbuj ponownie
-			if (editorContainer.is(':visible') && !window.tinyMCE.get('wpmzf-activity-content')) {
-				console.log('Retry: TinyMCE nie został zainicjalizowany, próbuję ponownie...');
-				$('#wpmzf-activity-content').show().focus();
-			}
-		}, 1000);
+		console.log('showEditor called - using native WordPress editor');
+		// Nie robimy nic specjalnego - WordPress TinyMCE powinien działać natywnie
 	}
 
-	// Funkcja ukrywania edytora i pokazywania placeholdera
+	// Funkcja ukrywania edytora - uproszczona
 	function hideEditor() {
-		if (!editorVisible) return;
-
-		// Sprawdź czy edytor ma jakąkolwiek treść
-		let hasContent = false;
-		try {
-			if (window.tinyMCE && window.tinyMCE.get('wpmzf-activity-content')) {
-				const editor = window.tinyMCE.get('wpmzf-activity-content');
-				const content = editor.getContent();
-				hasContent = content && content.trim() !== '' && content.trim() !== '<p></p>' && content.trim() !== '<p><br></p>';
-			}
-		} catch (error) {
-			console.warn('Błąd podczas sprawdzania zawartości edytora:', error);
-			// Fallback - sprawdź textarea
-			const textareaContent = $('#wpmzf-activity-content').val();
-			hasContent = textareaContent && textareaContent.trim() !== '';
-		}
-
-		// Nie ukrywaj jeśli jest treść
-		if (hasContent) return;
-
-		editorVisible = false;
-
-		// Ukryj edytor
-		try {
-			if (window.tinyMCE && window.tinyMCE.get('wpmzf-activity-content')) {
-				const editor = window.tinyMCE.get('wpmzf-activity-content');
-				editor.hide();
-			}
-		} catch (error) {
-			console.warn('Błąd podczas ukrywania edytora TinyMCE:', error);
-		}
-
-		editorContainer.removeClass('visible').hide();
-		editorPlaceholder.show();
+		console.log('hideEditor called');
+		// Nie robimy nic specjalnego
 	}
 
-	// Kliknięcie na placeholder pokazuje edytor
-	editorPlaceholder.on('click', function (e) {
-		e.preventDefault();
-		e.stopPropagation();
-		console.log('Placeholder clicked - showing editor');
-		showEditor();
-	});
+	// === OBSŁUGA EDYTORA - UPROSZCZONA ===
+	// Usunięto problematyczny kod placeholder - używamy natywnego WordPress edytora
 
-	// Dodaj też obsługę kliknięcia w obszar placeholder text
-	editorPlaceholder.find('.placeholder-text').on('click', function (e) {
-		e.preventDefault();
-		e.stopPropagation();
-		console.log('Placeholder text clicked - showing editor');
-		showEditor();
-	});
-
-	// Kliknięcie poza edytorem (jeśli jest pusty) ukrywa go
-	$(document).on('click', function (e) {
-		if (editorVisible && !$(e.target).closest('#wpmzf-editor-container, .mce-panel, .mce-menu, .mce-window').length) {
-			hideEditor();
-		}
-	});
-
-	// Dodatkowy event handler dla przypadków gdy edytor ma problemy
-	$(document).on('dblclick', '#wpmzf-note-editor-placeholder', function (e) {
-		e.preventDefault();
-		console.log('Double click on placeholder - force show editor');
-
-		// Wymuś pokazanie kontenera
-		editorContainer.css('display', 'block').addClass('visible').show();
-		editorPlaceholder.hide();
-		editorVisible = true;
-
-		// Jeśli TinyMCE nie działa, pokaż przynajmniej textarea
-		setTimeout(function () {
-			if (!window.tinyMCE || !window.tinyMCE.get('wpmzf-activity-content')) {
-				$('#wpmzf-activity-content').show().focus();
-				console.log('Fallback: pokazano textarea zamiast TinyMCE');
-			}
-		}, 500);
-	});
+	// === OBSŁUGA RESETOWANIA EDYTORA ===
 
 	// Funkcja reset edytora po dodaniu aktywności
-	function resetEditor() {
+	const resetEditor = function() {
 		try {
 			// Reset edytora notatki
 			if (window.tinyMCE && window.tinyMCE.get('wpmzf-note-content')) {
@@ -721,29 +520,9 @@ jQuery(document).ready(function ($) {
 			$('#wpmzf-note-content').val('');
 			$('#email-content').val('');
 		}
+	};
 
-		// Reset stanu edytora notatki
-		editorVisible = false;
-		editorContainer.removeClass('visible').hide();
-		editorPlaceholder.show();
-	}
-
-	// Watchdog - sprawdza okresowo stan edytora
-	setInterval(function () {
-		// Jeśli placeholder jest ukryty, ale kontener też jest ukryty, coś poszło nie tak
-		if (!editorPlaceholder.is(':visible') && !editorContainer.is(':visible')) {
-			console.warn('Watchdog: Ani placeholder ani kontener nie są widoczne - naprawiam...');
-			editorVisible = false;
-			editorContainer.removeClass('visible').hide();
-			editorPlaceholder.show();
-		}
-
-		// Jeśli edytor ma być widoczny ale kontener jest ukryty
-		if (editorVisible && !editorContainer.is(':visible')) {
-			console.warn('Watchdog: Edytor ma być widoczny ale kontener jest ukryty - naprawiam...');
-			editorContainer.addClass('visible').show();
-		}
-	}, 2000); // Sprawdza co 2 sekundy
+	// Watchdog usunięty - używał nieistniejących zmiennych
 
 	// --- Podgląd na żywo dla edytora WYSIWYG ---
 	let previewTimeout;
@@ -965,12 +744,16 @@ jQuery(document).ready(function ($) {
 
 	// --- Obsługa plików ---
 	attachFileBtn.on('click', function () {
+		console.log('Attach file button clicked');
 		attachmentInput.click();
 	});
 
 	attachmentInput.on('change', function (e) {
+		console.log('Files selected:', e.target.files.length);
 		for (const file of e.target.files) {
-			filesToUpload.push(file);
+			if (isAllowedFileType(file)) {
+				filesToUpload.push(file);
+			}
 		}
 		renderAttachmentsPreview();
 		// Resetowanie wartości inputu, aby umożliwić ponowne dodanie tego samego pliku
@@ -1123,8 +906,9 @@ jQuery(document).ready(function ($) {
 
 	// Inicjalizacja drag & drop na całej stronie
 	function initializeDragAndDrop() {
+		console.log('Initializing drag & drop functionality');
 		const $body = $('body');
-		const $addActivityForm = $('#wpmzf-add-activity-form');
+		const $addActivityBox = $('#wpmzf-activity-box');
 
 		// Dodaj overlay dla drag & drop
 		if (!$('#wpmzf-drag-overlay').length) {
@@ -1143,13 +927,15 @@ jQuery(document).ready(function ($) {
 
 		// Obsługa dragenter na całej stronie
 		$body.on('dragenter', function (e) {
+			console.log('Drag enter detected');
 			e.preventDefault();
 			dragCounter++;
 
 			// Sprawdź czy przeciągane są pliki
 			if (e.originalEvent.dataTransfer.types.includes('Files')) {
+				console.log('Files detected in drag operation');
 				$('#wpmzf-drag-overlay').addClass('active');
-				$addActivityForm.addClass('drag-target');
+				$addActivityBox.addClass('drag-target');
 			}
 		});
 
@@ -1160,7 +946,7 @@ jQuery(document).ready(function ($) {
 
 			if (dragCounter === 0) {
 				$('#wpmzf-drag-overlay').removeClass('active');
-				$addActivityForm.removeClass('drag-target');
+				$addActivityBox.removeClass('drag-target');
 			}
 		});
 
@@ -1171,16 +957,19 @@ jQuery(document).ready(function ($) {
 
 		// Obsługa drop
 		$body.on('drop', function (e) {
+			console.log('Drop event detected');
 			e.preventDefault();
 			dragCounter = 0;
 
 			$('#wpmzf-drag-overlay').removeClass('active');
-			$addActivityForm.removeClass('drag-target');
+			$addActivityBox.removeClass('drag-target');
 
 			const files = e.originalEvent.dataTransfer.files;
+			console.log('Files dropped:', files.length);
 			if (files.length > 0) {
 				// Dodaj pliki do listy i pokaż podgląd
 				for (const file of files) {
+					console.log('Processing file:', file.name, 'type:', file.type);
 					// Sprawdź czy to plik graficzny lub inny dozwolony typ
 					if (isAllowedFileType(file)) {
 						filesToUpload.push(file);
@@ -1189,7 +978,10 @@ jQuery(document).ready(function ($) {
 				renderAttachmentsPreview();
 
 				// Przewiń do formularza aktywności
-				$addActivityForm[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+				const activityBox = $('#wpmzf-activity-box')[0];
+				if (activityBox) {
+					activityBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				}
 			}
 		});
 	}
@@ -1197,22 +989,29 @@ jQuery(document).ready(function ($) {
 	// === FUNKCJONALNOŚĆ CLIPBOARD (CTRL+V) ===
 
 	function initializeClipboardPaste() {
+		console.log('Initializing clipboard paste functionality');
 		$(document).on('paste', function (e) {
-			// Sprawdź czy jesteśmy na stronie z formularzem aktywności
-			if (!$('#wpmzf-add-activity-form').length) {
+			console.log('Paste event detected');			// Sprawdź czy jesteśmy na stronie z formularzem aktywności
+			if (!$('#wpmzf-activity-box').length) {
+				console.log('Activity box not found, ignoring paste');
 				return;
 			}
 
 			const clipboardData = e.originalEvent.clipboardData;
 			if (!clipboardData || !clipboardData.items) {
+				console.log('No clipboard data available');
 				return;
 			}
+
+			console.log('Clipboard items count:', clipboardData.items.length);
 
 			// Sprawdź czy w schowku są pliki
 			for (let i = 0; i < clipboardData.items.length; i++) {
 				const item = clipboardData.items[i];
+				console.log('Clipboard item type:', item.type);
 
 				if (item.type.indexOf('image/') === 0) {
+					console.log('Image found in clipboard');
 					e.preventDefault();
 
 					const file = item.getAsFile();
@@ -1228,10 +1027,13 @@ jQuery(document).ready(function ($) {
 						renderAttachmentsPreview();
 
 						// Przewiń do formularza aktywności
-						$('#wpmzf-add-activity-form')[0].scrollIntoView({
-							behavior: 'smooth',
-							block: 'center'
-						});
+						const activityBox = $('#wpmzf-activity-box')[0];
+						if (activityBox) {
+							activityBox.scrollIntoView({
+								behavior: 'smooth',
+								block: 'center'
+							});
+						}
 
 						// Pokaż powiadomienie
 						showNotification('Zdjęcie zostało dodane ze schowka', 'success');
@@ -2828,13 +2630,12 @@ jQuery(document).ready(function ($) {
 	console.log('Person ID found:', personId);
 	console.log('Security nonce:', securityNonce);
 
-	if (!personId || personId === '' || personId === 'undefined') {
-		console.error('Person ID not found or invalid!');
-		return;
-	}
+	// Sprawdzenie personId zostało przeniesione do wywołania loadImportantLinks()
 
-	// Ładowanie linków przy inicjalizacji
-	loadImportantLinks();
+	// Ładowanie linków przy inicjalizacji - tylko jeśli personId jest dostępne
+	if (personId && personId !== '' && personId !== 'undefined') {
+		loadImportantLinks();
+	}
 
 	// Obsługa formularza dodawania/edycji linku
 	const linkForm = $('#wpmzf-important-link-form');
@@ -2975,7 +2776,8 @@ jQuery(document).ready(function ($) {
 			data: {
 				action: 'wpmzf_delete_important_link',
 				security: securityNonce,
-				link_id: linkId
+				link_id: linkId,
+				object_type: 'person'
 			},
 			success: function(response) {
 				if (response.success) {

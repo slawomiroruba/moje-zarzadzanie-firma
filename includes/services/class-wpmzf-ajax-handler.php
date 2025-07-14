@@ -1210,15 +1210,16 @@ class WPMZF_Ajax_Handler
      */
     public function get_tasks()
     {
-        check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
+        try {
+            check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
 
-        $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
-        $company_id = isset($_POST['company_id']) ? intval($_POST['company_id']) : 0;
-        
-        if (!$person_id && !$company_id) {
-            wp_send_json_error(['message' => 'Nieprawidłowe ID osoby lub firmy.']);
-            return;
-        }
+            $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
+            $company_id = isset($_POST['company_id']) ? intval($_POST['company_id']) : 0;
+            
+            if (!$person_id && !$company_id) {
+                wp_send_json_error(['message' => 'Nieprawidłowe ID osoby lub firmy.']);
+                return;
+            }
 
         // Przygotowanie zapytania w zależności od typu encji
         $meta_query = [];
@@ -1322,6 +1323,10 @@ class WPMZF_Ajax_Handler
             'open_tasks' => $open_tasks,
             'closed_tasks' => $closed_tasks
         ]);
+        
+        } catch (Exception $e) {
+            wp_send_json_error(['message' => 'Błąd serwera podczas ładowania zadań.']);
+        }
     }
 
     /**
@@ -2317,12 +2322,16 @@ class WPMZF_Ajax_Handler
      * Dodaje nowy ważny link
      */
     public function add_important_link() {
-        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+        // Sprawdź parametry przed walidacją nonce
+        $object_type = sanitize_text_field($_POST['object_type'] ?? '');
+        
+        // Wybierz właściwy nonce w zależności od typu obiektu
+        $nonce_action = ($object_type === 'company') ? 'wpmzf_company_view_nonce' : 'wpmzf_person_view_nonce';
+        check_ajax_referer($nonce_action, 'security');
 
         $url = sanitize_url($_POST['url'] ?? '');
         $custom_title = sanitize_text_field($_POST['custom_title'] ?? '');
         $object_id = intval($_POST['object_id'] ?? 0);
-        $object_type = sanitize_text_field($_POST['object_type'] ?? '');
 
         if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
             wp_send_json_error(['message' => 'Nieprawidłowy URL']);
@@ -2365,10 +2374,14 @@ class WPMZF_Ajax_Handler
      * Pobiera ważne linki dla obiektu
      */
     public function get_important_links() {
-        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+        // Sprawdź parametry przed walidacją nonce  
+        $object_type = sanitize_text_field($_POST['object_type'] ?? '');
+        
+        // Wybierz właściwy nonce w zależności od typu obiektu
+        $nonce_action = ($object_type === 'company') ? 'wpmzf_company_view_nonce' : 'wpmzf_person_view_nonce';
+        check_ajax_referer($nonce_action, 'security');
 
         $object_id = intval($_POST['object_id'] ?? 0);
-        $object_type = sanitize_text_field($_POST['object_type'] ?? '');
 
         if (empty($object_id) || empty($object_type)) {
             wp_send_json_error(['message' => 'Nieprawidłowe ID obiektu lub typ']);
@@ -2397,7 +2410,12 @@ class WPMZF_Ajax_Handler
      * Aktualizuje ważny link
      */
     public function update_important_link() {
-        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+        // Sprawdź parametry przed walidacją nonce
+        $object_type = sanitize_text_field($_POST['object_type'] ?? '');
+        
+        // Wybierz właściwy nonce w zależności od typu obiektu
+        $nonce_action = ($object_type === 'company') ? 'wpmzf_company_view_nonce' : 'wpmzf_person_view_nonce';
+        check_ajax_referer($nonce_action, 'security');
 
         $link_id = intval($_POST['link_id'] ?? 0);
         $url = sanitize_url($_POST['url'] ?? '');
@@ -2453,7 +2471,12 @@ class WPMZF_Ajax_Handler
      * Usuwa ważny link
      */
     public function delete_important_link() {
-        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+        // Sprawdź parametry przed walidacją nonce
+        $object_type = sanitize_text_field($_POST['object_type'] ?? '');
+        
+        // Wybierz właściwy nonce w zależności od typu obiektu
+        $nonce_action = ($object_type === 'company') ? 'wpmzf_company_view_nonce' : 'wpmzf_person_view_nonce';
+        check_ajax_referer($nonce_action, 'security');
 
         $link_id = intval($_POST['link_id'] ?? 0);
 

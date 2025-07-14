@@ -1530,7 +1530,7 @@ $company_address = $company_fields['company_address'] ?? [];
         <!-- JavaScript został przeniesiony do assets/js/admin/company-view.js -->
         <!-- Skrypt jest ładowany przez enqueue_person_view_scripts() w class-wpmzf-admin-pages.php -->
         <input type="hidden" name="company_id" value="<?php echo esc_attr($company_id); ?>" />
-        <input type="hidden" id="wpmzf_security" value="<?php echo wp_create_nonce('wpmzf_person_view_nonce'); ?>" />
+        <input type="hidden" id="wpmzf_security" value="<?php echo wp_create_nonce('wpmzf_company_view_nonce'); ?>" />
         <input type="hidden" id="wpmzf_task_security" value="<?php echo wp_create_nonce('wpmzf_task_nonce'); ?>" />
 
 <?php

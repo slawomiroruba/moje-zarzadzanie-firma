@@ -1999,6 +1999,193 @@ class WPMZF_Admin_Pages
                 display: none; /* Ukryty domyślnie - pokazywany przez JS gdy są załączniki */
             }
 
+            /* Drag & Drop Styles */
+            .wpmzf-drag-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 113, 161, 0.9);
+                z-index: 999999;
+                display: none;
+                justify-content: center;
+                align-items: center;
+                pointer-events: none;
+            }
+
+            .wpmzf-drag-overlay.active {
+                display: flex;
+            }
+
+            .wpmzf-drag-message {
+                text-align: center;
+                color: white;
+                font-size: 24px;
+                font-weight: 500;
+            }
+
+            .wpmzf-drag-icon {
+                font-size: 48px;
+                margin-bottom: 20px;
+                opacity: 0.9;
+            }
+
+            .wpmzf-drag-text {
+                font-size: 18px;
+                opacity: 0.9;
+            }
+
+            #wpmzf-activity-box.drag-target {
+                background: rgba(0, 113, 161, 0.05);
+                border: 2px dashed #0071a1;
+                border-radius: 8px;
+                transform: scale(1.02);
+                transition: all 0.2s ease;
+            }
+
+            /* Attachment Preview Styles */
+            #wpmzf-note-attachments-preview-container {
+                margin-top: 15px;
+                padding: 15px;
+                background: #f8f9fa;
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                display: none;
+            }
+
+            #wpmzf-note-attachments-preview-container.has-files {
+                display: block;
+            }
+
+            .wpmzf-attachment-preview-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px;
+                background: white;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                margin-bottom: 10px;
+                transition: all 0.2s ease;
+            }
+
+            .wpmzf-attachment-preview-item:hover {
+                border-color: #0071a1;
+                box-shadow: 0 2px 4px rgba(0, 113, 161, 0.1);
+            }
+
+            .wpmzf-attachment-preview-item .file-info {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                flex-grow: 1;
+            }
+
+            .wpmzf-attachment-preview-item .attachment-thumbnail {
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #f0f0f0;
+                border-radius: 4px;
+                overflow: hidden;
+            }
+
+            .wpmzf-attachment-preview-item .attachment-thumbnail img {
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: cover;
+            }
+
+            .wpmzf-attachment-preview-item .attachment-thumbnail .file-icon {
+                font-size: 20px;
+                color: #666;
+            }
+
+            .wpmzf-attachment-preview-item .attachment-info {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+
+            .wpmzf-attachment-preview-item .attachment-name {
+                font-weight: 500;
+                color: #1d2327;
+                word-break: break-word;
+            }
+
+            .wpmzf-attachment-preview-item .attachment-size {
+                font-size: 12px;
+                color: #646970;
+            }
+
+            .wpmzf-attachment-preview-item .file-actions {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .wpmzf-attachment-preview-item .remove-attachment {
+                cursor: pointer;
+                color: #a00;
+                padding: 4px;
+                border-radius: 2px;
+                transition: all 0.2s ease;
+            }
+
+            .wpmzf-attachment-preview-item .remove-attachment:hover {
+                background: #ff6b6b;
+                color: white;
+            }
+
+            .wpmzf-attachment-preview-item .attachment-progress {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 100px;
+            }
+
+            .wpmzf-attachment-preview-item .attachment-progress-bar {
+                flex: 1;
+                height: 4px;
+                background: #e0e0e0;
+                border-radius: 2px;
+                overflow: hidden;
+            }
+
+            .wpmzf-attachment-preview-item .attachment-progress-bar::after {
+                content: '';
+                display: block;
+                height: 100%;
+                background: #0071a1;
+                width: 0%;
+                transition: width 0.3s ease;
+            }
+
+            .wpmzf-attachment-preview-item .attachment-progress-text {
+                font-size: 12px;
+                color: #646970;
+                min-width: 30px;
+            }
+
+            .transcribe-option {
+                font-size: 12px;
+                color: #646970;
+            }
+
+            .transcribe-option label {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                cursor: pointer;
+            }
+
+            .transcribe-option input[type="checkbox"] {
+                margin: 0;
+            }
+
             #wpmzf-attachments-preview .attachment-item {
                 display: flex;
                 align-items: center;
