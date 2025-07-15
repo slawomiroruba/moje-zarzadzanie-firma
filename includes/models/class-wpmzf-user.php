@@ -62,6 +62,7 @@ class WPMZF_User {
         $this->created_at = $data['created_at'] ?? current_time('mysql');
         $this->updated_at = $data['updated_at'] ?? current_time('mysql');
     }
+    //mateusz: Przykład prawidłowego użycia classy i funkcji gdyby tak inne wyglądały to byłoby bardzo dobrze
 
     /**
      * Konwertuje model do tablicy

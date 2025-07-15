@@ -37,6 +37,7 @@ class WPMZF_User_Repository {
         $this->cache_manager = new WPMZF_Cache_Manager();
         $this->performance_monitor = new WPMZF_Performance_Monitor();
     }
+    //mateusz: Przykład prawidłowego użycia repository, proponuje też inne zrobić w taki sam sposób np: project
 
     /**
      * Pobiera wszystkich użytkowników

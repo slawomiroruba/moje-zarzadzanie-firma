@@ -27,6 +27,8 @@ class WPMZF_User_Service {
         $this->repository = $repository ?: new WPMZF_User_Repository();
     }
 
+    //mateusz: tak jak w przypadku controllera rowniez jest to prawidlowe uzycie, bo mamy serwis
+    // ktory odpowiednio przetwarza dane i komunikuje sie z repozytorium w celu operacji na danych
     /**
      * Pobiera listę użytkowników
      *

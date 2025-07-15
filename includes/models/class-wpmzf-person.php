@@ -59,6 +59,15 @@ class WPMZF_Person {
         }
     }
 
+    /*
+     * mateusz:
+     * W tej classie złamane zostały dobrych praktyk, powinna odpowiadać tylko i wyłącznie za pobieranie danych
+     * przy constructorze powinno do niej trafić już dane z repozytorium i w repozytorium ona powinna sie utworzyc już gotowa do odczytu, nie do aktualizacji, usuwania czy edycji.
+     * W razie gdybyś chciał sobię to wygooglować i doczytać to:
+     * - Single Responsibility Principle - SRP,
+     * - Encapsulation
+     * - Domain Boundary - Chodzi o oddzielanie logiki biznesowej od dostępu do danych
+     */
     /**
      * Ładuje dane osoby
      *

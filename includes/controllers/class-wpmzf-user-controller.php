@@ -35,6 +35,8 @@ class WPMZF_User_Controller extends WP_REST_Controller {
         $this->service = new WPMZF_User_Service();
     }
 
+    //mateusz: jest to tez poprawnie użyty controller, więc możesz w ten sposób używać też inne dla innych controllerów (np. projekty w osobnym pliku oczywiście)
+    //mateusz: kod komunikuje sie z serwisem ktory wykonuje brudna robote i zwraca odpowiedz i jest to prawidlowe uzycie
     /**
      * Rejestruje trasy REST API
      */
