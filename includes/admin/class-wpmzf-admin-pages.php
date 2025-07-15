@@ -7,7 +7,10 @@ class WPMZF_Admin_Pages
     {
         add_action('admin_menu', array($this, 'add_plugin_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_person_view_scripts'));
-        add_action('admin_init', array($this, 'handle_actions'));
+
+        //add_action('admin_init', array($this, 'handle_actions'));
+        //mateusz: tu jest błąd, bo linia odwóluje się do "handle_actions" które nie istnieje, stąd jest błąd,
+        //dlatego po zakomentowaniu już działa prawidłowo :)
     }
     public function enqueue_person_view_scripts($hook)
     {
