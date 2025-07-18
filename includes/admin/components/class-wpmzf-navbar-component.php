@@ -460,6 +460,21 @@ class WPMZF_Navbar_Component {
     padding-left: 24px;
 }
 
+.wpmzf-search-item.selected {
+    background: #667eea;
+    color: white;
+    padding-left: 24px;
+}
+
+.wpmzf-search-item.selected .wpmzf-search-item-title {
+    color: white;
+    font-weight: 600;
+}
+
+.wpmzf-search-item.selected .wpmzf-search-item-excerpt {
+    color: rgba(255, 255, 255, 0.9);
+}
+
 .wpmzf-search-item:last-child {
     border-bottom: none;
 }

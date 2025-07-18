@@ -61,16 +61,83 @@
             }
         });
 
-        // Enter key
-        searchInput.on('keypress', function(e) {
-            if (e.which === 13) {
-                e.preventDefault();
-                const searchTerm = $(this).val().trim();
-                if (searchTerm.length >= 2) {
-                    performSearch(searchTerm);
-                }
+        // Enter key i nawigacja strzałkami
+        searchInput.on('keydown', function(e) {
+            const results = $('#wpmzf-search-results');
+            const items = results.find('.wpmzf-search-item');
+            const currentSelected = items.filter('.selected');
+            
+            switch(e.which) {
+                case 13: // Enter
+                    e.preventDefault();
+                    if (currentSelected.length > 0) {
+                        // Jeśli jest zaznaczony element, przejdź do niego
+                        const href = currentSelected.attr('href');
+                        if (href) {
+                            window.location.href = href;
+                        }
+                    } else {
+                        // Jeśli nic nie jest zaznaczone, wykonaj wyszukiwanie
+                        const searchTerm = $(this).val().trim();
+                        if (searchTerm.length >= 2) {
+                            performSearch(searchTerm);
+                        }
+                    }
+                    break;
+                    
+                case 38: // Strzałka w górę
+                    e.preventDefault();
+                    if (results.is(':visible') && items.length > 0) {
+                        if (currentSelected.length === 0) {
+                            // Zaznacz ostatni element
+                            items.last().addClass('selected');
+                        } else {
+                            const currentIndex = items.index(currentSelected);
+                            currentSelected.removeClass('selected');
+                            if (currentIndex > 0) {
+                                items.eq(currentIndex - 1).addClass('selected');
+                            } else {
+                                // Przejdź na koniec listy
+                                items.last().addClass('selected');
+                            }
+                        }
+                        scrollToSelected();
+                    }
+                    break;
+                    
+                case 40: // Strzałka w dół
+                    e.preventDefault();
+                    if (results.is(':visible') && items.length > 0) {
+                        if (currentSelected.length === 0) {
+                            // Zaznacz pierwszy element
+                            items.first().addClass('selected');
+                        } else {
+                            const currentIndex = items.index(currentSelected);
+                            currentSelected.removeClass('selected');
+                            if (currentIndex < items.length - 1) {
+                                items.eq(currentIndex + 1).addClass('selected');
+                            } else {
+                                // Przejdź na początek listy
+                                items.first().addClass('selected');
+                            }
+                        }
+                        scrollToSelected();
+                    }
+                    break;
             }
         });
+
+        // Usunięte poprzednie keypress dla Enter
+        // Enter key
+        // searchInput.on('keypress', function(e) {
+        //     if (e.which === 13) {
+        //         e.preventDefault();
+        //         const searchTerm = $(this).val().trim();
+        //         if (searchTerm.length >= 2) {
+        //             performSearch(searchTerm);
+        //         }
+        //     }
+        // });
 
         // Escape key
         searchInput.on('keyup', function(e) {
@@ -168,6 +235,22 @@
         });
 
         searchContent.html(html);
+        
+        // Dodaj obsługę hover dla nowych elementów
+        searchContent.find('.wpmzf-search-item').hover(
+            function() {
+                // Usuń zaznaczenie z innych elementów
+                $('.wpmzf-search-item.selected').removeClass('selected');
+                // Zaznacz ten element
+                $(this).addClass('selected');
+            }
+        );
+        
+        // Obsługa kliknięcia (dodatkowa dla pewności)
+        searchContent.find('.wpmzf-search-item').on('click', function(e) {
+            // Pozwól na normalne działanie linku
+            return true;
+        });
     }
 
     /**
@@ -290,6 +373,30 @@
             attributes: true,
             attributeFilter: ['class']
         });
+    }
+
+    /**
+     * Przewija do zaznaczonego elementu w wynikach wyszukiwania
+     */
+    function scrollToSelected() {
+        const selected = $('.wpmzf-search-item.selected');
+        const container = $('#wpmzf-search-results');
+        
+        if (selected.length > 0 && container.length > 0) {
+            const containerTop = container.scrollTop();
+            const containerHeight = container.outerHeight();
+            const selectedTop = selected.position().top + containerTop;
+            const selectedHeight = selected.outerHeight();
+            
+            // Sprawdź czy element jest widoczny
+            if (selectedTop < containerTop) {
+                // Element jest za wysoko - przewiń w górę
+                container.scrollTop(selectedTop);
+            } else if (selectedTop + selectedHeight > containerTop + containerHeight) {
+                // Element jest za nisko - przewiń w dół
+                container.scrollTop(selectedTop + selectedHeight - containerHeight);
+            }
+        }
     }
 
     /**
