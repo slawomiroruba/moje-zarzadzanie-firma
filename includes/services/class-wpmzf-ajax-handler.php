@@ -660,7 +660,17 @@ class WPMZF_Ajax_Handler
                 return;
             }
             
-            check_ajax_referer('wpmzf_person_view_nonce', 'security');
+            // Sprawdź nonce - może być z widoku osoby lub firmy
+            $valid_nonce = false;
+            if (wp_verify_nonce($_POST['security'] ?? '', 'wpmzf_person_view_nonce')) {
+                $valid_nonce = true;
+            } elseif (wp_verify_nonce($_POST['security'] ?? '', 'wpmzf_company_view_nonce')) {
+                $valid_nonce = true;
+            }
+            
+            if (!$valid_nonce) {
+                wp_die('Nieprawidłowy nonce');
+            }
 
             // Sprawdź uprawnienia
             if (!current_user_can('upload_files')) {
@@ -705,7 +715,12 @@ class WPMZF_Ajax_Handler
                     'attachment_id' => $attachment_id,
                     'file' => $_FILES['file']['name']
                 ]);
-                wp_send_json_success(['id' => $attachment_id]);
+                wp_send_json_success([
+                    'attachment_id' => $attachment_id,
+                    'id' => $attachment_id, // Dla kompatybilności z różnymi skryptami
+                    'url' => wp_get_attachment_url($attachment_id),
+                    'title' => get_the_title($attachment_id)
+                ]);
             }
             
         } catch (Exception $e) {
@@ -722,7 +737,17 @@ class WPMZF_Ajax_Handler
      */
     public function delete_activity()
     {
-        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+        // Sprawdź nonce - może być z widoku osoby lub firmy
+        $valid_nonce = false;
+        if (wp_verify_nonce($_POST['security'] ?? '', 'wpmzf_person_view_nonce')) {
+            $valid_nonce = true;
+        } elseif (wp_verify_nonce($_POST['security'] ?? '', 'wpmzf_company_view_nonce')) {
+            $valid_nonce = true;
+        }
+        
+        if (!$valid_nonce) {
+            wp_die('Nieprawidłowy nonce');
+        }
 
         $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
         if (!$activity_id || get_post_type($activity_id) !== 'activity') {
@@ -760,7 +785,17 @@ class WPMZF_Ajax_Handler
      */
     public function update_activity()
     {
-        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+        // Sprawdź nonce - może być z widoku osoby lub firmy
+        $valid_nonce = false;
+        if (wp_verify_nonce($_POST['security'] ?? '', 'wpmzf_person_view_nonce')) {
+            $valid_nonce = true;
+        } elseif (wp_verify_nonce($_POST['security'] ?? '', 'wpmzf_company_view_nonce')) {
+            $valid_nonce = true;
+        }
+        
+        if (!$valid_nonce) {
+            wp_die('Nieprawidłowy nonce');
+        }
 
         $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
         $content = isset($_POST['content']) ? wp_kses_post($_POST['content']) : '';
@@ -794,7 +829,17 @@ class WPMZF_Ajax_Handler
      */
     public function delete_attachment()
     {
-        check_ajax_referer('wpmzf_person_view_nonce', 'security');
+        // Sprawdź nonce - może być z widoku osoby lub firmy
+        $valid_nonce = false;
+        if (wp_verify_nonce($_POST['security'] ?? '', 'wpmzf_person_view_nonce')) {
+            $valid_nonce = true;
+        } elseif (wp_verify_nonce($_POST['security'] ?? '', 'wpmzf_company_view_nonce')) {
+            $valid_nonce = true;
+        }
+        
+        if (!$valid_nonce) {
+            wp_die('Nieprawidłowy nonce');
+        }
 
         $activity_id = isset($_POST['activity_id']) ? intval($_POST['activity_id']) : 0;
         $attachment_id = isset($_POST['attachment_id']) ? intval($_POST['attachment_id']) : 0;
@@ -1113,6 +1158,9 @@ class WPMZF_Ajax_Handler
      */
     public function add_task()
     {
+        // Debug logging
+        error_log('WPMZF add_task: POST data: ' . print_r($_POST, true));
+        
         check_ajax_referer('wpmzf_task_nonce', 'wpmzf_task_security');
 
         $person_id = isset($_POST['person_id']) ? intval($_POST['person_id']) : 0;
@@ -1121,6 +1169,8 @@ class WPMZF_Ajax_Handler
         $task_title = isset($_POST['task_title']) ? sanitize_text_field($_POST['task_title']) : '';
         $task_due_date = isset($_POST['task_due_date']) ? sanitize_text_field($_POST['task_due_date']) : '';
         $assigned_user = isset($_POST['assigned_user']) ? intval($_POST['assigned_user']) : 0;
+
+        error_log('WPMZF add_task: person_id=' . $person_id . ', company_id=' . $company_id . ', project_id=' . $project_id . ', task_title=' . $task_title);
 
         if ((!$person_id && !$company_id && !$project_id) || empty($task_title)) {
             wp_send_json_error(['message' => 'Brak wymaganych danych (tytuł zadania i przynajmniej jedna relacja).']);
@@ -1186,15 +1236,15 @@ class WPMZF_Ajax_Handler
             // Zapisanie pól ACF
             update_field('task_status', 'Do zrobienia', $task_id);
             
-            // Przypisanie do odpowiedniej encji
+            // Przypisanie do odpowiedniej encji (pola relationship wymagają tablic)
             if ($person_id) {
-                update_field('task_assigned_person', $person_id, $task_id);
+                update_field('task_assigned_person', array($person_id), $task_id);
             }
             if ($company_id) {
-                update_field('task_assigned_company', $company_id, $task_id);
+                update_field('task_assigned_company', array($company_id), $task_id);
             }
             if ($project_id) {
-                update_field('task_assigned_project', $project_id, $task_id);
+                update_field('task_project', array($project_id), $task_id);
             }
             
             // Przypisanie do użytkownika
@@ -1238,14 +1288,14 @@ class WPMZF_Ajax_Handler
         if ($person_id) {
             $meta_query[] = [
                 'key' => 'task_assigned_person',
-                'value' => $person_id,
-                'compare' => '='
+                'value' => '"' . $person_id . '"',
+                'compare' => 'LIKE'
             ];
         } else {
             $meta_query[] = [
                 'key' => 'task_assigned_company',
-                'value' => $company_id,
-                'compare' => '='
+                'value' => '"' . $company_id . '"',
+                'compare' => 'LIKE'
             ];
         }
 

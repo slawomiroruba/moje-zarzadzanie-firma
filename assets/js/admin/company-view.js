@@ -43,7 +43,7 @@ function initActivityEditTinyMCE(editorId) {
 	if (typeof tinymce !== 'undefined') {
 		// Usuń poprzedni edytor jeśli istnieje
 		tinymce.remove('#' + editorId);
-		
+
 		// Inicjalizuj nowy edytor
 		tinymce.init({
 			selector: '#' + editorId,
@@ -55,13 +55,13 @@ function initActivityEditTinyMCE(editorId) {
 			statusbar: false,
 			resize: false,
 			content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; margin: 8px; }',
-			init_instance_callback: function(editor) {
+			init_instance_callback: function (editor) {
 				// Edytor jest gotowy do użycia
 				editor.focus();
 			},
-			setup: function(editor) {
+			setup: function (editor) {
 				// Obsługa błędów inicjalizacji
-				editor.on('LoadContent', function() {
+				editor.on('LoadContent', function () {
 					console.log('TinyMCE załadowany dla', editorId);
 				});
 			}
@@ -133,9 +133,20 @@ function showNotification(message, type = 'info') {
 // === FUNKCJONALNOŚĆ FIRMY ===
 jQuery(document).ready(function ($) {
 	// --- Zmienne ---
-	const companyId = $('input[name="company_id"]').val();
+	// Pobierz company_id z ostatniego ukrytego pola na stronie (najbardziej niezawodne)
+	const companyId = $('input[name="company_id"]:last').val() || $('input[name="company_id"]').last().val();
 	console.log('Company ID found:', companyId); // Debug
-	
+
+	// Sprawdź czy companyId jest prawidłowe
+	if (!companyId || companyId === '' || companyId === 'undefined' || parseInt(companyId) <= 0) {
+		console.error('Company ID not found or invalid!', 'Raw value:', companyId);
+		return;
+	}
+
+	// Konwertuj na integer dla pewności
+	const companyIdInt = parseInt(companyId);
+	console.log('Company ID converted to int:', companyIdInt); // Debug
+
 	// Używamy zmiennych z wp_localize_script jeśli są dostępne, w przeciwnym razie fallback
 	const securityNonce = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.nonce) ?
 		wpmzfCompanyView.nonce : $('#wpmzf_security').val();
@@ -152,15 +163,15 @@ jQuery(document).ready(function ($) {
 	}
 
 	// === OBSŁUGA ZAKŁADEK AKTYWNOŚCI ===
-	
+
 	// Przełączanie zakładek
-	$('.activity-tabs .tab-link').on('click', function() {
+	$('.activity-tabs .tab-link').on('click', function () {
 		const tabId = $(this).data('tab');
-		
+
 		// Zaktualizuj przyciski
 		$('.activity-tabs .tab-link').removeClass('active');
 		$(this).addClass('active');
-		
+
 		// Pokaż odpowiednią treść
 		$('.tab-content').removeClass('active');
 		$('#' + tabId + '-tab-content').addClass('active');
@@ -213,7 +224,7 @@ jQuery(document).ready(function ($) {
 
 	// Debug - sprawdź wartości na początku
 	console.log('Company view debug:');
-	console.log('- companyId:', companyId);
+	console.log('- companyId:', companyIdInt);
 	console.log('- securityNonce:', securityNonce);
 	console.log('- taskSecurityNonce:', taskSecurityNonce);
 	console.log('- ajaxurl:', typeof ajaxurl !== 'undefined' ? ajaxurl : 'UNDEFINED');
@@ -229,6 +240,7 @@ jQuery(document).ready(function ($) {
 
 	setDefaultActivityDateTime();
 	loadActivities();
+	loadTasks();
 
 	// --- Obsługa edytora z placeholderem ---
 	const editorPlaceholder = $('#wpmzf-note-editor-placeholder');
@@ -304,7 +316,7 @@ jQuery(document).ready(function ($) {
 							setTimeout(() => editor.focus(), 100);
 							return;
 						}
-						
+
 						// Usuń wszystkie poprzednie instancje
 						window.tinyMCE.remove('#wpmzf-activity-content');
 
@@ -314,8 +326,8 @@ jQuery(document).ready(function ($) {
 						// Zainicjalizuj nowy edytor z rozszerzonym toolbarem
 						window.tinyMCE.init({
 							selector: '#wpmzf-activity-content',
-							plugins: 'lists link paste textcolor',
-							toolbar1: 'bold italic underline | forecolor | bullist numlist | link unlink | removeformat | undo redo',
+							plugins: 'lists link paste textcolor image',  // Dodano 'image'
+							toolbar1: 'bold italic underline | forecolor | bullist numlist | link unlink | image | removeformat | undo redo',  // Dodano 'image'
 							toolbar2: '',
 							content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; padding: 12px; }',
 							height: 120,
@@ -332,6 +344,39 @@ jQuery(document).ready(function ($) {
 							paste_retain_style_properties: 'font-weight,font-style,text-decoration,color',
 							paste_enable_default_filters: true,
 							paste_webkit_styles: 'font-weight font-style text-decoration color',
+							automatic_uploads: true,  // Automatycznie uploaduj obrazy
+							images_reuse_filename: true,
+							images_upload_handler: function (blobInfo, success, failure) {
+								const formData = new FormData();
+								formData.append('file', blobInfo.blob(), blobInfo.filename());
+								formData.append('action', 'wpmzf_upload_attachment');
+								formData.append('security', securityNonce);
+
+								$.ajax({
+									url: ajaxurl,
+									type: 'POST',
+									data: formData,
+									processData: false,
+									contentType: false,
+									success: function (response) {
+										if (response.success) {
+											success(response.data.url);  // Wstaw URL uploadowanego pliku do edytora
+											// Dodaj do załączników aktywności
+											const attId = response.data.id;
+											// Zakładamy, że uploadedAttachmentIds jest dostępne w scope, ale w tym kontekście może wymagać dostosowania
+											// Jeśli submit nie jest w toku, dodaj do filesToUpload lub bezpośrednio do aktywności
+											console.log('Image uploaded as attachment:', attId);
+											// Opcjonalnie: Dodaj do filesToUpload jeśli potrzeba
+											// filesToUpload.push(blobInfo.blob()); // Ale to blob, nie file - dostosuj jeśli potrzeba
+										} else {
+											failure('Upload failed: ' + (response.data.message || 'Unknown error'));
+										}
+									},
+									error: function () {
+										failure('Server error during image upload');
+									}
+								});
+							},
 							setup: function (editor) {
 								editor.on('init', function () {
 									console.log('TinyMCE editor initialized successfully');
@@ -351,6 +396,20 @@ jQuery(document).ready(function ($) {
 								// Obsługa pokazywania edytora po inicjalizacji
 								editor.on('show', function () {
 									$(editor.getContainer()).show();
+								});
+
+								editor.on('PastePreProcess', function (e) {
+									console.log('Paste in TinyMCE detected:', e.content);
+									// Tutaj możesz przetworzyć e.content, jeśli potrzeba
+								});
+
+								editor.on('PastePostProcess', function (e) {
+									// Po przetworzeniu paste, sprawdź czy dodano obraz
+									const images = e.node.querySelectorAll('img');
+									if (images.length > 0) {
+										console.log('Image pasted in TinyMCE:', images[0].src);
+										// Opcjonalnie: Dodatkowa logika
+									}
 								});
 							}
 						});
@@ -468,7 +527,7 @@ jQuery(document).ready(function ($) {
 				noteEditor.setContent('');
 				noteEditor.hide();
 			}
-			
+
 			// Reset edytora e-mail
 			if (window.tinyMCE && window.tinyMCE.get('email-content')) {
 				const emailEditor = window.tinyMCE.get('email-content');
@@ -544,13 +603,17 @@ jQuery(document).ready(function ($) {
 
 	// --- Obsługa załączników ---
 	attachFileBtn.on('click', function () {
+		console.log('Attach files button clicked');
 		attachmentInput.trigger('click');
 	});
 
 	attachmentInput.on('change', function (e) {
+		console.log('Files selected:', e.target.files);
 		for (const file of e.target.files) {
+			console.log('Processing file:', file.name, file.type, file.size);
 			// Sprawdź walidację pliku
 			if (!isAllowedFileType(file)) {
+				console.log('File rejected by validation:', file.name);
 				continue; // Pomiń nieodpowiednie pliki
 			}
 
@@ -561,9 +624,13 @@ jQuery(document).ready(function ($) {
 
 			if (!alreadyExists) {
 				filesToUpload.push(file);
+				console.log('File added to upload queue:', file.name);
+			} else {
+				console.log('File already exists in queue:', file.name);
 			}
 		}
 
+		console.log('Files to upload:', filesToUpload);
 		renderAttachmentsPreview();
 		// Resetowanie wartości inputu, aby umożliwić ponowne dodanie tego samego pliku
 		$(this).val('');
@@ -579,21 +646,21 @@ jQuery(document).ready(function ($) {
 	// --- Funkcje AJAX ---
 
 	function loadActivities() {
-		// Upewniamy się, że companyId jest dostępne
-		if (!companyId || companyId <= 0) {
-			console.error('Cannot load activities: invalid company ID:', companyId);
+		// Upewniamy się, że companyIdInt jest dostępne
+		if (!companyIdInt || companyIdInt <= 0) {
+			console.error('Cannot load activities: invalid company ID:', companyIdInt);
 			timelineContainer.html('<p><em>Błąd: Nieprawidłowe ID firmy.</em></p>');
 			return;
 		}
 
-		console.log('Loading activities for company ID:', companyId);
+		console.log('Loading activities for company ID:', companyIdInt);
 
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
 			data: {
 				action: 'get_wpmzf_activities',
-				company_id: companyId,
+				company_id: companyIdInt,
 				security: securityNonce
 			},
 			success: function (response) {
@@ -678,7 +745,7 @@ jQuery(document).ready(function ($) {
 					// Generuj HTML dla transkrypcji
 					let transcriptionHtml = '';
 					if (att.transcription) {
-						switch(att.transcription.status) {
+						switch (att.transcription.status) {
 							case 'pending':
 							case 'processing':
 								transcriptionHtml = `<div class="transcription-status pending">⌛ Oczekuje na transkrypcję...</div>`;
@@ -834,7 +901,7 @@ jQuery(document).ready(function ($) {
 					if (response.success) {
 						previewItem.find('.attachment-progress-fill').css('width', '100%');
 						previewItem.find('.attachment-progress-text').text('100%');
-						const attId = response.data.attachment_id;
+						const attId = response.data.id;
 						const shouldTranscribe = previewItem.find('.transcribe-checkbox').is(':checked');
 						return { id: attId, transcribe: shouldTranscribe };
 					} else {
@@ -886,7 +953,7 @@ jQuery(document).ready(function ($) {
 		const activityData = {
 			action: 'add_wpmzf_activity',
 			security: securityNonce,
-			company_id: companyId,
+			company_id: companyIdInt,
 			content: editorContent,
 			activity_type: $('#wpmzf-activity-type').val(),
 			activity_date: dateField.val(),
@@ -943,11 +1010,11 @@ jQuery(document).ready(function ($) {
 	});
 
 	// === NOWE HANDLERY DLA FORMULARZY ZAKŁADEK ===
-	
+
 	// Handler dla formularza "Dodaj notatkę"
-	noteForm.on('submit', function(e) {
+	noteForm.on('submit', function (e) {
 		e.preventDefault();
-		
+
 		// Pobierz treść z edytora TinyMCE
 		let content = '';
 		if (window.tinyMCE && window.tinyMCE.get('wpmzf-note-content')) {
@@ -955,26 +1022,26 @@ jQuery(document).ready(function ($) {
 		} else {
 			content = $('#wpmzf-note-content').val();
 		}
-		
+
 		if (!content.trim()) {
 			showNotification('Proszę wpisać treść notatki.', 'error');
 			return;
 		}
-		
+
 		const formData = new FormData(this);
 		formData.append('action', 'add_wpmzf_activity');
 		formData.append('security', securityNonce);
 		formData.append('content', content);
-		
+
 		noteSubmitButton.prop('disabled', true).text('Dodawanie...');
-		
+
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
 			data: formData,
 			processData: false,
 			contentType: false,
-			success: function(response) {
+			success: function (response) {
 				if (response.success) {
 					noteForm[0].reset();
 					resetEditor();
@@ -985,20 +1052,20 @@ jQuery(document).ready(function ($) {
 					showNotification('Błąd: ' + (response.data ? response.data.message : 'Nieznany błąd'), 'error');
 				}
 			},
-			error: function(xhr, status, error) {
+			error: function (xhr, status, error) {
 				console.error('Note AJAX error:', status, error, xhr);
 				showNotification('Wystąpił błąd przy dodawaniu notatki.', 'error');
 			},
-			complete: function() {
+			complete: function () {
 				noteSubmitButton.prop('disabled', false).text('Dodaj notatkę');
 			}
 		});
 	});
 
 	// Handler dla formularza "Wyślij e-mail"
-	emailForm.on('submit', function(e) {
+	emailForm.on('submit', function (e) {
 		e.preventDefault();
-		
+
 		// Pobierz treść z edytora TinyMCE
 		let emailContent = '';
 		if (window.tinyMCE && window.tinyMCE.get('email-content')) {
@@ -1006,30 +1073,30 @@ jQuery(document).ready(function ($) {
 		} else {
 			emailContent = $('#email-content').val();
 		}
-		
+
 		const emailTo = $('input[name="email_to"]', this).val();
 		const emailSubject = $('input[name="email_subject"]', this).val();
-		
+
 		if (!emailTo || !emailSubject) {
 			showNotification('Pola "Do" i "Temat" są wymagane.', 'error');
 			return;
 		}
-		
+
 		const formData = new FormData(this);
 		formData.append('action', 'add_wpmzf_activity');
 		formData.append('security', securityNonce);
 		formData.append('content', emailContent);
 		formData.append('activity_type', 'email');
-		
+
 		emailSubmitButton.prop('disabled', true).text('Wysyłanie...');
-		
+
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
 			data: formData,
 			processData: false,
 			contentType: false,
-			success: function(response) {
+			success: function (response) {
 				if (response.success) {
 					emailForm[0].reset();
 					// Reset edytora e-mail
@@ -1042,11 +1109,11 @@ jQuery(document).ready(function ($) {
 					showNotification('Błąd: ' + (response.data ? response.data.message : 'Nieznany błąd'), 'error');
 				}
 			},
-			error: function(xhr, status, error) {
+			error: function (xhr, status, error) {
 				console.error('Email AJAX error:', status, error, xhr);
 				showNotification('Wystąpił błąd przy wysyłaniu e-maila.', 'error');
 			},
-			complete: function() {
+			complete: function () {
 				emailSubmitButton.prop('disabled', false).text('Wyślij e-mail');
 			}
 		});
@@ -1057,7 +1124,7 @@ jQuery(document).ready(function ($) {
 	// Funkcja sprawdzająca czy typ pliku jest dozwolony
 	function isAllowedFileType(file) {
 		const allowedTypes = [
-			'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+			'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff',  // Dodano dodatkowe typy dla screenshotów
 			'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 			'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 			'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -1172,6 +1239,12 @@ jQuery(document).ready(function ($) {
 
 			console.log('Company: Formularz aktywności znaleziony');
 
+			// Dodano sprawdzenie czy fokus jest na edytorze TinyMCE
+			if (document.activeElement.id === 'wpmzf-activity-content' || $(document.activeElement).closest('.mce-panel').length) {
+				console.log('Paste inside TinyMCE - skipping global handler');
+				return;  // Pozwól TinyMCE obsłużyć
+			}
+
 			const clipboardData = e.originalEvent.clipboardData;
 			if (!clipboardData || !clipboardData.items) {
 				console.log('Company: Brak danych w schowku');
@@ -1266,7 +1339,7 @@ jQuery(document).ready(function ($) {
 	timelineContainer.on('click', '.view-full-transcription', function (e) {
 		e.preventDefault();
 		const attachmentId = $(this).data('attachment-id');
-		
+
 		// Pobierz pełną transkrypcję
 		$.post(ajaxurl, {
 			action: 'get_wpmzf_full_transcription',
@@ -1280,7 +1353,7 @@ jQuery(document).ready(function ($) {
 						<div class="wpmzf-modal">
 							<div class="wpmzf-modal-header">
 								<h3>Pełna transkrypcja</h3>
-								<span class="wpmzf-modal-close">&times;</span>
+								<span class="wpmzf-modal-close">×</span>
 							</div>
 							<div class="wpmzf-modal-body">
 								<div class="transcription-full-text">
@@ -1293,11 +1366,11 @@ jQuery(document).ready(function ($) {
 						</div>
 					</div>
 				`);
-				
+
 				$('body').append(modal);
-				
+
 				// Obsługa zamykania modala
-				modal.on('click', '.wpmzf-modal-close, .wpmzf-modal-overlay', function(e) {
+				modal.on('click', '.wpmzf-modal-close, .wpmzf-modal-overlay', function (e) {
 					if (e.target === this) {
 						modal.remove();
 					}
@@ -1351,12 +1424,12 @@ jQuery(document).ready(function ($) {
 		const contentDiv = $(this).closest('.timeline-content');
 		const activityId = $(this).closest('.timeline-item').data('activity-id');
 		const editorId = 'activity-edit-' + activityId;
-		
+
 		contentDiv.find('.activity-content-display').hide();
 		contentDiv.find('.activity-content-edit').show();
-		
+
 		// Inicjalizuj TinyMCE dla edycji
-		setTimeout(function() {
+		setTimeout(function () {
 			initActivityEditTinyMCE(editorId);
 		}, 200);
 	});
@@ -1366,12 +1439,12 @@ jQuery(document).ready(function ($) {
 		const contentDiv = $(this).closest('.timeline-content');
 		const activityId = $(this).closest('.timeline-item').data('activity-id');
 		const editorId = 'activity-edit-' + activityId;
-		
+
 		// Usuń TinyMCE
 		if (typeof tinymce !== 'undefined') {
 			tinymce.remove('#' + editorId);
 		}
-		
+
 		contentDiv.find('.activity-content-edit').hide();
 		contentDiv.find('.activity-content-display').show();
 	});
@@ -1382,7 +1455,7 @@ jQuery(document).ready(function ($) {
 		const contentDiv = button.closest('.timeline-content');
 		const activityId = button.closest('.timeline-item').data('activity-id');
 		const editorId = 'activity-edit-' + activityId;
-		
+
 		// Sprawdź czy TinyMCE jest aktywny i zainicjalizowany
 		let newContent = '';
 		if (typeof tinymce !== 'undefined') {
@@ -1447,7 +1520,7 @@ jQuery(document).ready(function ($) {
 
 				contentDiv.find('.activity-content-edit').hide();
 				contentDiv.find('.activity-content-display').show();
-				
+
 				// Usuń TinyMCE po pomyślnym zapisie
 				if (typeof tinymce !== 'undefined') {
 					tinymce.remove('#' + editorId);
@@ -1508,7 +1581,7 @@ jQuery(document).ready(function ($) {
 				type: 'POST',
 				data: {
 					action: 'add_wpmzf_task',
-					company_id: companyId,
+					company_id: companyIdInt,
 					task_title: taskTitle,
 					task_due_date: taskDueDate,
 					assigned_user: assignedUser,
@@ -1537,8 +1610,8 @@ jQuery(document).ready(function ($) {
 
 	// === ŁADOWANIE ZADAŃ ===
 	function loadTasks() {
-		if (!companyId || companyId <= 0) {
-			console.error('Cannot load tasks: invalid company ID:', companyId);
+		if (!companyIdInt || companyIdInt <= 0) {
+			console.error('Cannot load tasks: invalid company ID:', companyIdInt);
 			openTasksList.html('<p><em>Błąd: Nieprawidłowe ID firmy.</em></p>');
 			return;
 		}
@@ -1548,13 +1621,32 @@ jQuery(document).ready(function ($) {
 			type: 'POST',
 			data: {
 				action: 'get_wpmzf_tasks',
-				company_id: companyId,
+				company_id: companyIdInt,
 				wpmzf_task_security: taskSecurityNonce
 			},
 			success: function (response) {
 				if (response.success) {
-					openTasksList.html(response.data.open_tasks || '<p><em>Brak otwartych zadań.</em></p>');
-					closedTasksList.html(response.data.closed_tasks || '<p><em>Brak zakończonych zadań.</em></p>');
+					// Renderuj otwarte zadania
+					if (response.data.open_tasks && response.data.open_tasks.length > 0) {
+						let openTasksHtml = '';
+						response.data.open_tasks.forEach(task => {
+							openTasksHtml += renderTaskItem(task);
+						});
+						openTasksList.html(openTasksHtml);
+					} else {
+						openTasksList.html('<p><em>Brak otwartych zadań.</em></p>');
+					}
+
+					// Renderuj zakończone zadania
+					if (response.data.closed_tasks && response.data.closed_tasks.length > 0) {
+						let closedTasksHtml = '';
+						response.data.closed_tasks.forEach(task => {
+							closedTasksHtml += renderTaskItem(task);
+						});
+						closedTasksList.html(closedTasksHtml);
+					} else {
+						closedTasksList.html('<p><em>Brak zakończonych zadań.</em></p>');
+					}
 				} else {
 					openTasksList.html('<p><em>Brak zadań dla tej firmy.</em></p>');
 					closedTasksList.html('<p><em>Brak zakończonych zadań.</em></p>');
@@ -1565,6 +1657,50 @@ jQuery(document).ready(function ($) {
 				openTasksList.html('<p><em>Błąd podczas ładowania zadań.</em></p>');
 			}
 		});
+	}
+
+	function renderTaskItem(task) {
+		const priorityClass = task.priority === 'overdue' ? 'overdue' :
+			task.priority === 'today' ? 'today' : 'upcoming';
+
+		const completedClass = task.status === 'Zrobione' ? 'completed' : '';
+
+		const dueDateText = task.end_date ?
+			new Date(task.end_date).toLocaleDateString('pl-PL', {
+				year: 'numeric',
+				month: 'short',
+				day: 'numeric',
+				hour: '2-digit',
+				minute: '2-digit'
+			}) : 'Bez terminu';
+
+		const assignedUserText = task.assigned_user_name ?
+			`<span class="task-assigned">👤 ${escapeHtml(task.assigned_user_name)}</span>` : '';
+
+		return `
+			<div class="task-item ${priorityClass} ${completedClass}" data-task-id="${task.id}">
+				<div class="task-content">
+					<div class="task-title-row">
+						<h4 class="task-title">${escapeHtml(task.title)}</h4>
+						<div class="task-actions">
+							<span class="dashicons dashicons-edit" data-action="edit" title="Edytuj"></span>
+							<span class="dashicons dashicons-trash" data-action="delete" title="Usuń"></span>
+							<span class="dashicons ${task.status === 'Zrobione' ? 'dashicons-no-alt' : 'dashicons-yes'}" data-action="toggle" title="${task.status === 'Zrobione' ? 'Oznacz jako do zrobienia' : 'Oznacz jako zrobione'}"></span>
+						</div>
+					</div>
+					<div class="task-meta-row">
+						<div class="task-meta-left">
+							<span class="task-status ${task.status.toLowerCase().replace(' ', '-').replace('ć', 'c')}">${escapeHtml(task.status)}</span>
+							<span class="task-due-date">📅 ${dueDateText}</span>
+						</div>
+						<div class="task-meta-right">
+							${assignedUserText}
+						</div>
+					</div>
+					${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
+				</div>
+			</div>
+		`;
 	}
 
 	function showTaskMessage(message, type) {
@@ -1608,7 +1744,7 @@ jQuery(document).ready(function ($) {
 		const taskId = $this.closest('.task-item').data('task-id');
 
 		switch (action) {
-			case 'toggle-status':
+			case 'toggle':
 				toggleTaskStatus(taskId);
 				break;
 			case 'edit':
@@ -1622,12 +1758,18 @@ jQuery(document).ready(function ($) {
 
 	// === AKTUALIZACJA STATUSU ZADANIA ===
 	function toggleTaskStatus(taskId) {
+		// Znajdź aktualny status zadania
+		const taskElement = $(`.task-item[data-task-id="${taskId}"]`);
+		const currentlyCompleted = taskElement.hasClass('completed');
+		const newStatus = currentlyCompleted ? 'Do zrobienia' : 'Zrobione';
+
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
 			data: {
-				action: 'toggle_wpmzf_task_status',
+				action: 'update_wpmzf_task_status',
 				task_id: taskId,
+				status: newStatus,
 				wpmzf_task_security: taskSecurityNonce
 			},
 			success: function (response) {
@@ -1710,9 +1852,9 @@ jQuery(document).ready(function ($) {
 			url: ajaxurl,
 			type: 'POST',
 			data: {
-				action: 'update_wpmzf_task_title',
+				action: 'update_wpmzf_task_status',
 				task_id: taskId,
-				task_title: newTitle.trim(),
+				title: newTitle.trim(),
 				wpmzf_task_security: taskSecurityNonce
 			},
 			success: function (response) {
@@ -1767,7 +1909,7 @@ jQuery(document).ready(function ($) {
 	console.log('cancelLinkBtn:', cancelLinkBtn.length);
 
 	// Pokazywanie formularza dodawania linku
-	addLinkBtn.on('click', function() {
+	addLinkBtn.on('click', function () {
 		console.log('Add link button clicked'); // Debug
 		resetLinkForm();
 		linkFormContainer.slideDown();
@@ -1775,14 +1917,14 @@ jQuery(document).ready(function ($) {
 	});
 
 	// Anulowanie formularza
-	cancelLinkBtn.on('click', function() {
+	cancelLinkBtn.on('click', function () {
 		console.log('Cancel link button clicked'); // Debug
 		linkFormContainer.slideUp();
 		resetLinkForm();
 	});
 
 	// Obsługa wysyłania formularza linku
-	linkForm.on('submit', function(e) {
+	linkForm.on('submit', function (e) {
 		e.preventDefault();
 
 		const linkId = editLinkId.val();
@@ -1797,7 +1939,7 @@ jQuery(document).ready(function ($) {
 		// Sprawdzenie czy URL jest prawidłowy
 		try {
 			new URL(url);
-		} catch(e) {
+		} catch (e) {
 			alert('Proszę podać prawidłowy URL (np. https://example.com)');
 			return;
 		}
@@ -1824,14 +1966,14 @@ jQuery(document).ready(function ($) {
 		submitBtn.prop('disabled', true);
 		linkSubmitText.text(isEdit ? 'Aktualizuję...' : 'Dodaję...');
 
-		const ajaxUrl = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.ajaxUrl) ? 
+		const ajaxUrl = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.ajaxUrl) ?
 			wpmzfCompanyView.ajaxUrl : ajaxurl;
 
 		$.ajax({
 			url: ajaxUrl,
 			type: 'POST',
 			data: formData,
-			success: function(response) {
+			success: function (response) {
 				if (response.success) {
 					showNotification(response.data.message, 'success');
 					loadImportantLinks();
@@ -1841,10 +1983,10 @@ jQuery(document).ready(function ($) {
 					showNotification(response.data.message || 'Wystąpił błąd', 'error');
 				}
 			},
-			error: function() {
+			error: function () {
 				showNotification('Wystąpił błąd podczas komunikacji z serwerem', 'error');
 			},
-			complete: function() {
+			complete: function () {
 				submitBtn.prop('disabled', false);
 				linkSubmitText.text(originalText);
 			}
@@ -1852,9 +1994,9 @@ jQuery(document).ready(function ($) {
 	});
 
 	// Delegowane obsługa akcji na linkach
-	$(document).on('click', '.edit-important-link', function(e) {
+	$(document).on('click', '.edit-important-link', function (e) {
 		e.preventDefault();
-		
+
 		const linkItem = $(this).closest('.important-link-item');
 		const linkId = linkItem.data('link-id');
 		const url = linkItem.data('url');
@@ -1871,9 +2013,9 @@ jQuery(document).ready(function ($) {
 		$('#link-url').focus();
 	});
 
-	$(document).on('click', '.delete-important-link', function(e) {
+	$(document).on('click', '.delete-important-link', function (e) {
 		e.preventDefault();
-		
+
 		if (!confirm('Czy na pewno chcesz usunąć ten link?')) {
 			return;
 		}
@@ -1881,7 +2023,7 @@ jQuery(document).ready(function ($) {
 		const linkItem = $(this).closest('.important-link-item');
 		const linkId = linkItem.data('link-id');
 
-		const ajaxUrl = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.ajaxUrl) ? 
+		const ajaxUrl = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.ajaxUrl) ?
 			wpmzfCompanyView.ajaxUrl : ajaxurl;
 
 		$.ajax({
@@ -1893,9 +2035,9 @@ jQuery(document).ready(function ($) {
 				link_id: linkId,
 				object_type: 'company'
 			},
-			success: function(response) {
+			success: function (response) {
 				if (response.success) {
-					linkItem.fadeOut(300, function() {
+					linkItem.fadeOut(300, function () {
 						$(this).remove();
 						// Sprawdź czy jest to ostatni link
 						if ($('.important-link-item').length === 0) {
@@ -1907,7 +2049,7 @@ jQuery(document).ready(function ($) {
 					showNotification(response.data.message || 'Wystąpił błąd', 'error');
 				}
 			},
-			error: function() {
+			error: function () {
 				showNotification('Wystąpił błąd podczas komunikacji z serwerem', 'error');
 			}
 		});
@@ -1915,14 +2057,14 @@ jQuery(document).ready(function ($) {
 
 	function loadImportantLinks() {
 		console.log('Loading important links for company:', companyId); // Debug
-		
+
 		if (!companyId || companyId === '' || companyId === 'undefined') {
 			console.error('Cannot load links - invalid company ID');
 			$('#important-links-container').html('<p class="important-links-loading" style="color: #d63638;">Błąd: Nieprawidłowe ID firmy</p>');
 			return;
 		}
 
-		const ajaxUrl = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.ajaxUrl) ? 
+		const ajaxUrl = (typeof wpmzfCompanyView !== 'undefined' && wpmzfCompanyView.ajaxUrl) ?
 			wpmzfCompanyView.ajaxUrl : ajaxurl;
 
 		$.ajax({
@@ -1934,7 +2076,7 @@ jQuery(document).ready(function ($) {
 				object_id: companyId,
 				object_type: 'company'
 			},
-			success: function(response) {
+			success: function (response) {
 				console.log('Links AJAX response:', response); // Debug
 				if (response.success) {
 					renderImportantLinks(response.data.links);
@@ -1942,7 +2084,7 @@ jQuery(document).ready(function ($) {
 					$('#important-links-container').html('<p class="important-links-loading" style="color: #d63638;">Błąd ładowania linków: ' + (response.data.message || 'Nieznany błąd') + '</p>');
 				}
 			},
-			error: function(xhr, status, error) {
+			error: function (xhr, status, error) {
 				console.error('Links AJAX error:', status, error); // Debug
 				$('#important-links-container').html('<p class="important-links-loading" style="color: #d63638;">Błąd podczas ładowania linków: ' + error + '</p>');
 			}
@@ -1951,18 +2093,18 @@ jQuery(document).ready(function ($) {
 
 	function renderImportantLinks(links) {
 		const container = $('#important-links-container');
-		
+
 		if (!links || links.length === 0) {
 			container.html('<p class="no-important-links">Brak ważnych linków. Kliknij "Dodaj link" aby dodać pierwszy.</p>');
 			return;
 		}
 
 		let html = '';
-		links.forEach(function(link) {
-			const faviconHtml = link.favicon ? 
+		links.forEach(function (link) {
+			const faviconHtml = link.favicon ?
 				`<img src="${escapeHtml(link.favicon)}" alt="Ikona" onerror="this.style.display='none'">` :
 				'🔗';
-			
+
 			html += `
 				<div class="important-link-item" data-link-id="${link.id}" data-url="${escapeHtml(link.url)}" data-custom-title="${escapeHtml(link.custom_title || '')}">
 					<div class="important-link-favicon">
@@ -1985,7 +2127,7 @@ jQuery(document).ready(function ($) {
 				</div>
 			`;
 		});
-		
+
 		container.html(html);
 	}
 

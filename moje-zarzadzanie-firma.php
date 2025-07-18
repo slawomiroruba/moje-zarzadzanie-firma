@@ -8,7 +8,7 @@
  */
 
 // Bezpośrednie wywołanie pliku jest zabronione.
-if (! defined('WPINC')) {
+if (! defined('ABSPATH')) {
     die;
 }
 
