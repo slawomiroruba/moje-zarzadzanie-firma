@@ -75,6 +75,7 @@ final class WPMZF_Plugin
     private function load_dependencies()
     {
         // Core
+        require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-php-compat.php'; // PHP compatibility helper (must be first)
         require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-loader.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-activator.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/core/class-wpmzf-logger.php';

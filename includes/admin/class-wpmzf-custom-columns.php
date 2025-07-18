@@ -55,6 +55,7 @@ class WPMZF_Custom_Columns_Service {
         switch ($column) {
             case 'company_status':
                 $status = get_field('company_status', $post_id) ?: 'Aktywny';
+                $status = $status ?? 'Aktywny'; // dodatkowa ochrona przed null
                 $status_class = 'status-' . strtolower(str_replace(' ', '-', $status));
                 echo "<span class='company-status-badge {$status_class}'>{$status}</span>";
                 break;

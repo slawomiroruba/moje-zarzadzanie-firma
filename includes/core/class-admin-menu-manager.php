@@ -27,6 +27,22 @@ class WPMZF_Admin_Menu_Manager
         // Załaduj klasy stron
         $this->load_page_classes();
 
+        // Sprawdź czy klasy zostały załadowane
+        $required_classes = array(
+            'WPMZF_Dashboard_Page',
+            'WPMZF_Persons_Page', 
+            'WPMZF_Companies_Page',
+            'WPMZF_Projects_Page',
+            'WPMZF_Documents_Page'
+        );
+
+        foreach ($required_classes as $class_name) {
+            if (!class_exists($class_name)) {
+                error_log("WPMZF: Nie można załadować klasy: {$class_name}");
+                return;
+            }
+        }
+
         // Zarejestruj strony
         $this->pages = array(
             'dashboard' => new WPMZF_Dashboard_Page(),
@@ -144,9 +160,14 @@ class WPMZF_Admin_Menu_Manager
      */
     private function add_special_pages($parent_slug)
     {
+        // Sprawdź czy strony są poprawnie zainicjalizowane
+        if (!isset($this->pages['persons']) || !isset($this->pages['companies']) || !isset($this->pages['projects'])) {
+            return;
+        }
+
         // Strona widoku pojedynczej osoby (dla kompatybilności z istniejącymi linkami)
         add_submenu_page(
-            null, // null = ukryta strona
+            '', // pusta strona = ukryta strona (zamiast null dla PHP 8.3+)
             'Widok osoby',
             'Widok osoby',
             'manage_options',
@@ -156,7 +177,7 @@ class WPMZF_Admin_Menu_Manager
 
         // Strona widoku pojedynczej firmy
         add_submenu_page(
-            null,
+            '',
             'Widok firmy',
             'Widok firmy',
             'manage_options',
@@ -166,7 +187,7 @@ class WPMZF_Admin_Menu_Manager
 
         // Strona widoku pojedynczego projektu
         add_submenu_page(
-            null,
+            '',
             'Widok projektu',
             'Widok projektu',
             'manage_options',

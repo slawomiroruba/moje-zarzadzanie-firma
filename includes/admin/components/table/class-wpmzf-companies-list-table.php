@@ -67,6 +67,7 @@ class WPMZF_companies_List_Table extends WP_List_Table {
         switch ($column_name) {
             case 'status':
                 $status = get_field('company_status', $item->ID) ?: 'Aktywny';
+                $status = $status ?? 'Aktywny'; // dodatkowa ochrona przed null
                 $status_class = 'status-' . strtolower(str_replace(' ', '-', $status));
                 return '<span class="company-status-badge ' . $status_class . '">' . esc_html($status) . '</span>';
             case 'email':

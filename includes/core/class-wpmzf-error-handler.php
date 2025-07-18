@@ -28,7 +28,7 @@ class WPMZF_Error_Handler {
         E_USER_ERROR => 'User Error',
         E_USER_WARNING => 'User Warning',
         E_USER_NOTICE => 'User Notice',
-        E_STRICT => 'Strict Standards',
+        8192 => 'Strict Standards', // E_STRICT is deprecated in PHP 8.4+
         E_RECOVERABLE_ERROR => 'Recoverable Error',
         E_DEPRECATED => 'Deprecated',
         E_USER_DEPRECATED => 'User Deprecated'

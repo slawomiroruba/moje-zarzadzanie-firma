@@ -226,9 +226,13 @@ class WPMZF_User_Service {
         $search = strtolower($search);
         
         return array_filter($users, function($user) use ($search) {
-            return strpos(strtolower($user->name), $search) !== false ||
-                   strpos(strtolower($user->email), $search) !== false ||
-                   strpos(strtolower($user->position), $search) !== false;
+            $name = $user->name ?? '';
+            $email = $user->email ?? '';
+            $position = $user->position ?? '';
+            
+            return strpos(strtolower($name), $search) !== false ||
+                   strpos(strtolower($email), $search) !== false ||
+                   strpos(strtolower($position), $search) !== false;
         });
     }
 }
