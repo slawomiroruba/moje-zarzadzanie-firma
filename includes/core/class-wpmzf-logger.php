@@ -76,6 +76,13 @@ class WPMZF_Logger {
     }
 
     /**
+     * Log critical message
+     */
+    public static function critical($message, $context = []) {
+        self::log($message, 'critical', $context);
+    }
+
+    /**
      * Log database query errors
      */
     public static function log_db_error($query, $error) {

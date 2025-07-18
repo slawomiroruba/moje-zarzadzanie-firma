@@ -52,7 +52,7 @@ class WPMZF_Admin_Menu_Manager
         );
 
         foreach ($page_files as $file) {
-            $file_path = dirname(__FILE__) . '/../pages/' . $file;
+            $file_path = dirname(__FILE__) . '/../admin/pages/' . $file;
             if (file_exists($file_path)) {
                 require_once $file_path;
             }
