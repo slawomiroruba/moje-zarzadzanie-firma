@@ -102,7 +102,11 @@ class WPMZF_Admin_Manager
         }
 
         if (class_exists('WPMZF_Debug_Admin_Page')) {
-            new WPMZF_Debug_Admin_Page();
+            WPMZF_Debug_Admin_Page::init();
+        }
+
+        if (class_exists('WPMZF_Custom_Columns_Service')) {
+            new WPMZF_Custom_Columns_Service();
         }
     }
 

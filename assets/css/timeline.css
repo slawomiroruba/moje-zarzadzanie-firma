@@ -130,6 +130,102 @@
 	font-size: 12px;
 }
 
+/* Style dla nowych badge'y powiązań */
+.timeline-related-objects {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+.relation-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 8px;
+	border-radius: 14px;
+	font-size: 11px;
+	font-weight: 500;
+	text-decoration: none;
+	border: 1px solid;
+	transition: all 0.2s ease;
+	max-width: 220px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.relation-badge:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	text-decoration: none;
+}
+
+.relation-badge-type {
+	font-weight: 600;
+	opacity: 0.8;
+}
+
+.relation-badge-name {
+	font-weight: 500;
+}
+
+/* Kolory dla różnych typów badge'y */
+.relation-badge-person {
+	background: #e3f2fd;
+	color: #1565c0;
+	border-color: #90caf9;
+}
+
+.relation-badge-person:hover {
+	background: #bbdefb;
+	color: #0d47a1;
+}
+
+.relation-badge-company {
+	background: #f3e5f5;
+	color: #7b1fa2;
+	border-color: #ce93d8;
+}
+
+.relation-badge-company:hover {
+	background: #e1bee7;
+	color: #4a148c;
+}
+
+.relation-badge-project {
+	background: #e8f5e8;
+	color: #2e7d32;
+	border-color: #a5d6a7;
+}
+
+.relation-badge-project:hover {
+	background: #c8e6c9;
+	color: #1b5e20;
+}
+
+.relation-badge-task {
+	background: #fff3e0;
+	color: #ef6c00;
+	border-color: #ffcc02;
+}
+
+.relation-badge-task:hover {
+	background: #ffe0b2;
+	color: #e65100;
+}
+
+.relation-badge-opportunity {
+	background: #fce4ec;
+	color: #c2185b;
+	border-color: #f8bbd9;
+}
+
+.relation-badge-opportunity:hover {
+	background: #f8bbd9;
+	color: #880e4f;
+}
+
 .timeline-date {
 	background: #e8f4fd;
 	color: #1565c0;
@@ -324,6 +420,17 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 4px;
+	}
+
+	/* Responsywne style dla nowych badge'y */
+	.timeline-related-objects {
+		gap: 4px;
+	}
+
+	.relation-badge {
+		font-size: 10px;
+		padding: 2px 6px;
+		max-width: 160px;
 	}
 
 	.timeline-item {

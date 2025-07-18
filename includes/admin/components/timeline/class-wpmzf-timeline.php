@@ -352,7 +352,8 @@ class WPMZF_Timeline
                         'id' => $related_id,
                         'title' => $related_title,
                         'icon' => $type_config['icon'],
-                        'url' => $url
+                        'url' => $url,
+                        'type_label' => $this->get_post_type_label($post_type)
                     ];
                 }
             }
@@ -371,16 +372,14 @@ class WPMZF_Timeline
                         <?php echo esc_html($type_label); ?>
                     </span>
                     <?php if (!empty($related_info)): ?>
-                        <span class="timeline-relates-to">
-                            • Dotyczy: 
-                            <?php foreach ($related_info as $i => $info): ?>
-                                <?php if ($i > 0) echo ', '; ?>
-                                <a href="<?php echo esc_url($info['url']); ?>" class="relation-link">
-                                    <span class="dashicons <?php echo esc_attr($info['icon']); ?>"></span>
-                                    <?php echo esc_html($info['title']); ?>
+                        <div class="timeline-related-objects">
+                            <?php foreach ($related_info as $info): ?>
+                                <a href="<?php echo esc_url($info['url']); ?>" class="relation-badge relation-badge-<?php echo esc_attr($info['type']); ?>" title="<?php echo esc_attr($info['type_label'] . ': ' . $info['title']); ?>">
+                                    <span class="relation-badge-type"><?php echo esc_html($info['type_label']); ?>:</span>
+                                    <span class="relation-badge-name"><?php echo esc_html($info['title']); ?></span>
                                 </a>
                             <?php endforeach; ?>
-                        </span>
+                        </div>
                     <?php endif; ?>
                 </div>
                 <div class="timeline-date"><?php echo esc_html($formatted_date); ?></div>
@@ -605,6 +604,13 @@ class WPMZF_Timeline
                     'base' => 'admin.php',
                     'param' => ['page' => 'wpmzf_view_task', 'task_id' => '']
                 ]
+            ],
+            'opportunity' => [
+                'icon' => 'dashicons-star-filled',
+                'url' => [
+                    'base' => 'admin.php',
+                    'param' => ['page' => 'wpmzf_view_opportunity', 'opportunity_id' => '']
+                ]
             ]
         ];
 
@@ -620,6 +626,22 @@ class WPMZF_Timeline
         }
 
         return $configs[$post_type];
+    }
+
+    /**
+     * Pobiera czytelną etykietę dla danego typu postu.
+     */
+    private function get_post_type_label($post_type)
+    {
+        $labels = [
+            'person' => 'Osoba',
+            'company' => 'Firma',
+            'project' => 'Projekt',
+            'task' => 'Zadanie',
+            'opportunity' => 'Szansa'
+        ];
+
+        return $labels[$post_type] ?? ucfirst($post_type);
     }
 }
 

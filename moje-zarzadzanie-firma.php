@@ -135,12 +135,14 @@ final class WPMZF_Plugin
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-custom-columns.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-meta-boxes.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-kanban-page.php';
-        require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/class-wpmzf-navbar.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/class-wpmzf-navbar-component.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/class-wpmzf-view-helper.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/card/simple-card.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-documents-list-table.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-persons-list-table.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/components/table/class-wpmzf-companies-list-table.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-universal-view-controller.php';
+        require_once WPMZF_PLUGIN_PATH . 'includes/admin/views/universal/class-wpmzf-universal-view-renderer.php';
         require_once WPMZF_PLUGIN_PATH . 'includes/admin/class-wpmzf-user-email-settings.php';
 
         // Data
@@ -178,7 +180,6 @@ final class WPMZF_Plugin
         new WPMZF_Opportunity_Service();
 
         // Email System
-        new WPMZF_User_Email_Settings();
         new WPMZF_Email_Service();
         WPMZF_Email_Database::create_tables(); // Tworzymy tabele przy inicjalizacji
 
@@ -187,14 +188,24 @@ final class WPMZF_Plugin
 
         // new WPMZF_Admin(); // WYŁĄCZONE - duplikuje funkcjonalność WPMZF_Admin_Pages
         // new WPMZF_Admin_Pages(); // PRZENIESIONE do init_admin_structure() 
-        WPMZF_Debug_Admin_Page::init();
-        new WPMZF_Custom_Columns_Service();
-        new WPMZF_Kanban_Page();
-        // new WPMZF_Navbar(); // WYŁĄCZONE - navbar jest renderowany przez WPMZF_View_Helper::render_complete_header()
+        // WPMZF_Debug_Admin_Page::init(); // PRZENIESIONE do WPMZF_Admin_Manager 
+        // new WPMZF_Custom_Columns_Service(); // PRZENIESIONE do WPMZF_Admin_Manager
+        // new WPMZF_Kanban_Page(); // PRZENIESIONE do WPMZF_Admin_Manager
+        // new WPMZF_Navbar(); // WYŁĄCZONE - używamy nowego komponentu WPMZF_Navbar_Component
+        
+        // Initialize new navbar component
+        WPMZF_Navbar_Component::init();
+        
         
         // Inicjalizuj WPMZF_View_Helper
         WPMZF_View_Helper::init();
 
+	// Initialize Universal View Controller
+	WPMZF_Universal_View_Controller::init();
+	
+	// Enqueue admin styles and scripts
+	add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
+	
         // REST API Controllers
         add_action('rest_api_init', function() {
             $user_controller = new WPMZF_User_Controller();
@@ -204,8 +215,7 @@ final class WPMZF_Plugin
         // Security and access control
         new WPMZF_Frontend_Blocker();
         
-        // Legacy components
-        new WPMZF_Meta_Boxes();
+        // Legacy components that are not admin-specific
         new WPMZF_Ajax_Handler();
         
         if (class_exists('ACF')) {
@@ -224,9 +234,6 @@ final class WPMZF_Plugin
         if (get_option('wpmzf_need_create_tables')) {
             WPMZF_Activator::create_tables();
         }
-
-        // Admin - nowa struktura z obsługą migracji
-        $this->init_admin_structure();
     }
 
     /**
@@ -251,6 +258,12 @@ final class WPMZF_Plugin
         } else {
             // Stara struktura (kompatybilność wsteczna)
             new WPMZF_Admin_Pages();
+            // Inicjalizuj komponenty administracyjne dla starej struktury
+            new WPMZF_Meta_Boxes();
+            new WPMZF_User_Email_Settings();
+            WPMZF_Debug_Admin_Page::init();
+            new WPMZF_Custom_Columns_Service();
+            new WPMZF_Kanban_Page();
         }
     }
 
@@ -260,7 +273,7 @@ final class WPMZF_Plugin
      * @param string $hook Nazwa haka bieżącej strony.
      */
     public function admin_enqueue_scripts($hook)
-    {
+    {        
         // Ładuj skrypt dyktowania na WSZYSTKICH stronach admina
         wp_enqueue_style(
             'wpmzf-voice-dictation-style',
@@ -350,6 +363,48 @@ final class WPMZF_Plugin
         if (isset($_GET['page']) && ($_GET['page'] === 'wpmzf_person_view' || $_GET['page'] === 'luna-crm-person-view')) {
             // Style i skrypty są już ładowane przez WPMZF_Admin_Pages
             // Usunięto duplikację ładowania assets
+        }
+    }
+
+    /**
+     * Enqueue assets for universal view system
+     */
+    public function enqueue_admin_assets($hook)
+    {
+        // Check if we're on a universal view page
+        if (strpos($hook, 'wpmzf_view_') !== false) {
+            // Enqueue universal view CSS
+            wp_enqueue_style(
+                'wpmzf-universal-view-css',
+                plugin_dir_url(__FILE__) . 'assets/css/universal-view.css',
+                array(),
+                filemtime(plugin_dir_path(__FILE__) . 'assets/css/universal-view.css')
+            );
+
+            // Enqueue universal view JavaScript
+            wp_enqueue_script(
+                'wpmzf-universal-view-js',
+                plugin_dir_url(__FILE__) . 'includes/admin/views/universal/universal-view.js',
+                array('jquery'),
+                filemtime(plugin_dir_path(__FILE__) . 'includes/admin/views/universal/universal-view.js'),
+                true
+            );
+
+            // Localize script with AJAX data
+            wp_localize_script('wpmzf-universal-view-js', 'wpmzf_universal', array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('wpmzf_universal_view_nonce'),
+                'strings' => array(
+                    'confirm_delete' => __('Czy na pewno chcesz usunąć ten element?', 'wpmzf'),
+                    'error_occurred' => __('Wystąpił błąd. Spróbuj ponownie.', 'wpmzf'),
+                    'task_added' => __('Zadanie zostało dodane.', 'wpmzf'),
+                    'task_updated' => __('Zadanie zostało zaktualizowane.', 'wpmzf'),
+                    'task_deleted' => __('Zadanie zostało usunięte.', 'wpmzf'),
+                    'activity_added' => __('Aktywność została dodana.', 'wpmzf'),
+                    'activity_updated' => __('Aktywność została zaktualizowana.', 'wpmzf'),
+                    'activity_deleted' => __('Aktywność została usunięta.', 'wpmzf'),
+                )
+            ));
         }
     }
 

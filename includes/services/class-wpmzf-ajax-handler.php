@@ -240,6 +240,12 @@ class WPMZF_Ajax_Handler
             $nonce_verified = true;
         } elseif (isset($_POST['security']) && wp_verify_nonce($_POST['security'], 'wpmzf_person_view_nonce')) {
             $nonce_verified = true;
+        } elseif (isset($_POST['wpmzf_note_security']) && wp_verify_nonce($_POST['wpmzf_note_security'], 'wpmzf_company_view_nonce')) {
+            $nonce_verified = true;
+        } elseif (isset($_POST['wpmzf_email_security']) && wp_verify_nonce($_POST['wpmzf_email_security'], 'wpmzf_company_view_nonce')) {
+            $nonce_verified = true;
+        } elseif (isset($_POST['security']) && wp_verify_nonce($_POST['security'], 'wpmzf_company_view_nonce')) {
+            $nonce_verified = true;
         }
         
         if (!$nonce_verified) {

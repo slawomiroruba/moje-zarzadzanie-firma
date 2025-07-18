@@ -3,8 +3,7 @@
 	background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
 	border: 1px solid #e1e5e9;
 	border-radius: 12px;
-	padding: 24px 28px;
-	margin: 20px 0 28px;
+	margin: 0 0 28px 0;
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 	position: relative;
 	overflow: hidden;
@@ -28,6 +27,70 @@
 	line-height: 1.2;
 	padding: 0 !important;
 	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+/* Dashboard Box Header with Actions - NOWE STYLE */
+.dashboard-box .dashboard-header {
+	background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+	border: none;
+	border-bottom: 1px solid #e1e5e9;
+	border-radius: 12px 12px 0 0;
+	margin: 0;
+	padding: 20px;
+	box-shadow: none;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+}
+
+.dashboard-box .dashboard-header::before {
+	display: none;
+}
+
+.dashboard-box .dashboard-header h2.dashboard-title {
+	margin: 0;
+	padding: 0;
+	border: none;
+	background: none;
+	border-radius: 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: #1d2327;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1;
+}
+
+.dashboard-box .dashboard-header .dashicons {
+	color: #2271b1;
+	font-size: 18px;
+}
+
+.dashboard-box .dashboard-header .button {
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.dashboard-box .dashboard-header .button-small {
+	padding: 4px 12px;
+	font-size: 12px;
+	line-height: 1.4;
+	height: auto;
+	border-radius: 6px;
+}
+
+.dashboard-box .dashboard-header .button-secondary {
+	background: #f0f6fc;
+	border-color: #2271b1;
+	color: #2271b1;
+	text-decoration: none;
+}
+
+.dashboard-box .dashboard-header .button-secondary:hover {
+	background: #2271b1;
+	color: #fff;
 }
 
 /* Dashboard Layout */
@@ -77,6 +140,23 @@
 	justify-content: space-between;
 	align-items: center;
 	gap: 8px;
+}
+
+/* Style dla dashboard-title wewnątrz dashboard-header - mają nadrzędny priorytet */
+.dashboard-box .dashboard-header h2.dashboard-title {
+	margin: 0 !important;
+	padding: 0 !important;
+	border: none !important;
+	background: none !important;
+	border-radius: 0 !important;
+	font-size: 16px;
+	font-weight: 600;
+	color: #1d2327;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1;
+	justify-content: flex-start;
 }
 
 .dashboard-title .dashicons {
@@ -557,6 +637,101 @@
 	font-size: 10px;
 }
 
+/* Nowe style dla badge'y powiązań */
+#dashboard-timeline-section .timeline-related-objects {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 4px;
+}
+
+#dashboard-timeline-section .relation-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 2px 6px;
+	border-radius: 12px;
+	font-size: 10px;
+	font-weight: 500;
+	text-decoration: none;
+	border: 1px solid;
+	transition: all 0.2s ease;
+	max-width: 200px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+#dashboard-timeline-section .relation-badge:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#dashboard-timeline-section .relation-badge-type {
+	font-weight: 600;
+	opacity: 0.8;
+}
+
+#dashboard-timeline-section .relation-badge-name {
+	font-weight: 500;
+}
+
+/* Kolory dla różnych typów badge'y */
+#dashboard-timeline-section .relation-badge-person {
+	background: #e3f2fd;
+	color: #1565c0;
+	border-color: #90caf9;
+}
+
+#dashboard-timeline-section .relation-badge-person:hover {
+	background: #bbdefb;
+	color: #0d47a1;
+}
+
+#dashboard-timeline-section .relation-badge-company {
+	background: #f3e5f5;
+	color: #7b1fa2;
+	border-color: #ce93d8;
+}
+
+#dashboard-timeline-section .relation-badge-company:hover {
+	background: #e1bee7;
+	color: #4a148c;
+}
+
+#dashboard-timeline-section .relation-badge-project {
+	background: #e8f5e8;
+	color: #2e7d32;
+	border-color: #a5d6a7;
+}
+
+#dashboard-timeline-section .relation-badge-project:hover {
+	background: #c8e6c9;
+	color: #1b5e20;
+}
+
+#dashboard-timeline-section .relation-badge-task {
+	background: #fff3e0;
+	color: #ef6c00;
+	border-color: #ffcc02;
+}
+
+#dashboard-timeline-section .relation-badge-task:hover {
+	background: #ffe0b2;
+	color: #e65100;
+}
+
+#dashboard-timeline-section .relation-badge-opportunity {
+	background: #fce4ec;
+	color: #c2185b;
+	border-color: #f8bbd9;
+}
+
+#dashboard-timeline-section .relation-badge-opportunity:hover {
+	background: #f8bbd9;
+	color: #880e4f;
+}
+
 #dashboard-timeline-section .timeline-empty {
 	padding: 30px 20px;
 	text-align: center;
@@ -596,6 +771,33 @@
 
 	.dashboard-title {
 		padding: 16px;
+	}
+
+	/* Responsywne style dla dashboard-header */
+	.dashboard-box .dashboard-header {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 8px;
+		padding: 16px;
+	}
+
+	.dashboard-box .dashboard-header h2.dashboard-title {
+		width: 100%;
+	}
+
+	.dashboard-box .dashboard-header .button {
+		align-self: flex-end;
+	}
+
+	/* Responsywne style dla badge'y powiązań na mniejszych ekranach */
+	#dashboard-timeline-section .timeline-related-objects {
+		gap: 3px;
+	}
+
+	#dashboard-timeline-section .relation-badge {
+		font-size: 9px;
+		padding: 1px 4px;
+		max-width: 150px;
 	}
 
 	.quick-stats,

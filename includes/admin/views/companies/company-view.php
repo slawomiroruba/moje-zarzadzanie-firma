@@ -1364,7 +1364,7 @@ $company_address = $company_fields['company_address'] ?? [];
 
                                 <div id="note-tab-content" class="tab-content active">
                                     <form id="wpmzf-add-note-form" method="post" enctype="multipart/form-data">
-                                        <?php wp_nonce_field('wpmzf_person_view_nonce', 'wpmzf_note_security'); ?>
+                                        <?php wp_nonce_field('wpmzf_company_view_nonce', 'wpmzf_note_security'); ?>
                                         <input type="hidden" name="company_id" value="<?php echo esc_attr($company_id); ?>">
                                         
                                         <input type="file" id="wpmzf-note-files-input" name="activity_files[]" multiple style="display: none;">
@@ -1424,7 +1424,7 @@ $company_address = $company_fields['company_address'] ?? [];
 
                                 <div id="email-tab-content" class="tab-content">
                                     <form id="wpmzf-send-email-form" method="post">
-                                        <?php wp_nonce_field('wpmzf_person_view_nonce', 'wpmzf_email_security'); ?>
+                                        <?php wp_nonce_field('wpmzf_company_view_nonce', 'wpmzf_email_security'); ?>
                                         <input type="hidden" name="company_id" value="<?php echo esc_attr($company_id); ?>">
                                         
                                         <div class="email-fields-grid">
@@ -1456,6 +1456,38 @@ $company_address = $company_fields['company_address'] ?? [];
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Główny formularz aktywności (używany przez JavaScript) -->
+                    <div style="display: none;">
+                        <form id="wpmzf-add-activity-form" method="post" enctype="multipart/form-data">
+                            <?php wp_nonce_field('wpmzf_company_view_nonce', 'security'); ?>
+                            <input type="hidden" name="company_id" value="<?php echo esc_attr($company_id); ?>">
+                            
+                            <textarea id="wpmzf-activity-content" name="content"></textarea>
+                            
+                            <select id="wpmzf-activity-type" name="activity_type">
+                                <option value="notatka">Notatka</option>
+                                <option value="rozmowa">Rozmowa telefoniczna</option>
+                                <option value="spotkanie">Spotkanie</option>
+                                <option value="email">E-mail</option>
+                                <option value="inne">Inne</option>
+                            </select>
+                            
+                            <input type="datetime-local" id="wpmzf-activity-date" name="activity_date">
+                            
+                            <!-- Pola dla emaili -->
+                            <input type="email" name="email_to" placeholder="Do">
+                            <input type="text" name="email_cc" placeholder="DW">
+                            <input type="text" name="email_bcc" placeholder="UDW">
+                            <input type="text" name="email_subject" placeholder="Temat">
+                            
+                            <button type="submit">Dodaj aktywność</button>
+                            <button type="button" id="wpmzf-note-attach-files-btn">Załącz pliki</button>
+                            <input type="file" id="wpmzf-note-files-input" name="activity_files[]" multiple style="display: none;">
+                            
+                            <div id="wpmzf-note-attachments-preview-container"></div>
+                        </form>
                     </div>
 
                     <div id="wpmzf-activity-timeline-container" class="dossier-box">
