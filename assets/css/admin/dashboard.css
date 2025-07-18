@@ -1,4 +1,4 @@
-/* Dashboard Styles - identyczne z widokami osób/firm */
+/* Dashboard Styles */
 .dashboard-header {
 	background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
 	border: 1px solid #e1e5e9;
@@ -30,11 +30,13 @@
 	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
-.dashboard-grid {
+/* Dashboard Layout */
+.dashboard-grid,
+.dashboard-container {
 	display: grid;
-	grid-template-columns: 320px 1fr 360px;
+	grid-template-columns: 300px 1fr 320px;
 	gap: 24px;
-	margin-top: 0;
+	margin-top: 20px;
 }
 
 .dashboard-left-column,
@@ -45,47 +47,61 @@
 	gap: 24px;
 }
 
+/* Dashboard Box */
 .dashboard-box {
 	background: #fff;
 	border: 1px solid #e1e5e9;
-	border-radius: 8px;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-	transition: all 0.2s ease;
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+	overflow: hidden;
+	transition: all 0.3s ease;
 }
 
 .dashboard-box:hover {
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+	transform: translateY(-2px);
 	border-color: #d0d5dd;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.dashboard-box h2.dashboard-title {
-	font-size: 14px;
+.dashboard-box h2.dashboard-title,
+.dashboard-title {
+	font-size: 16px;
 	font-weight: 600;
-	padding: 16px 20px;
+	padding: 20px;
 	margin: 0;
 	border-bottom: 1px solid #e1e5e9;
-	background: #f8f9fa;
-	border-radius: 8px 8px 0 0;
+	background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+	border-radius: 12px 12px 0 0;
 	color: #1d2327;
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	gap: 8px;
 }
 
-.dashboard-box .dashboard-content {
+.dashboard-title .dashicons {
+	color: #2271b1;
+	font-size: 18px;
+}
+
+.dashboard-box .dashboard-content,
+.dashboard-content {
 	padding: 20px;
 }
 
-.quick-stats {
+/* Quick Stats */
+.quick-stats,
+.stats-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 	gap: 16px;
 	margin-bottom: 24px;
 }
 
-.stat-tile {
-	background: #fff;
-	border: 1px solid #e1e5e9;
+.stat-tile,
+.stat-item {
+	background: linear-gradient(135deg, #f0f6fc 0%, #ffffff 100%);
+	border: 1px solid #e3f2fd;
 	border-radius: 8px;
 	padding: 20px;
 	text-align: center;
@@ -93,9 +109,11 @@
 	transition: all 0.2s ease;
 }
 
-.stat-tile:hover {
+.stat-tile:hover,
+.stat-item:hover {
 	border-color: #2271b1;
 	box-shadow: 0 2px 8px rgba(34, 113, 177, 0.15);
+	transform: translateY(-1px);
 }
 
 .stat-tile.overdue {
@@ -103,64 +121,93 @@
 	background: #fdf2f2;
 }
 
-.stat-tile .stat-number {
-	font-size: 32px;
+.stat-tile .stat-number,
+.stat-number {
+	font-size: 28px;
 	font-weight: 700;
-	color: #1d2327;
+	color: #2271b1;
 	line-height: 1;
 	margin-bottom: 8px;
+	display: block;
 }
 
 .stat-tile.overdue .stat-number {
 	color: #dc3232;
 }
 
-.stat-tile .stat-label {
-	font-size: 13px;
+.stat-tile .stat-label,
+.stat-label {
+	font-size: 12px;
 	color: #646970;
 	font-weight: 500;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
 }
 
-.recent-item {
+/* Recent Items */
+.recent-item,
+.company-item {
 	display: flex;
 	align-items: center;
+	gap: 12px;
 	padding: 12px 0;
 	border-bottom: 1px solid #f0f0f1;
 	transition: all 0.2s ease;
 }
 
-.recent-item:last-child {
+.recent-item:last-child,
+.company-item:last-child {
 	border-bottom: none;
 }
 
-.recent-item:hover {
+.recent-item:hover,
+.company-item:hover {
 	background: #f8f9fa;
 	margin: 0 -20px;
 	padding: 12px 20px;
 	border-radius: 4px;
 }
 
-.recent-item .item-title {
+.recent-item .item-title,
+.company-name {
 	font-weight: 600;
 	color: #2271b1;
 	text-decoration: none;
 	margin-bottom: 4px;
+	display: block;
 }
 
-.recent-item .item-title:hover {
+.recent-item .item-title:hover,
+.company-name:hover {
 	color: #135e96;
 	text-decoration: underline;
 }
 
-.recent-item .item-meta {
+.recent-item .item-meta,
+.company-date {
 	font-size: 12px;
 	color: #646970;
 }
 
-/* Usunięto stare style .activity-item - teraz używamy timeline */
+.company-avatar {
+	width: 36px;
+	height: 36px;
+	background: linear-gradient(135deg, #2271b1, #72aee6);
+	border-radius: 8px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+	font-weight: 600;
+	font-size: 14px;
+	flex-shrink: 0;
+}
 
+.company-info {
+	flex: 1;
+}
+
+/* Tasks */
 .task-item-simple {
 	display: flex;
 	align-items: center;
@@ -212,6 +259,7 @@
 	color: #0073aa;
 }
 
+/* Navigation Buttons */
 .nav-button {
 	display: inline-flex;
 	align-items: center;
@@ -246,20 +294,20 @@
 	font-size: 16px;
 }
 
-/* Opportunities Widget Styles */
+/* Opportunities */
 .opportunities-stats {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 	gap: 12px;
 	margin-bottom: 20px;
 }
 
 .opportunity-status-item {
-	background: #f8f9fa;
-	border: 1px solid #e1e5e9;
-	border-radius: 6px;
-	padding: 12px;
 	text-align: center;
+	padding: 16px 12px;
+	border-radius: 8px;
+	border: 1px solid #e1e5e9;
+	background: #fff;
 	transition: all 0.2s ease;
 }
 
@@ -268,11 +316,16 @@
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.opportunity-status-item.status-nowa {
+.opportunity-status-item.status-nowa,
+.opportunity-status-item.status-nowy {
+	background: linear-gradient(135deg, #fff9c4 0%, #ffffff 100%);
+	border-color: #fbc02d;
 	border-left: 4px solid #3498db;
 }
 
 .opportunity-status-item.status-w-toku {
+	background: linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%);
+	border-color: #2196f3;
 	border-left: 4px solid #f39c12;
 }
 
@@ -280,40 +333,47 @@
 	border-left: 4px solid #9b59b6;
 }
 
-.opportunity-status-item.status-wygrana {
+.opportunity-status-item.status-wygrana,
+.opportunity-status-item.status-wygrany {
+	background: linear-gradient(135deg, #e8f5e8 0%, #ffffff 100%);
+	border-color: #4caf50;
 	border-left: 4px solid #27ae60;
 }
 
-.opportunity-status-item.status-przegrana {
+.opportunity-status-item.status-przegrana,
+.opportunity-status-item.status-przegrany {
+	background: linear-gradient(135deg, #ffebee 0%, #ffffff 100%);
+	border-color: #f44336;
 	border-left: 4px solid #e74c3c;
 }
 
 .status-count {
-	font-size: 18px;
+	font-size: 20px;
 	font-weight: 700;
 	color: #1d2327;
 	line-height: 1;
 	margin-bottom: 4px;
+	display: block;
 }
 
 .status-name {
 	font-size: 11px;
+	color: #646970;
 	font-weight: 600;
-	color: #50575e;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	margin-bottom: 2px;
+	margin-bottom: 4px;
 }
 
 .status-value {
-	font-size: 10px;
-	color: #8c8f94;
+	font-size: 12px;
+	color: #2271b1;
 	font-weight: 500;
 }
 
 .opportunities-due-soon {
-	border-top: 1px solid #e1e5e9;
-	padding-top: 15px;
+	border-top: 1px solid #f0f0f1;
+	padding-top: 16px;
 }
 
 .opportunity-due-item {
@@ -321,7 +381,7 @@
 	justify-content: space-between;
 	align-items: center;
 	padding: 8px 0;
-	border-bottom: 1px solid #f1f1f1;
+	border-bottom: 1px solid #f8f9fa;
 }
 
 .opportunity-due-item:last-child {
@@ -329,18 +389,21 @@
 }
 
 .opportunity-due-item.overdue {
-	background: rgba(220, 53, 69, 0.05);
+	background: linear-gradient(90deg, rgba(244, 67, 54, 0.05) 0%, transparent 100%);
+	border-left: 3px solid #f44336;
+	padding-left: 8px;
+	margin-left: -8px;
 	border-radius: 4px;
-	padding: 8px 10px;
-	margin: 2px 0;
 }
 
 .opportunity-title {
-	font-weight: 600;
+	font-weight: 500;
 	color: #1d2327;
 	text-decoration: none;
 	font-size: 13px;
 	line-height: 1.3;
+	display: block;
+	margin-bottom: 2px;
 }
 
 .opportunity-title:hover {
@@ -348,8 +411,8 @@
 }
 
 .opportunity-meta {
-	font-size: 11px;
-	color: #8c8f94;
+	font-size: 12px;
+	color: #646970;
 	margin-top: 2px;
 }
 
@@ -359,12 +422,10 @@
 }
 
 .days-left {
-	font-size: 10px;
-	font-weight: 600;
+	font-size: 11px;
+	font-weight: 500;
 	padding: 2px 6px;
-	border-radius: 3px;
-	background: #f0f0f1;
-	color: #50575e;
+	border-radius: 8px;
 }
 
 .days-left.today {
@@ -377,13 +438,172 @@
 	color: #721c24;
 }
 
+.days-left:not(.today):not(.overdue) {
+	background: #d1ecf1;
+	color: #0c5460;
+}
+
+/* Timeline w dashboard */
+#dashboard-timeline-section .wpmzf-timeline-container {
+	margin: 0;
+}
+
+#dashboard-timeline-section .timeline-header {
+	display: none;
+	/* Ukrywamy przycisk "Dodaj aktywność" w dashboard */
+}
+
+#dashboard-timeline-section .timeline-content {
+	padding-left: 20px;
+}
+
+#dashboard-timeline-section .timeline-content::before {
+	left: 10px;
+	background: linear-gradient(to bottom, #2271b1, #e9ecef);
+}
+
+#dashboard-timeline-section .timeline-item {
+	margin-bottom: 16px;
+}
+
+#dashboard-timeline-section .timeline-marker {
+	margin-left: -20px;
+}
+
+#dashboard-timeline-section .timeline-avatar {
+	width: 28px;
+	height: 28px;
+	border-width: 2px;
+}
+
+#dashboard-timeline-section .timeline-icon {
+	width: 14px;
+	height: 14px;
+	bottom: -1px;
+	right: -1px;
+}
+
+#dashboard-timeline-section .timeline-icon .dashicons {
+	font-size: 7px;
+}
+
+#dashboard-timeline-section .timeline-content-item {
+	border-radius: 6px;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+	border: 1px solid #f0f0f1;
+}
+
+#dashboard-timeline-section .timeline-content-item:hover {
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	transform: translateY(-1px);
+	border-color: #e1e5e9;
+}
+
+#dashboard-timeline-section .timeline-header {
+	padding: 10px 14px 6px;
+	border-radius: 6px 6px 0 0;
+	background: #fafbfc;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+#dashboard-timeline-section .timeline-body {
+	padding: 12px 14px;
+}
+
+#dashboard-timeline-section .timeline-meta {
+	font-size: 11px;
+	gap: 4px;
+	line-height: 1.3;
+}
+
+#dashboard-timeline-section .timeline-date {
+	background: #f0f6fc;
+	color: #1565c0;
+	padding: 1px 6px;
+	border-radius: 8px;
+	font-size: 10px;
+	font-weight: 500;
+}
+
+#dashboard-timeline-section .activity-content-display {
+	font-size: 12px;
+	line-height: 1.4;
+	margin-bottom: 8px;
+}
+
+#dashboard-timeline-section .timeline-actions {
+	opacity: 0.6;
+}
+
+#dashboard-timeline-section .timeline-item:hover .timeline-actions {
+	opacity: 1;
+}
+
+#dashboard-timeline-section .timeline-actions .button-icon {
+	width: 24px;
+	height: 24px;
+}
+
+#dashboard-timeline-section .timeline-relates-to {
+	font-size: 10px !important;
+}
+
+#dashboard-timeline-section .timeline-relates-to .relation-link {
+	font-size: 10px;
+	gap: 2px;
+}
+
+#dashboard-timeline-section .timeline-relates-to .dashicons {
+	font-size: 10px;
+}
+
+#dashboard-timeline-section .timeline-empty {
+	padding: 30px 20px;
+	text-align: center;
+}
+
+#dashboard-timeline-section .timeline-empty .dashicons {
+	font-size: 28px;
+	opacity: 0.4;
+}
+
+/* Responsywność */
 @media screen and (max-width: 1200px) {
-	.dashboard-grid {
+
+	.dashboard-grid,
+	.dashboard-container {
 		grid-template-columns: 1fr;
 		gap: 20px;
 	}
 
-	.quick-stats {
+	.quick-stats,
+	.stats-grid {
 		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	}
+}
+
+@media screen and (max-width: 768px) {
+
+	.dashboard-grid,
+	.dashboard-container {
+		gap: 16px;
+		margin-top: 16px;
+	}
+
+	.dashboard-content {
+		padding: 16px;
+	}
+
+	.dashboard-title {
+		padding: 16px;
+	}
+
+	.quick-stats,
+	.stats-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+
+	.opportunities-stats {
+		grid-template-columns: 1fr 1fr;
 	}
 }
