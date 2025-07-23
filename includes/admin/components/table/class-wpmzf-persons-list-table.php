@@ -133,10 +133,10 @@ class WPMZF_persons_List_Table extends WP_List_Table {
         
         try {
             // Rate limiting dla masowych akcji
-            if (!$this->rate_limiter->check_rate_limit('bulk_action_persons', 5, 60)) {
-                WPMZF_Logger::log_security_violation('Bulk action rate limit exceeded', get_current_user_id());
-                wp_die(__('Too many bulk actions. Please wait a moment.', 'wpmzf'));
-            }
+            // if (!$this->rate_limiter->check_rate_limit('bulk_action_persons', 5, 60)) {
+            //     WPMZF_Logger::log_security_violation('Bulk action rate limit exceeded', get_current_user_id());
+            //     wp_die(__('Too many bulk actions. Please wait a moment.', 'wpmzf'));
+            // }
 
             // Sprawdzenie nonce dla bezpieczeństwa
             if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'bulk-' . $this->_args['plural'])) {

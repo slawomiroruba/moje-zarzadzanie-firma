@@ -49,11 +49,11 @@ class WPMZF_Time_Tracking {
         $timer_id = $this->performance_monitor->start_timer('time_tracking_start_timer');
         
         try {
-            // Rate limiting
-            if (!$this->rate_limiter->check_rate_limit('start_timer', 10, 60)) {
-                WPMZF_Logger::log_security_violation('Timer start rate limit exceeded', get_current_user_id());
-                wp_send_json_error(__('Too many timer starts. Please wait a moment.', 'wpmzf'));
-            }
+            // // Rate limiting
+            // if (!$this->rate_limiter->check_rate_limit('start_timer', 10, 60)) {
+            //     WPMZF_Logger::log_security_violation('Timer start rate limit exceeded', get_current_user_id());
+            //     wp_send_json_error(__('Too many timer starts. Please wait a moment.', 'wpmzf'));
+            // }
 
             check_ajax_referer('wpmzf_nonce', 'nonce');
 
@@ -118,10 +118,10 @@ class WPMZF_Time_Tracking {
         
         try {
             // Rate limiting
-            if (!$this->rate_limiter->check_rate_limit('stop_timer', 10, 60)) {
-                WPMZF_Logger::log_security_violation('Timer stop rate limit exceeded', get_current_user_id());
-                wp_send_json_error(__('Too many timer stops. Please wait a moment.', 'wpmzf'));
-            }
+            // if (!$this->rate_limiter->check_rate_limit('stop_timer', 10, 60)) {
+            //     WPMZF_Logger::log_security_violation('Timer stop rate limit exceeded', get_current_user_id());
+            //     wp_send_json_error(__('Too many timer stops. Please wait a moment.', 'wpmzf'));
+            // }
 
             check_ajax_referer('wpmzf_nonce', 'nonce');
 

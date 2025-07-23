@@ -48,10 +48,10 @@ class WPMZF_Reports {
         
         try {
             // Rate limiting dla generowania raportów
-            if (!$this->rate_limiter->check_rate_limit('generate_report', 5, 60)) {
-                WPMZF_Logger::log_security_violation('Report generation rate limit exceeded', get_current_user_id());
-                wp_send_json_error(__('Too many report requests. Please wait a moment.', 'wpmzf'));
-            }
+            // if (!$this->rate_limiter->check_rate_limit('generate_report', 5, 60)) {
+            //     WPMZF_Logger::log_security_violation('Report generation rate limit exceeded', get_current_user_id());
+            //     wp_send_json_error(__('Too many report requests. Please wait a moment.', 'wpmzf'));
+            // }
 
             check_ajax_referer('wpmzf_nonce', 'nonce');
 
