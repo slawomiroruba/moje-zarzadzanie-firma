@@ -181,7 +181,6 @@ class WPMZF_Navbar_Component {
     position: relative;
     z-index: 9999;
     margin: 0 0 20px -20px;
-    margin-right: -20px;
 }
 
 .wpmzf-navbar-container {
