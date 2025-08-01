@@ -1806,7 +1806,6 @@
 }
 
 .company-header,
-.person-header,
 .project-header {
     display: flex;
     justify-content: space-between;
@@ -1815,7 +1814,6 @@
 }
 
 .company-header h3,
-.person-header h3,
 .project-header h3 {
     margin: 0;
     font-size: 16px;
@@ -1824,20 +1822,17 @@
 }
 
 .company-actions,
-.person-actions,
 .project-actions {
     display: flex;
     gap: 4px;
 }
 
 .company-details,
-.person-details,
 .project-details {
     margin-bottom: 15px;
 }
 
-.company-details p,
-.person-details p,
+.company.details p,
 .project-details p {
     margin: 0 0 8px 0;
     font-size: 14px;
@@ -2057,7 +2052,6 @@
     }
     
     .company-header,
-    .person-header,
     .project-header {
         flex-direction: column;
         gap: 10px;
