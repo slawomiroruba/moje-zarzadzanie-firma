@@ -499,8 +499,10 @@ jQuery(document).ready(function ($) {
 			success: function (response) {
 				console.log('Activities response:', response);
 				if (response.success) {
-					if (response.data && response.data.length > 0) {
-						renderTimeline(response.data);
+					// PHP zwraca {success: true, data: {activities: [...]}}
+					const activities = response.data.activities || response.data;
+					if (activities && activities.length > 0) {
+						renderTimeline(activities);
 					} else {
 						timelineContainer.html('<p><em>Brak zarejestrowanych aktywności. Dodaj pierwszą!</em></p>');
 					}
@@ -521,7 +523,14 @@ jQuery(document).ready(function ($) {
 	async function renderTimeline(activities) {
 		console.log('Rendering timeline with activities:', activities);
 
-		if (!activities || activities.length === 0) {
+		// Sprawdź czy activities jest prawidłową tablicą
+		if (!activities || !Array.isArray(activities)) {
+			console.error('Activities is not an array:', activities);
+			timelineContainer.html('<p><em>Błąd: Nieprawidłowe dane aktywności.</em></p>');
+			return;
+		}
+
+		if (activities.length === 0) {
 			timelineContainer.html('<p><em>Brak zarejestrowanych aktywności. Dodaj pierwszą!</em></p>');
 			return;
 		}

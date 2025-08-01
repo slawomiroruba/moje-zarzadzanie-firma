@@ -631,6 +631,7 @@ class WPMZF_ACF_Fields
                     'post_type' => array('person'),
                     'max' => 1,
                     'required' => 0,
+                    'return_format' => 'id', // Zwracaj ID zamiast obiektu
                 ),
                 // Pole do powiązania aktywności z firmą
                 array(
@@ -641,6 +642,7 @@ class WPMZF_ACF_Fields
                     'post_type' => array('company'),
                     'max' => 1,
                     'required' => 0,
+                    'return_format' => 'id', // Zwracaj ID zamiast obiektu
                 ),
                 // Pole do powiązania aktywności z projektem
                 array(
@@ -651,6 +653,7 @@ class WPMZF_ACF_Fields
                     'post_type' => array('project'),
                     'max' => 1,
                     'required' => 0,
+                    'return_format' => 'id', // Zwracaj ID zamiast obiektu
                 ),
             ),
             'location' => array(

@@ -1164,6 +1164,7 @@ $activities_query = new WP_Query($activities_args);
                                 $activity_date = get_field('activity_date', $activity_id);
                                 $related_person = get_field('related_person', $activity_id);
                                 $related_company = get_field('related_company', $activity_id);
+                                $related_project = get_field('related_project', $activity_id);
                                 $activity_content = $activity_post->post_content;
                                 $activity_author = get_the_author_meta('display_name', $activity_post->post_author);
                                 $activity_author_id = $activity_post->post_author;
@@ -1217,19 +1218,92 @@ $activities_query = new WP_Query($activities_args);
                                                 <?php echo wp_kses_post(wp_trim_words($activity_content, 30)); ?>
                                             </div>
                                             
-                                            <?php if ($related_person || $related_company): ?>
+                                            <?php 
+                                            // Funkcja pomocnicza do normalizacji ID z pól ACF relationship
+                                            $normalize_related_id = function($related_value) {
+                                                if (empty($related_value)) return null;
+                                                
+                                                // Jeśli to tablica
+                                                if (is_array($related_value)) {
+                                                    if (empty($related_value)) return null;
+                                                    $first_item = $related_value[0];
+                                                    
+                                                    // Jeśli element tablicy to obiekt WP_Post
+                                                    if (is_object($first_item) && isset($first_item->ID)) {
+                                                        return $first_item->ID;
+                                                    }
+                                                    // Jeśli element tablicy to ID
+                                                    if (is_numeric($first_item)) {
+                                                        return (int)$first_item;
+                                                    }
+                                                    return null;
+                                                }
+                                                
+                                                // Jeśli to obiekt WP_Post
+                                                if (is_object($related_value) && isset($related_value->ID)) {
+                                                    return $related_value->ID;
+                                                }
+                                                
+                                                // Jeśli to bezpośrednio ID
+                                                if (is_numeric($related_value)) {
+                                                    return (int)$related_value;
+                                                }
+                                                
+                                                return null;
+                                            };
+                                            
+                                            // Funkcja pomocnicza do generowania linku dla danego post type
+                                            $get_related_link = function($related_id, $post_type) {
+                                                if (!$related_id) return null;
+                                                
+                                                $title = get_the_title($related_id);
+                                                if (!$title) return null;
+                                                
+                                                $page_map = [
+                                                    'person' => ['page' => 'wpmzf_view_person', 'person_id' => $related_id],
+                                                    'company' => ['page' => 'wpmzf_view_company', 'company_id' => $related_id], 
+                                                    'project' => ['page' => 'wpmzf_view_project', 'project_id' => $related_id]
+                                                ];
+                                                
+                                                if (!isset($page_map[$post_type])) return null;
+                                                
+                                                $url = add_query_arg($page_map[$post_type], admin_url('admin.php'));
+                                                return [
+                                                    'title' => $title,
+                                                    'url' => $url,
+                                                    'post_type' => $post_type
+                                                ];
+                                            };
+                                            
+                                            // Normalizuj ID z pól ACF
+                                            $normalized_person_id = $normalize_related_id($related_person);
+                                            $normalized_company_id = $normalize_related_id($related_company);
+                                            $normalized_project_id = $normalize_related_id($related_project);
+                                            
+                                            $related_links = [];
+                                            if ($normalized_person_id) {
+                                                $link = $get_related_link($normalized_person_id, 'person');
+                                                if ($link) $related_links[] = $link;
+                                            }
+                                            if ($normalized_company_id) {
+                                                $link = $get_related_link($normalized_company_id, 'company');
+                                                if ($link) $related_links[] = $link;
+                                            }
+                                            if ($normalized_project_id && $normalized_project_id != $project_id) { // Nie pokazuj tego samego projektu
+                                                $link = $get_related_link($normalized_project_id, 'project');
+                                                if ($link) $related_links[] = $link;
+                                            }
+                                            ?>
+                                            
+                                            <?php if (!empty($related_links)): ?>
                                                 <div class="activity-related">
-                                                    <strong>Dotycząca:</strong> 
-                                                    <?php if ($related_person): ?>
-                                                        <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_person', 'person_id' => $related_person], admin_url('admin.php'))); ?>">
-                                                            <?php echo esc_html(get_the_title($related_person)); ?>
+                                                    <strong>Dotycząca:</strong>
+                                                    <?php foreach ($related_links as $i => $link): ?>
+                                                        <?php if ($i > 0) echo ', '; ?>
+                                                        <a href="<?php echo esc_url($link['url']); ?>">
+                                                            <?php echo esc_html($link['title']); ?>
                                                         </a>
-                                                    <?php endif; ?>
-                                                    <?php if ($related_company): ?>
-                                                        <a href="<?php echo esc_url(add_query_arg(['page' => 'wpmzf_view_company', 'company_id' => $related_company], admin_url('admin.php'))); ?>">
-                                                            <?php echo esc_html(get_the_title($related_company)); ?>
-                                                        </a>
-                                                    <?php endif; ?>
+                                                    <?php endforeach; ?>
                                                 </div>
                                             <?php endif; ?>
                                         </div>

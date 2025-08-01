@@ -305,6 +305,10 @@ class WPMZF_Ajax_Handler
                 update_field('field_wpmzf_activity_attachments', $rows, $activity_id);
             }
 
+            // Wyczyść cache dla aktywności tej encji
+            $cache_key = "activities_for_{$entity_type}_{$entity_id}";
+            WPMZF_Cache_Manager::delete($cache_key, 'activities');
+
             wp_send_json_success(array('message' => 'Aktywność dodana pomyślnie.'));
         } else {
             wp_send_json_error(array('message' => 'Wystąpił błąd podczas dodawania aktywności.'));

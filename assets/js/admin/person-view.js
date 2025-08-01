@@ -1075,7 +1075,9 @@ jQuery(document).ready(function ($) {
 			success: function (response) {
 				console.log('Person activities response:', response);
 				if (response.success) {
-					renderTimeline(response.data);
+					// PHP zwraca {success: true, data: {activities: [...]}}
+					const activities = response.data.activities || response.data;
+					renderTimeline(activities);
 				} else {
 					console.error('Error loading person activities:', response.data);
 					const errorMsg = response.data && response.data.message ? response.data.message : 'Nieznany błąd';
@@ -1091,6 +1093,13 @@ jQuery(document).ready(function ($) {
 
 	// --- Renderowanie osi czasu ---
 	async function renderTimeline(activities) {
+		// Sprawdź czy activities jest prawidłową tablicą
+		if (!activities || !Array.isArray(activities)) {
+			console.error('Activities is not an array:', activities);
+			timelineContainer.html('<p><em>Błąd: Nieprawidłowe dane aktywności.</em></p>');
+			return;
+		}
+		
 		if (activities.length === 0) {
 			timelineContainer.html('<p><em>Brak zarejestrowanych aktywności. Dodaj pierwszą!</em></p>');
 			return;
