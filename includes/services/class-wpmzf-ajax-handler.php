@@ -394,20 +394,26 @@ class WPMZF_Ajax_Handler
                     $activity_id = get_the_ID();
                     $attachments = get_field('activity_attachments', $activity_id) ?: [];
                     
+                    $author_id = get_the_author_meta('ID');
+                    $activity_type = get_field('activity_type', $activity_id);
+                    
                     $activities[] = [
                         'id' => $activity_id,
                         'title' => get_the_title(),
                         'content' => get_the_content(),
                         'date' => get_the_date('Y-m-d H:i:s'),
                         'author' => get_the_author(),
-                        'type' => get_field('activity_type', $activity_id),
+                        'author_id' => $author_id,
+                        'avatar' => get_avatar_url($author_id, ['size' => 32]),
+                        'type' => $activity_type,
+                        'type_label' => $this->get_activity_type_label($activity_type),
                         'attachments' => $this->format_attachments($attachments)
                     ];
                 }
                 wp_reset_postdata();
             }
 
-            // Zapisz w cache
+            // Zapisz w cache - zapisujemy tablicę aktywności, nie cały obiekt response
             WPMZF_Cache_Manager::set($cache_key, $activities, 'activities', 1800); // 30 minut
 
             WPMZF_Performance_Monitor::end_timer($timer_id, [
@@ -429,6 +435,24 @@ class WPMZF_Ajax_Handler
             
             wp_send_json_error(['message' => 'Wystąpił błąd podczas pobierania aktywności: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * Mapuje typ aktywności na czytelny label
+     *
+     * @param string $activity_type
+     * @return string
+     */
+    private function get_activity_type_label($activity_type) {
+        $activity_types = [
+            'note' => 'Notatka',
+            'email' => 'E-mail',
+            'phone' => 'Telefon',
+            'meeting' => 'Spotkanie',
+            'meeting_online' => 'Spotkanie online',
+        ];
+        
+        return isset($activity_types[$activity_type]) ? $activity_types[$activity_type] : ucfirst($activity_type);
     }
 
     /**
@@ -490,13 +514,18 @@ class WPMZF_Ajax_Handler
             return;
         }
         
+        $activity_type = get_field('activity_type', $activity->ID);
+        
         $activity_data = [
             'id' => $activity->ID,
             'title' => $activity->post_title,
             'content' => $activity->post_content,
             'date' => $activity->post_date,
             'author' => get_the_author_meta('display_name', $activity->post_author),
-            'type' => get_field('activity_type', $activity->ID),
+            'author_id' => $activity->post_author,
+            'avatar' => get_avatar_url($activity->post_author, ['size' => 32]),
+            'type' => $activity_type,
+            'type_label' => $this->get_activity_type_label($activity_type),
             'attachments' => $this->format_attachments(get_field('activity_attachments', $activity->ID) ?: [])
         ];
         

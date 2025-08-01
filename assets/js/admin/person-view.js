@@ -1075,8 +1075,18 @@ jQuery(document).ready(function ($) {
 			success: function (response) {
 				console.log('Person activities response:', response);
 				if (response.success) {
-					// PHP zwraca {success: true, data: {activities: [...]}}
-					const activities = response.data.activities || response.data;
+					// PHP może zwracać {success: true, data: {activities: [...]}} lub {success: true, data: [...]}
+					let activities;
+					if (Array.isArray(response.data)) {
+						// Cache zwraca bezpośrednio tablicę
+						activities = response.data;
+					} else if (response.data.activities && Array.isArray(response.data.activities)) {
+						// Główne zapytanie zwraca obiekt z kluczem activities
+						activities = response.data.activities;
+					} else {
+						console.error('Unexpected data structure:', response.data);
+						activities = [];
+					}
 					renderTimeline(activities);
 				} else {
 					console.error('Error loading person activities:', response.data);
@@ -1110,7 +1120,7 @@ jQuery(document).ready(function ($) {
 		// Przetwarzaj aktywności asynchronicznie
 		for (const activity of activities) {
 			const iconMap = { 'Notatka': 'dashicons-admin-comments', 'E-mail': 'dashicons-email-alt', 'Telefon': 'dashicons-phone', 'Spotkanie': 'dashicons-groups', 'Spotkanie online': 'dashicons-video-alt3' };
-			const iconClass = iconMap[activity.type] || 'dashicons-marker';
+			const iconClass = iconMap[activity.type_label] || 'dashicons-marker';
 
 			const date = new Date(activity.date);
 			const months = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
@@ -1134,7 +1144,7 @@ jQuery(document).ready(function ($) {
 						<li data-attachment-id="${att.id}">
 							<a href="${att.url}" target="_blank">
 							   ${previewHtml}
-							   <span>${att.filename}</span>
+							   <span>${att.title}</span>
 							</a>
 							<span class="dashicons dashicons-trash delete-attachment" title="Usuń załącznik"></span>
 						</li>
@@ -1171,7 +1181,7 @@ jQuery(document).ready(function ($) {
 							<div class="timeline-header-left">
 								<div class="timeline-header-meta">
 									<span class="dashicons ${iconClass}"></span>
-									<span><strong>${activity.author}</strong> dodał(a) <strong>${activity.type}</strong></span>
+									<span><strong>${activity.author}</strong> dodał(a) <strong>${activity.type_label}</strong></span>
 								</div>
 								<span class="timeline-header-date">${activity.date}</span>
 							</div>
