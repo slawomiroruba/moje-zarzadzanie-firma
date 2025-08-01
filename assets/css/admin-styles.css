@@ -146,6 +146,10 @@
 .attachment-info {
     flex: 1;
     min-width: 0;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    border-bottom: none !important;
+    align-content: center;
 }
 
 .attachment-name {
